@@ -112,7 +112,7 @@ jobs:
 
             echo "헬스체크 (최대 120회, 1초간격)"
             for i in $(seq 1 120); do
-              if curl -fsS "http://127.0.0.1:${PORT}/api/v1/health/" >/dev/null 2>&1; then
+              if curl -fsS "http://127.0.0.1:${APP_PORT}/api/v1/health/" >/dev/null 2>&1; then
                 echo "헬스체크 성공 (시도 ${i})"
                 HEALTH_OK=1
                 break
