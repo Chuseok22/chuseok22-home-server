@@ -3,7 +3,7 @@ from .sejong import SejongNoticeCrawler
 
 # 새 사이트 추가 시 여기에 크롤러 클래스를 등록한다
 CRAWLER_REGISTRY: dict[str, type[BaseCrawler]] = {
-    'sejong_haksa': SejongNoticeCrawler,
+    'sejong': SejongNoticeCrawler,
 }
 
 
