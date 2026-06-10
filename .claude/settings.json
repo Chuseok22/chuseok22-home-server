@@ -11,5 +11,19 @@
       "Read(./.env.*)",
       "Read(./secrets/**)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{hookSpecificOutput: {hookEventName: \"PreToolUse\", updatedInput: {command: (\"source /Users/chuseok22/Workspace/playground/chuseok22-home/chuseok22-home-server/.venv/bin/activate && \" + .tool_input.command)}}}'",
+            "statusMessage": "venv 활성화 중..."
+          }
+        ]
+      }
+    ]
   }
 }
