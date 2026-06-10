@@ -50,7 +50,7 @@ class Command(BaseCommand):
                 },
             )
 
-            if not created:
+            if not created and notice.is_notified:
                 continue
 
             new_count += 1
