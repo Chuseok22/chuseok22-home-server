@@ -5,7 +5,7 @@ from urllib.parse import urlparse, parse_qs
 import requests
 from bs4 import BeautifulSoup
 
-from apps.library.services.sejong_auth import SejongLibraryAuthService
+from apps.library.services.sejong_auth import SejongLibraryAuthService, _LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,7 @@ class StudyRoomService:
         """
         session = requests.Session()
         session.headers.update(_HEADERS)
+        session.mount('https://', _LegacySSLAdapter())
 
         rooms: list[StudyRoom] = []
         for group_params in _ROOM_GROUPS:

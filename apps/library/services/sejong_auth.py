@@ -1,29 +1,52 @@
 import logging
 import re
+import ssl
 from urllib.parse import urlparse, parse_qs
 
 import requests
-from bs4 import BeautifulSoup
 from django.conf import settings
+from requests.adapters import HTTPAdapter
 
 logger = logging.getLogger(__name__)
 
 _LOGIN_URL = 'https://portal.sejong.ac.kr/jsp/login/login_action.jsp'
+_LOGIN_REFERER = 'https://portal.sejong.ac.kr/jsp/login/loginSSO.jsp'
 _LIBSEAT_HOST = 'libseat.sejong.ac.kr'
+_SEAT_MAIN = 'https://libseat.sejong.ac.kr/mobile/MA/seatMain.php'
 _REQUEST_TIMEOUT = 15
 _HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/125.0.0.0 Safari/537.36'
+    ),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
 }
+
+
+class _LegacySSLAdapter(HTTPAdapter):
+    """세종대 포털의 구형 TLS 설정과 호환되는 어댑터.
+
+    Python 3.12 기본 SECLEVEL=2가 portal.sejong.ac.kr의 cipher suite와
+    충돌하여 SSLV3_ALERT_HANDSHAKE_FAILURE가 발생하므로 SECLEVEL=1로 낮춘다.
+    """
+
+    def init_poolmanager(self, *args, **kwargs) -> None:
+        from urllib3.util.ssl_ import create_urllib3_context
+        ctx = create_urllib3_context()
+        ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
+        ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        kwargs['ssl_context'] = ctx
+        super().init_poolmanager(*args, **kwargs)
 
 
 class SejongLibraryAuthService:
     """세종대학교 포털 SSO 로그인 후 학술정보원 토큰을 추출하는 인증 서비스
 
-    login_action.jsp는 200 + JS redirect 방식이므로:
-    1. POST login → 200 + ssotoken 쿠키 + body에 eproxy URL
-    2. body에서 eproxy URL 파싱
-    3. GET eproxy (쿠키 자동 포함) → libseat redirect chain
-    4. chain에서 token 파라미터 추출
+    1. POST login_action.jsp → ssotoken 쿠키 획득
+    2. GET seatMain.php?token=<ssotoken> → redirect chain
+    3. chain 내 URL의 token 파라미터 추출
     """
 
     def __init__(self) -> None:
@@ -36,6 +59,7 @@ class SejongLibraryAuthService:
         """SSO 로그인 후 libseat 토큰을 반환한다. 실패 시 None."""
         session = requests.Session()
         session.headers.update(_HEADERS)
+        session.mount('https://', _LegacySSLAdapter())
 
         # Step 1: POST 로그인 — 200 응답, ssotoken 쿠키 설정됨
         try:
@@ -43,35 +67,39 @@ class SejongLibraryAuthService:
                 _LOGIN_URL,
                 data={
                     'mainLogin': 'Y',
-                    'rtUrl': 'https://library.sejong.ac.kr',
+                    'rtUrl': 'https://libseat.sejong.ac.kr',
                     'id': self._student_id,
                     'password': self._password,
                 },
-                headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                headers={
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Referer': _LOGIN_REFERER,
+                },
                 timeout=_REQUEST_TIMEOUT,
-                allow_redirects=False,  # JS redirect이므로 자동 추적 비활성화
+                allow_redirects=False,
             )
             login_response.raise_for_status()
         except requests.RequestException as e:
             logger.error('학술정보원 로그인 POST 실패: %s', e)
             return None
 
-        # Step 2: body에서 eproxy URL 추출
-        eproxy_url = _extract_redirect_url(login_response.text)
-        if not eproxy_url:
-            logger.error('eproxy URL 추출 실패. 로그인 자격증명 또는 응답 형식을 확인하세요.')
+        # Step 2: ssotoken 쿠키 값 확인
+        ssotoken = session.cookies.get('ssotoken')
+        if not ssotoken:
+            logger.error('ssotoken 쿠키 없음. 로그인 자격증명을 확인하세요.')
             return None
 
-        # Step 3: GET eproxy — ssotoken 쿠키가 세션에 포함된 상태로 전송
+        # Step 3: GET seatMain.php?token=<ssotoken> → redirect chain에서 libseat token 추출
         try:
             auth_response = session.get(
-                eproxy_url,
+                _SEAT_MAIN,
+                params={'token': ssotoken},
                 timeout=_REQUEST_TIMEOUT,
-                allow_redirects=True,  # eproxy 이후는 HTTP redirect 체인
+                allow_redirects=True,
             )
             auth_response.raise_for_status()
         except requests.RequestException as e:
-            logger.error('eproxy 인증 요청 실패: %s', e)
+            logger.error('seatMain 인증 요청 실패: %s', e)
             return None
 
         # Step 4: redirect chain에서 libseat token 추출
@@ -82,32 +110,6 @@ class SejongLibraryAuthService:
             safe_url = _mask_token_in_url(auth_response.url)
             logger.error('학술정보원 토큰 추출 실패. 최종 URL: %s', safe_url)
         return token
-
-
-def _extract_redirect_url(html: str) -> str | None:
-    """200 응답 HTML/JS body에서 리다이렉트 대상 URL을 추출한다.
-
-    다음 패턴을 순서대로 시도한다:
-    1. location.href = "URL" (JS 코드)
-    2. <meta http-equiv="refresh" content="0; url=URL">
-    """
-    soup = BeautifulSoup(html, 'lxml')
-
-    # 패턴 1: JS location.href
-    script_text = ' '.join(tag.get_text() for tag in soup.select('script'))
-    match = re.search(r'location\.href\s*=\s*["\']([^"\']+)["\']', script_text)
-    if match:
-        return match.group(1)
-
-    # 패턴 2: meta refresh
-    meta = soup.select_one('meta[http-equiv="refresh"]')
-    if meta:
-        content = meta.get('content', '')
-        url_match = re.search(r'url=(.+)', content, re.IGNORECASE)
-        if url_match:
-            return url_match.group(1).strip().strip("'\"")
-
-    return None
 
 
 def _extract_token_from_chain(response: requests.Response) -> str | None:
