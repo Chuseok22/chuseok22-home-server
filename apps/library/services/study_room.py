@@ -25,12 +25,12 @@ _ROOM_GROUPS: list[dict[str, str]] = [
 ]
 
 # 세션 만료 감지: URL에 포함되는 키워드 (HTTP redirect 방식)
-_EXPIRED_URL_KEYWORDS = ['login', 'ssoLogin']
+_EXPIRED_URL_KEYWORDS = ['/login', 'ssoLogin']
 # 세션 만료 감지: body에 포함되는 키워드 (로그인 HTML 반환 방식)
 _EXPIRED_BODY_KEYWORDS = ['login_action.jsp', 'mainLogin']
 
 
-@dataclass
+@dataclass(frozen=True)
 class RoomSlot:
     time_label: str       # 예: "09:00"
     is_available: bool
@@ -39,7 +39,7 @@ class RoomSlot:
     start_time: str | None = None  # 예약가능 시 startTime (예: "1000")
 
 
-@dataclass
+@dataclass(frozen=True)
 class StudyRoom:
     room_name: str    # 예: "04스터디룸"
     group_title: str  # 예: "스터디룸 6인실 02~04"
@@ -130,7 +130,12 @@ class StudyRoomService:
         if _is_session_expired(response):
             return None
 
-        return _parse(response.text, int(group_params.get('seatCnt', '0')))
+        try:
+            seat_cnt = int(group_params.get('seatCnt', '0'))
+        except ValueError:
+            logger.error('seatCnt 값을 정수로 변환할 수 없습니다: %s', group_params.get('seatCnt'))
+            seat_cnt = 0
+        return _parse(response.text, seat_cnt)
 
 
 def _is_session_expired(response: requests.Response) -> bool:
@@ -147,6 +152,8 @@ def _parse(html: str, seat_cnt: int) -> list[StudyRoom]:
     soup = BeautifulSoup(html, 'lxml')
 
     group_title_el = soup.select_one('.al-title')
+    if not group_title_el:
+        logger.warning('그룹 제목(.al-title) 요소를 찾을 수 없습니다. HTML 구조가 변경되었을 수 있습니다.')
     group_title = group_title_el.get_text(strip=True) if group_title_el else ''
 
     slot_header = soup.select_one('.avl-slot')
