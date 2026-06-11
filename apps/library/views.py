@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from django.utils import timezone
 from rest_framework.request import Request
@@ -32,6 +33,7 @@ class StudyRoomListView(APIView):
         rooms = service.fetch_all_rooms(reserve_date=reserve_date)
 
         if not rooms:
+            logger.warning('스터디룸 정보 조회 실패 (date=%s). 서비스 응답 없음 또는 인증 실패.', reserve_date)
             return Response(
                 {'detail': '스터디룸 정보를 가져올 수 없습니다. 잠시 후 다시 시도하세요.'},
                 status=503,
@@ -41,7 +43,6 @@ class StudyRoomListView(APIView):
 
 
 def _is_valid_date(value: str) -> bool:
-    from datetime import date
     if len(value) != 8 or not value.isdigit():
         return False
     try:
