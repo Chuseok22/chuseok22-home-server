@@ -1,11 +1,11 @@
 import logging
 import re
-import ssl
 from urllib.parse import urlparse, parse_qs
 
 import requests
 from django.conf import settings
-from requests.adapters import HTTPAdapter
+
+from apps.library.services.ssl_compat import LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -23,22 +23,6 @@ _HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'ko-KR,ko;q=0.9',
 }
-
-
-class _LegacySSLAdapter(HTTPAdapter):
-    """세종대 포털의 구형 TLS 설정과 호환되는 어댑터.
-
-    Python 3.12 기본 SECLEVEL=2가 portal.sejong.ac.kr의 cipher suite와
-    충돌하여 SSLV3_ALERT_HANDSHAKE_FAILURE가 발생하므로 SECLEVEL=1로 낮춘다.
-    """
-
-    def init_poolmanager(self, *args, **kwargs) -> None:
-        from urllib3.util.ssl_ import create_urllib3_context
-        ctx = create_urllib3_context()
-        ctx.set_ciphers('DEFAULT:@SECLEVEL=1')
-        ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
-        kwargs['ssl_context'] = ctx
-        super().init_poolmanager(*args, **kwargs)
 
 
 class SejongLibraryAuthService:
@@ -59,7 +43,7 @@ class SejongLibraryAuthService:
         """SSO 로그인 후 libseat 토큰을 반환한다. 실패 시 None."""
         session = requests.Session()
         session.headers.update(_HEADERS)
-        session.mount('https://', _LegacySSLAdapter())
+        session.mount('https://', LegacySSLAdapter())
 
         # Step 1: POST 로그인 — 200 응답, ssotoken 쿠키 설정됨
         try:

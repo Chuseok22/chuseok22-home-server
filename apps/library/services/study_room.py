@@ -1,27 +1,44 @@
 import logging
 from dataclasses import dataclass
+from typing import TypedDict
 from urllib.parse import urlparse, parse_qs
 
 import requests
 from bs4 import BeautifulSoup
 
-from apps.library.services.sejong_auth import SejongLibraryAuthService, _LegacySSLAdapter
+from apps.library.services.sejong_auth import SejongLibraryAuthService
+from apps.library.services.ssl_compat import LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
 
 _SROOM_MAP_URL = 'https://libseat.sejong.ac.kr/mobile/MA/sroomMap.php'
 _REQUEST_TIMEOUT = 10
 _HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/125.0.0.0 Safari/537.36'
+    ),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
 }
 
+
+class _RoomGroupParams(TypedDict):
+    sroomTitle: str
+    seatCnt: int
+    roomGB: str
+    userId: str
+    seq: str
+
+
 # sroomList.php HTML 분석으로 확정된 5개 룸 그룹
-_ROOM_GROUPS: list[dict[str, str]] = [
-    {'sroomTitle': '그룹스터디룸12인', 'seatCnt': '12', 'roomGB': 'S1', 'userId': '', 'seq': '0'},
-    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': '6', 'roomGB': 'S1', 'userId': '', 'seq': '0'},  # 02~04
-    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': '6', 'roomGB': 'S1', 'userId': '', 'seq': '1'},  # 05~07
-    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': '6', 'roomGB': 'S1', 'userId': '', 'seq': '2'},  # 08~10
-    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': '6', 'roomGB': 'S1', 'userId': '', 'seq': '3'},  # 11~13
+_ROOM_GROUPS: list[_RoomGroupParams] = [
+    {'sroomTitle': '그룹스터디룸12인', 'seatCnt': 12, 'roomGB': 'S1', 'userId': '', 'seq': '0'},
+    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '0'},  # 02~04
+    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '1'},  # 05~07
+    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '2'},  # 08~10
+    {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '3'},  # 11~13
 ]
 
 # 세션 만료 감지: URL에 포함되는 키워드 (HTTP redirect 방식)
@@ -91,7 +108,7 @@ class StudyRoomService:
         """
         session = requests.Session()
         session.headers.update(_HEADERS)
-        session.mount('https://', _LegacySSLAdapter())
+        session.mount('https://', LegacySSLAdapter())
 
         rooms: list[StudyRoom] = []
         for group_params in _ROOM_GROUPS:
@@ -106,7 +123,7 @@ class StudyRoomService:
         self,
         session: requests.Session,
         token: str,
-        group_params: dict[str, str],
+        group_params: _RoomGroupParams,
         reserve_date: str,
     ) -> list[StudyRoom] | None:
         """룸 그룹 페이지를 조회해 파싱 결과를 반환한다.
@@ -122,8 +139,8 @@ class StudyRoomService:
         except requests.RequestException as e:
             logger.error(
                 '스터디룸 그룹 조회 실패 (sroomTitle=%s, seq=%s): %s',
-                group_params.get('sroomTitle'),
-                group_params.get('seq'),
+                group_params['sroomTitle'],
+                group_params['seq'],
                 e,
             )
             return []
@@ -131,12 +148,7 @@ class StudyRoomService:
         if _is_session_expired(response):
             return None
 
-        try:
-            seat_cnt = int(group_params.get('seatCnt', '0'))
-        except ValueError:
-            logger.error('seatCnt 값을 정수로 변환할 수 없습니다: %s', group_params.get('seatCnt'))
-            seat_cnt = 0
-        return _parse(response.text, seat_cnt)
+        return _parse(response.text, group_params['seatCnt'])
 
 
 def _is_session_expired(response: requests.Response) -> bool:
