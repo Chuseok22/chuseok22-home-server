@@ -29,8 +29,12 @@ class StudyRoomListView(APIView):
                 status=400,
             )
 
-        service = StudyRoomService()
-        rooms = service.fetch_all_rooms(reserve_date=reserve_date)
+        try:
+            service = StudyRoomService()
+            rooms = service.fetch_all_rooms(reserve_date=reserve_date)
+        except ValueError as e:
+            logger.error('스터디룸 서비스 초기화 실패: %s', e)
+            return Response({'detail': '서비스 설정이 올바르지 않습니다.'}, status=503)
 
         if not rooms:
             logger.warning('스터디룸 정보 조회 실패 (date=%s). 서비스 응답 없음 또는 인증 실패.', reserve_date)

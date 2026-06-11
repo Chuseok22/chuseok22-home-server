@@ -44,7 +44,7 @@ class StudyRoom:
     room_name: str    # 예: "04스터디룸"
     group_title: str  # 예: "스터디룸 6인실 02~04"
     seat_cnt: int
-    slots: list[RoomSlot]
+    slots: tuple[RoomSlot, ...]  # frozen=True와 일관성 유지
 
 
 class StudyRoomService:
@@ -199,7 +199,7 @@ def _parse(html: str, seat_cnt: int) -> list[StudyRoom]:
             room_name=name,
             group_title=group_title,
             seat_cnt=seat_cnt,
-            slots=slots,
+            slots=tuple(slots),
         )
         for name, slots in room_slots.items()
     ]
