@@ -13,7 +13,6 @@ _LIBSEAT_HOST = 'libseat.sejong.ac.kr'
 _REQUEST_TIMEOUT = 15
 _HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
-    'Content-Type': 'application/x-www-form-urlencoded',
 }
 
 
@@ -30,6 +29,8 @@ class SejongLibraryAuthService:
     def __init__(self) -> None:
         self._student_id: str = settings.SEJONG_STUDENT_ID
         self._password: str = settings.SEJONG_PASSWORD
+        if not self._student_id or not self._password:
+            raise ValueError('SEJONG_STUDENT_ID 또는 SEJONG_PASSWORD가 설정되지 않았습니다.')
 
     def fetch_token(self) -> str | None:
         """SSO 로그인 후 libseat 토큰을 반환한다. 실패 시 None."""
@@ -46,6 +47,7 @@ class SejongLibraryAuthService:
                     'id': self._student_id,
                     'password': self._password,
                 },
+                headers={'Content-Type': 'application/x-www-form-urlencoded'},
                 timeout=_REQUEST_TIMEOUT,
                 allow_redirects=False,  # JS redirect이므로 자동 추적 비활성화
             )
@@ -75,8 +77,8 @@ class SejongLibraryAuthService:
         # Step 4: redirect chain에서 libseat token 추출
         token = _extract_token_from_chain(auth_response)
         if token is None:
-            # IMPORTANT: Do NOT log auth_response.url directly — it contains the token.
-            # Mask the token in the log message.
+            # 주의: auth_response.url에는 token이 포함되므로 직접 로깅 금지.
+            # 반드시 _mask_token_in_url()로 마스킹 후 출력.
             safe_url = _mask_token_in_url(auth_response.url)
             logger.error('학술정보원 토큰 추출 실패. 최종 URL: %s', safe_url)
         return token
@@ -103,7 +105,7 @@ def _extract_redirect_url(html: str) -> str | None:
         content = meta.get('content', '')
         url_match = re.search(r'url=(.+)', content, re.IGNORECASE)
         if url_match:
-            return url_match.group(1).strip()
+            return url_match.group(1).strip().strip("'\"")
 
     return None
 
