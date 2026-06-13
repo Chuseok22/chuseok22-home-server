@@ -41,15 +41,15 @@ class StudyRoomReserveRequestSerializer(serializers.Serializer):
     def validate_reserve_date(self, value: str) -> str:
         try:
             datetime.strptime(value, '%Y%m%d')
-        except ValueError:
-            raise serializers.ValidationError('reserve_date는 유효한 YYYYMMDD여야 합니다.')
+        except ValueError as err:
+            raise serializers.ValidationError('reserve_date는 유효한 YYYYMMDD여야 합니다.') from err
         return value
 
     def validate_start_time(self, value: str) -> str:
         try:
             datetime.strptime(value, '%H%M')
-        except ValueError:
-            raise serializers.ValidationError('start_time은 유효한 HHMM이어야 합니다.')
+        except ValueError as err:
+            raise serializers.ValidationError('start_time은 유효한 HHMM이어야 합니다.') from err
         return value
 
     def validate_attendees(self, value: list[dict]) -> list[dict]:
