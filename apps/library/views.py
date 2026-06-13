@@ -105,28 +105,32 @@ class StudyRoomReserveView(APIView):
             )
             result = service.reserve(params)
 
-        # 성공/실패 관계없이 이력 저장
-        ReservationHistory.objects.create(
-            room_no=result.room_no,
-            room_name=result.room_name,
-            reserve_date=data['reserve_date'],
-            start_time=data['start_time'],
-            use_time=data['use_time'],
-            attendees_json=[
-                {'student_id': a.student_id, 'name': a.name}
-                for a in attendees
-            ],
-            result_code=result.result_code,
-            result_message=result.result_message,
-        )
+        try:
+            # 성공/실패 관계없이 이력 저장
+            ReservationHistory.objects.create(
+                room_no=result.room_no,
+                room_name=result.room_name,
+                reserve_date=data['reserve_date'],
+                start_time=data['start_time'],
+                use_time=data['use_time'],
+                attendees_json=[
+                    {'student_id': a.student_id, 'name': a.name}
+                    for a in attendees
+                ],
+                result_code=result.result_code,
+                result_message=result.result_message,
+            )
 
-        # 예약 성공 시 새 참여자만 DB 저장
-        if result.success:
-            for attendee in attendees:
-                ReservationAttendee.objects.get_or_create(
-                    student_id=attendee.student_id,
-                    defaults={'name': attendee.name},
-                )
+            # 예약 성공 시 새 참여자만 DB 저장
+            if result.success:
+                for attendee in attendees:
+                    ReservationAttendee.objects.get_or_create(
+                        student_id=attendee.student_id,
+                        defaults={'name': attendee.name},
+                    )
+        except Exception as e:
+            # DB 후처리 실패가 예약 결과 응답을 막아서는 안 됨
+            logger.error('예약 후처리 DB 저장 실패 (result_code=%s): %s', result.result_code, e)
 
         status_code = 200 if result.success else 422
         return Response(

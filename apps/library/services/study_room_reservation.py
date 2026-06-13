@@ -134,7 +134,15 @@ class StudyRoomReservationService:
                     use_time=use_time,
                     attendees=attendees,
                 )
-                return self.reserve(params)
+                result = self.reserve(params)
+                if result.success:
+                    return result
+                # 예약 실패(경쟁 등) 시 다음 후보 룸 탐색 계속
+                logger.warning(
+                    '후보 룸 예약 실패 (roomNo=%s, code=%s). 다음 후보 탐색.',
+                    slot.room_no,
+                    result.result_code,
+                )
 
         return ReservationResult(
             success=False,

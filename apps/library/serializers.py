@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from rest_framework import serializers
 
 
@@ -25,7 +27,7 @@ class StudyRoomReserveRequestSerializer(serializers.Serializer):
     # auto_select=False 시 필수
     room_no = serializers.CharField(max_length=10, required=False)
     room_gb = serializers.CharField(max_length=10, required=False)
-    seat_cnt = serializers.IntegerField(required=False)
+    seat_cnt = serializers.IntegerField(required=False, min_value=1)
     sroom_title = serializers.CharField(max_length=100, required=False)
     room_name = serializers.CharField(max_length=100, required=False)
     seq = serializers.CharField(max_length=5, required=False)
@@ -36,6 +38,20 @@ class StudyRoomReserveRequestSerializer(serializers.Serializer):
     auto_select = serializers.BooleanField(default=False)
     attendees = AttendeeInputSerializer(many=True)
 
+    def validate_reserve_date(self, value: str) -> str:
+        try:
+            datetime.strptime(value, '%Y%m%d')
+        except ValueError:
+            raise serializers.ValidationError('reserve_date는 유효한 YYYYMMDD여야 합니다.')
+        return value
+
+    def validate_start_time(self, value: str) -> str:
+        try:
+            datetime.strptime(value, '%H%M')
+        except ValueError:
+            raise serializers.ValidationError('start_time은 유효한 HHMM이어야 합니다.')
+        return value
+
     def validate_attendees(self, value: list[dict]) -> list[dict]:
         if len(value) < 1:
             raise serializers.ValidationError('참여자는 최소 1명이어야 합니다.')
@@ -44,7 +60,7 @@ class StudyRoomReserveRequestSerializer(serializers.Serializer):
     def validate(self, data: dict) -> dict:
         if not data.get('auto_select'):
             required = ['room_no', 'room_gb', 'seat_cnt', 'sroom_title', 'room_name', 'seq']
-            missing = [f for f in required if not data.get(f)]
+            missing = [f for f in required if f not in data]
             if missing:
                 raise serializers.ValidationError(
                     f'auto_select=false 시 필수 필드: {", ".join(missing)}'
