@@ -51,28 +51,38 @@ class SejongDoCrawler(BaseCrawler):
 
             href = link_tag.get('href', '')
             full_url = urljoin(_BASE_URL, href)
-            published_at = self._parse_operation_date(link_tag)
+            dates = self._parse_date_layers(link_tag)
+            app_start, app_end = dates.get('신청', (None, None))
+            op_start, op_end = dates.get('운영', (None, None))
 
             items.append(NoticeItem(
                 article_id=article_id,
                 title=title,
                 url=full_url,
-                published_at=published_at,
+                published_at=op_start,
+                application_start=app_start,
+                application_end=app_end,
+                operation_end=op_end,
             ))
 
         return items
 
-    def _parse_operation_date(self, link_tag: Tag) -> date | None:
-        """운영 시작일을 datetime 속성에서 추출한다."""
+    def _parse_date_layers(self, link_tag: Tag) -> dict[str, tuple[date | None, date | None]]:
+        """신청/운영 기간을 date_layer에서 파싱한다."""
+        result: dict[str, tuple[date | None, date | None]] = {}
         for small in link_tag.select('small.date_layer'):
             date_title = small.select_one('span.date_title')
-            if not date_title or '운영' not in date_title.get_text():
+            if not date_title:
                 continue
-            time_tag = small.select_one('time[datetime]')
-            if not time_tag:
-                continue
-            try:
-                return datetime.fromisoformat(time_tag['datetime']).date()
-            except (ValueError, KeyError):
-                return None
-        return None
+            key = date_title.get_text(strip=True).rstrip(':')
+            times = small.select('time[datetime]')
+            start = self._parse_iso_date(times[0]) if len(times) > 0 else None
+            end = self._parse_iso_date(times[1]) if len(times) > 1 else None
+            result[key] = (start, end)
+        return result
+
+    def _parse_iso_date(self, time_tag: Tag) -> date | None:
+        try:
+            return datetime.fromisoformat(time_tag['datetime']).date()
+        except (ValueError, KeyError):
+            return None

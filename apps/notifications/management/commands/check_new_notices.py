@@ -54,7 +54,7 @@ class Command(BaseCommand):
                 continue
 
             new_count += 1
-            success = telegram.send_notice(source, notice)
+            success = telegram.send_notice(source, notice, item=item)
             if success:
                 notice.is_notified = True
                 notice.notified_at = timezone.now()

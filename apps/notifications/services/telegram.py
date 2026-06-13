@@ -1,8 +1,11 @@
 import logging
+from datetime import date
 
 import requests
 from django.conf import settings
+from django.utils import timezone
 
+from apps.notifications.crawlers.base import NoticeItem
 from apps.notifications.models import Notice, NoticeSource
 
 logger = logging.getLogger(__name__)
@@ -18,20 +21,45 @@ class TelegramService:
         self._token: str = settings.TELEGRAM_BOT_TOKEN
         self._chat_id: str = settings.TELEGRAM_CHAT_ID
 
-    def send_notice(self, source: NoticeSource, notice: Notice) -> bool:
+    def send_notice(self, source: NoticeSource, notice: Notice, item: NoticeItem | None = None) -> bool:
         """공지사항 알림 메시지를 발송한다. 성공 여부를 반환한다."""
-        message = self._format_message(source, notice)
+        message = self._format_message(source, notice, item)
         return self._send(message)
 
-    def _format_message(self, source: NoticeSource, notice: Notice) -> str:
-        date_str = notice.published_at.strftime('%Y.%m.%d') if notice.published_at else '날짜 없음'
-        return (
-            f'🔔 새 공지사항 알림\n\n'
-            f'[{source.name}]\n'
-            f'📌 {notice.title}\n'
-            f'📅 {date_str}\n'
-            f'🔗 {notice.url}'
-        )
+    def _format_message(self, source: NoticeSource, notice: Notice, item: NoticeItem | None = None) -> str:
+        lines = [
+            '🔔 새 공지사항 알림\n',
+            f'[{source.name}]',
+            f'📌 {notice.title}',
+        ]
+
+        if item and (item.application_start or item.application_end):
+            dday = self._dday(item.application_end)
+            lines.append(f'📋 신청: {self._fmt_period(item.application_start, item.application_end)}{dday}')
+
+        if item and (item.published_at or item.operation_end):
+            op_str = self._fmt_period(item.published_at, item.operation_end)
+            lines.append(f'🗓 운영: {op_str}')
+        elif notice.published_at:
+            lines.append(f'📅 {notice.published_at.strftime("%Y.%m.%d")}')
+
+        lines.append(f'🔗 {notice.url}')
+        return '\n'.join(lines)
+
+    def _fmt_period(self, start: date | None, end: date | None) -> str:
+        s = start.strftime('%Y.%m.%d') if start else '?'
+        e = end.strftime('%Y.%m.%d') if end else '?'
+        return f'{s} ~ {e}'
+
+    def _dday(self, target: date | None) -> str:
+        if not target:
+            return ''
+        delta = (target - timezone.localdate()).days
+        if delta > 0:
+            return f' (D-{delta})'
+        if delta == 0:
+            return ' (D-Day)'
+        return f' (D+{abs(delta)})'
 
     def _send(self, text: str) -> bool:
         url = _TELEGRAM_API.format(token=self._token)
