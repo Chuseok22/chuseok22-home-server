@@ -61,6 +61,9 @@ class StudyRoom:
     room_name: str    # 예: "04스터디룸"
     group_title: str  # 예: "스터디룸 6인실 02~04"
     seat_cnt: int
+    room_gb: str      # 예약 API 파라미터: 예) "S1"
+    sroom_title: str  # 예약 API 파라미터: 예) "그룹스터디룸6인실"
+    seq: str          # 예약 API 파라미터: 예) "0"
     slots: tuple[RoomSlot, ...]  # frozen=True와 일관성 유지
 
 
@@ -148,7 +151,13 @@ class StudyRoomService:
         if _is_session_expired(response):
             return None
 
-        return _parse(response.text, group_params['seatCnt'])
+        return _parse(
+            response.text,
+            group_params['seatCnt'],
+            group_params['roomGB'],
+            group_params['sroomTitle'],
+            group_params['seq'],
+        )
 
 
 def _is_session_expired(response: requests.Response) -> bool:
@@ -160,7 +169,7 @@ def _is_session_expired(response: requests.Response) -> bool:
     return False
 
 
-def _parse(html: str, seat_cnt: int) -> list[StudyRoom]:
+def _parse(html: str, seat_cnt: int, room_gb: str, sroom_title: str, seq: str) -> list[StudyRoom]:
     """HTML에서 스터디룸 가용 현황을 파싱한다."""
     soup = BeautifulSoup(html, 'lxml')
 
@@ -212,6 +221,9 @@ def _parse(html: str, seat_cnt: int) -> list[StudyRoom]:
             room_name=name,
             group_title=group_title,
             seat_cnt=seat_cnt,
+            room_gb=room_gb,
+            sroom_title=sroom_title,
+            seq=seq,
             slots=tuple(slots),
         )
         for name, slots in room_slots.items()

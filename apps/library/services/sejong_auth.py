@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass
 from urllib.parse import urlparse, parse_qs
 
 import requests
@@ -8,6 +9,13 @@ from django.conf import settings
 from apps.library.services.ssl_compat import LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AuthSession:
+    token: str
+    session: requests.Session
+
 
 _LOGIN_URL = 'https://portal.sejong.ac.kr/jsp/login/login_action.jsp'
 _LOGIN_REFERER = 'https://portal.sejong.ac.kr/jsp/login/loginSSO.jsp'
@@ -39,8 +47,8 @@ class SejongLibraryAuthService:
         if not self._student_id or not self._password:
             raise ValueError('SEJONG_STUDENT_ID 또는 SEJONG_PASSWORD가 설정되지 않았습니다.')
 
-    def fetch_token(self) -> str | None:
-        """SSO 로그인 후 libseat 토큰을 반환한다. 실패 시 None."""
+    def create_session(self) -> AuthSession | None:
+        """SSO 로그인 후 인증된 세션과 토큰을 함께 반환한다. 실패 시 None."""
         session = requests.Session()
         session.headers.update(_HEADERS)
         session.mount('https://', LegacySSLAdapter())
@@ -93,7 +101,14 @@ class SejongLibraryAuthService:
             # 반드시 _mask_token_in_url()로 마스킹 후 출력.
             safe_url = _mask_token_in_url(auth_response.url)
             logger.error('학술정보원 토큰 추출 실패. 최종 URL: %s', safe_url)
-        return token
+            return None
+
+        return AuthSession(token=token, session=session)
+
+    def fetch_token(self) -> str | None:
+        """SSO 로그인 후 libseat 토큰을 반환한다. 실패 시 None."""
+        result = self.create_session()
+        return result.token if result else None
 
 
 def _extract_token_from_chain(response: requests.Response) -> str | None:
