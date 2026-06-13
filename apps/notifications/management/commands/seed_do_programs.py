@@ -1,6 +1,6 @@
 import logging
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from apps.notifications.crawlers import get_crawler
 from apps.notifications.models import Notice, NoticeSource
@@ -24,7 +24,7 @@ class Command(BaseCommand):
         self.stdout.write('이제 check_new_notices 실행 시 새 프로그램만 알림이 발송됩니다.')
 
     def _ensure_source(self) -> NoticeSource:
-        source, created = NoticeSource.objects.get_or_create(
+        source, created = NoticeSource.objects.update_or_create(
             name=_SOURCE['name'],
             defaults={
                 'url': _SOURCE['url'],
@@ -43,8 +43,7 @@ class Command(BaseCommand):
             items = crawler.crawl()
         except ValueError as e:
             logger.error('크롤러 생성 실패 (source=%s): %s', source.name, e)
-            self.stderr.write(f'크롤러 오류: {e}')
-            return 0
+            raise CommandError(f'크롤러 오류: {e}') from e
 
         if not items:
             self.stdout.write('수집된 항목 없음')
