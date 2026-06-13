@@ -3,6 +3,7 @@ from datetime import date
 
 import requests
 from django.conf import settings
+from django.utils import timezone
 
 from apps.notifications.crawlers.base import NoticeItem
 from apps.notifications.models import Notice, NoticeSource
@@ -53,7 +54,6 @@ class TelegramService:
     def _dday(self, target: date | None) -> str:
         if not target:
             return ''
-        from django.utils import timezone
         delta = (target - timezone.localdate()).days
         if delta > 0:
             return f' (D-{delta})'
