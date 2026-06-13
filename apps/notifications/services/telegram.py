@@ -33,12 +33,12 @@ class TelegramService:
         ]
 
         if item and (item.application_start or item.application_end):
-            lines.append(f'📋 신청: {self._fmt_period(item.application_start, item.application_end)}')
+            dday = self._dday(item.application_end)
+            lines.append(f'📋 신청: {self._fmt_period(item.application_start, item.application_end)}{dday}')
 
         if item and (item.published_at or item.operation_end):
             op_str = self._fmt_period(item.published_at, item.operation_end)
-            dday = self._dday(item.published_at)
-            lines.append(f'🗓 운영: {op_str}{dday}')
+            lines.append(f'🗓 운영: {op_str}')
         elif notice.published_at:
             lines.append(f'📅 {notice.published_at.strftime("%Y.%m.%d")}')
 
