@@ -51,9 +51,12 @@ _EXPIRED_BODY_KEYWORDS = ['login_action.jsp', 'mainLogin']
 class RoomSlot:
     time_label: str       # 예: "09:00"
     is_available: bool
-    room_no: str | None = None     # 예약가능 시 sroomNo (예: "4")
-    room_name: str | None = None   # 예약가능 시 sroomName (예: "04스터디룸")
-    start_time: str | None = None  # 예약가능 시 startTime (예: "1000")
+    room_no: str | None = None      # 예약가능 시 sroomNo (예: "4")
+    room_name: str | None = None    # 예약가능 시 sroomName (예: "04스터디룸")
+    start_time: str | None = None   # 예약가능 시 startTime (예: "1000")
+    room_gb: str | None = None      # 예약 API 파라미터 (예약가능 시 non-null)
+    sroom_title: str | None = None  # 예약 API 파라미터 (예약가능 시 non-null)
+    seq: str | None = None          # 예약 API 파라미터 (예약가능 시 non-null)
 
 
 @dataclass(frozen=True)
@@ -209,6 +212,9 @@ def _parse(html: str, seat_cnt: int, room_gb: str, sroom_title: str, seq: str) -
                     room_no=_extract_url_param(href, 'sroomNo'),
                     room_name=_extract_url_param(href, 'sroomName'),
                     start_time=_extract_url_param(href, 'startTime'),
+                    room_gb=room_gb,
+                    sroom_title=sroom_title,
+                    seq=seq,
                 ))
             else:
                 room_slots[room_names[idx]].append(RoomSlot(
