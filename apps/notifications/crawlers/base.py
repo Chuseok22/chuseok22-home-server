@@ -9,6 +9,9 @@ class NoticeItem:
     title: str
     url: str
     published_at: date | None
+    application_start: date | None = None
+    application_end: date | None = None
+    operation_end: date | None = None
 
 
 class BaseCrawler(ABC):
