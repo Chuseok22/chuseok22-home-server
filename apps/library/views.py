@@ -2,6 +2,12 @@ import logging
 from datetime import date
 
 from django.utils import timezone
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,13 +30,30 @@ logger = logging.getLogger(__name__)
 
 
 class StudyRoomListView(APIView):
-    """학술정보원 전체 스터디룸 가용 현황 조회 API
+    """학술정보원 전체 스터디룸 가용 현황 조회 API"""
 
-    GET /api/v1/library/study-rooms/?date=YYYYMMDD
-    - date 미지정 시 오늘(KST 기준) 조회
-    - 인증: JWT Bearer 토큰
-    """
-
+    @extend_schema(
+        summary='스터디룸 가용 현황 조회',
+        description='학술정보원 전체 스터디룸의 날짜별 예약 가능 슬롯을 조회한다. date 미지정 시 오늘(KST 기준)을 사용한다.',
+        parameters=[
+            OpenApiParameter(
+                name='date',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description='조회 날짜 (YYYYMMDD). 미지정 시 오늘.',
+                examples=[
+                    OpenApiExample('오늘', value='20260613'),
+                ],
+            ),
+        ],
+        responses={
+            200: StudyRoomSerializer(many=True),
+            400: OpenApiResponse(description='date 파라미터 형식 오류 (YYYYMMDD 아닌 경우)'),
+            503: OpenApiResponse(description='학술정보원 서비스 응답 없음'),
+        },
+        tags=['library'],
+    )
     def get(self, request: Request) -> Response:
         reserve_date = request.query_params.get('date') or timezone.localdate().strftime('%Y%m%d')
 
@@ -58,14 +81,27 @@ class StudyRoomListView(APIView):
 
 
 class StudyRoomReserveView(APIView):
-    """스터디룸 예약 API
+    """스터디룸 예약 API"""
 
-    POST /api/v1/library/study-rooms/reserve/
-    - 인증: JWT Bearer 토큰
-    - auto_select=true: 가용 룸 자동 선택
-    - auto_select=false (기본): room_no 등 직접 지정
-    """
-
+    @extend_schema(
+        summary='스터디룸 예약',
+        description=(
+            '스터디룸을 예약한다.\n\n'
+            '**auto_select=false (기본)**: `room_no`, `room_gb`, `seat_cnt`, `sroom_title`, `room_name`, `seq` 모두 필수.\n\n'
+            '**auto_select=true**: 위 필드 불필요. `reserve_date`, `start_time`, `use_time`, `attendees`만 전달하면 '
+            '인원수 조건(`ceil(seat_cnt/2) ≤ 인원 ≤ seat_cnt`)을 만족하는 가용 룸을 자동 선택해 예약한다.\n\n'
+            '예약 성공 시 HTTP 200, 가용 룸 없음·예약 실패 시 HTTP 422를 반환한다. '
+            '두 경우 모두 응답 body 구조는 동일하다.'
+        ),
+        request=StudyRoomReserveRequestSerializer,
+        responses={
+            200: StudyRoomReserveResponseSerializer,
+            400: OpenApiResponse(description='입력 검증 오류 (필수 필드 누락, 날짜/시간 형식 오류 등)'),
+            422: StudyRoomReserveResponseSerializer,
+            503: OpenApiResponse(description='예약 서비스 초기화 실패 (환경변수 미설정 등)'),
+        },
+        tags=['library'],
+    )
     def post(self, request: Request) -> Response:
         serializer = StudyRoomReserveRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -140,16 +176,32 @@ class StudyRoomReserveView(APIView):
 
 
 class ReservationAttendeeListCreateView(APIView):
-    """저장된 참여자 조회 및 추가
+    """저장된 참여자 조회 및 추가"""
 
-    GET  /api/v1/library/study-rooms/attendees/
-    POST /api/v1/library/study-rooms/attendees/
-    """
-
+    @extend_schema(
+        summary='저장된 참여자 목록 조회',
+        description='예약에 사용할 참여자(학번+이름) 목록을 조회한다.',
+        responses={200: ReservationAttendeeSerializer(many=True)},
+        tags=['library'],
+    )
     def get(self, request: Request) -> Response:
         attendees = ReservationAttendee.objects.all()
         return Response(ReservationAttendeeSerializer(attendees, many=True).data)
 
+    @extend_schema(
+        summary='참여자 추가',
+        description=(
+            '참여자(학번+이름)를 저장한다. 동일 학번이 이미 존재하면 추가 없이 기존 레코드를 반환한다.\n\n'
+            '신규 등록 시 HTTP 201, 기존 존재 시 HTTP 200을 반환한다.'
+        ),
+        request=ReservationAttendeeSerializer,
+        responses={
+            201: ReservationAttendeeSerializer,
+            200: ReservationAttendeeSerializer,
+            400: OpenApiResponse(description='입력 검증 오류'),
+        },
+        tags=['library'],
+    )
     def post(self, request: Request) -> Response:
         serializer = ReservationAttendeeSerializer(data=request.data)
         if not serializer.is_valid():
@@ -165,11 +217,17 @@ class ReservationAttendeeListCreateView(APIView):
 
 
 class ReservationAttendeeDestroyView(APIView):
-    """저장된 참여자 삭제
+    """저장된 참여자 삭제"""
 
-    DELETE /api/v1/library/study-rooms/attendees/{pk}/
-    """
-
+    @extend_schema(
+        summary='참여자 삭제',
+        description='저장된 참여자를 삭제한다.',
+        responses={
+            204: OpenApiResponse(description='삭제 성공 (body 없음)'),
+            404: OpenApiResponse(description='참여자를 찾을 수 없음'),
+        },
+        tags=['library'],
+    )
     def delete(self, request: Request, pk: int) -> Response:
         try:
             attendee = ReservationAttendee.objects.get(pk=pk)
