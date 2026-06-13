@@ -9,6 +9,9 @@ class RoomSlotSerializer(serializers.Serializer):
     room_no = serializers.CharField(allow_null=True, default=None)
     room_name = serializers.CharField(allow_null=True, default=None)
     start_time = serializers.CharField(allow_null=True, default=None)
+    room_gb = serializers.CharField(allow_null=True, default=None)
+    sroom_title = serializers.CharField(allow_null=True, default=None)
+    seq = serializers.CharField(allow_null=True, default=None)
 
 
 class StudyRoomSerializer(serializers.Serializer):
