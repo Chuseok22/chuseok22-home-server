@@ -1,9 +1,11 @@
 from .base import BaseCrawler
 from .sejong import SejongNoticeCrawler
+from .sejong_do import SejongDoCrawler
 
 # 새 사이트 추가 시 여기에 크롤러 클래스를 등록한다
 CRAWLER_REGISTRY: dict[str, type[BaseCrawler]] = {
     'sejong': SejongNoticeCrawler,
+    'sejong_do': SejongDoCrawler,
 }
 
 
