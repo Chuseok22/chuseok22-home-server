@@ -18,6 +18,9 @@ urlpatterns = [
     # 학술정보원
     path('api/v1/library/', include('apps.library.urls')),
 
+    # GitHub 활동
+    path('api/v1/activities/', include('apps.activity.urls')),
+
     # Swagger (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

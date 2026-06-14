@@ -24,12 +24,14 @@ THIRD_PARTY_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     'corsheaders',
+    'django_apscheduler',
 ]
 
 LOCAL_APPS = [
     'apps.core',
     'apps.notifications',
     'apps.library',
+    'apps.activity',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -96,6 +98,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 SIMPLE_JWT = {
@@ -127,3 +131,13 @@ TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default='')
 # 학술정보원 스터디룸 조회 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')
 SEJONG_PASSWORD = env('SEJONG_PASSWORD', default='')
+
+# GitHub 활동 수집 설정
+GITHUB_PAT = env('GITHUB_PAT', default='')
+GITHUB_USERNAME = env('GITHUB_USERNAME', default='')
+
+# 스케줄러 설정 (django-apscheduler)
+# ENABLE_SCHEDULER: management command(migrate 등) 실행 시 스케줄러 기동을 막기 위한 게이트
+ENABLE_SCHEDULER = env.bool('ENABLE_SCHEDULER', default=False)
+APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'
+APSCHEDULER_RUN_NOW_TIMEOUT = 25  # 초
