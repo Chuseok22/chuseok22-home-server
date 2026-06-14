@@ -81,3 +81,11 @@ python manage.py migrate --settings=config.settings.development
 
 - 변경 가능: `apps/` 하위 전체, `config/` 설정, `Dockerfile`, CI/CD 워크플로, `requirements/`
 - 절대 금지: `.env.*` 파일 수정·커밋, `migrations/` 직접 수정
+
+## Related projects (read-only)
+
+| 프로젝트 | 경로 | 허용 |
+|---|---|---|
+| chuseok22-home-web (프론트엔드) | `/Users/chuseok22/Workspace/playground/chuseok22-home/chuseok22-home-web` | **Read 전용** — API 스펙 확인·타입 참고 등 필요 시 읽기 허용. **Write/Edit 절대 금지.** |
+
+> 프론트엔드 코드를 참고해야 할 때는 Read 도구로만 접근한다. 어떤 이유로도 해당 경로의 파일을 수정하지 않는다.
