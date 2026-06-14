@@ -1,10 +1,18 @@
 import logging
 import os
+import sys
 
 from django.apps import AppConfig
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+# 스케줄러를 기동하면 안 되는 management command 목록
+# migrate 실행 시 django_apscheduler 테이블이 아직 존재하지 않아 오류 발생
+_SKIP_SCHEDULER_COMMANDS = frozenset({
+    'migrate', 'makemigrations', 'collectstatic',
+    'check', 'shell', 'dbshell', 'spectacular',
+})
 
 
 class CoreConfig(AppConfig):
@@ -13,12 +21,13 @@ class CoreConfig(AppConfig):
     verbose_name = 'Core'
 
     def ready(self) -> None:
-        # ENABLE_SCHEDULER가 False면 management command(migrate 등) 실행 중이므로 스케줄러를 띄우지 않는다
         if not settings.ENABLE_SCHEDULER:
+            return
+        # management command 실행 중에는 스케줄러를 기동하지 않는다
+        if len(sys.argv) > 1 and sys.argv[1] in _SKIP_SCHEDULER_COMMANDS:
             return
         # Django 개발 서버의 autoreload는 ready()를 2회 호출하므로 메인 프로세스에서만 기동한다
         if settings.DEBUG and os.environ.get('RUN_MAIN') != 'true':
             return
-        # import를 ready() 내부에 두어 앱 레지스트리 준비 전 모델 접근을 피한다
         from apps.core.scheduler import start_scheduler
         start_scheduler()
