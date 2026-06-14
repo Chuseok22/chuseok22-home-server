@@ -1,4 +1,5 @@
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -6,6 +7,8 @@ from rest_framework.views import APIView
 
 from apps.projects.models import Project, ProjectCategory
 from apps.projects.serializers import ProjectSerializer
+
+_VALID_CATEGORIES = {c.value for c in ProjectCategory}
 
 
 class ProjectListView(APIView):
@@ -26,12 +29,20 @@ class ProjectListView(APIView):
                 enum=[c.value for c in ProjectCategory],
             ),
         ],
-        responses={200: ProjectSerializer(many=True)},
+        responses={
+            200: ProjectSerializer(many=True),
+            400: OpenApiResponse(description='유효하지 않은 category 값'),
+        },
         tags=['projects'],
     )
     def get(self, request: Request) -> Response:
         qs = Project.objects.all()
         category = request.query_params.get('category')
         if category:
+            if category not in _VALID_CATEGORIES:
+                return Response(
+                    {'detail': f'유효하지 않은 category입니다. 허용값: {", ".join(sorted(_VALID_CATEGORIES))}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             qs = qs.filter(category=category)
         return Response(ProjectSerializer(qs, many=True).data)
