@@ -12,6 +12,19 @@ _REQUEST_TIMEOUT = 10
 _MAX_PAGES = 3          # page 1~3 (최대 300개)
 _PER_PAGE = 100
 
+# 포트폴리오에 의미 있는 이벤트 유형만 허용 (WatchEvent, ForkEvent 등 노이즈 제외)
+_MEANINGFUL_EVENT_TYPES = frozenset({
+    'PushEvent',
+    'PullRequestEvent',
+    'PullRequestReviewEvent',
+    'CreateEvent',   # 저장소 생성만 허용 (브랜치/태그 제외)
+    'ReleaseEvent',
+    'IssuesEvent',   # opened/closed/reopened만 허용
+})
+
+# IssuesEvent 중 저장할 action 목록
+_ISSUES_ACTIONS = frozenset({'opened', 'closed', 'reopened'})
+
 
 @dataclass(frozen=True)
 class ActivityItem:
@@ -76,7 +89,11 @@ class GithubService:
             return []
 
     def _parse_event(self, event: dict) -> ActivityItem | None:
-        """단일 이벤트를 ActivityItem으로 변환한다. 필수 필드 누락 시 None."""
+        """단일 이벤트를 ActivityItem으로 변환한다.
+
+        의미 없는 이벤트 유형(WatchEvent, ForkEvent 등)과 세분화 조건을 통과하지
+        못한 이벤트는 None을 반환해 저장에서 제외한다.
+        """
         event_id = event.get('id', '')
         event_type = event.get('type', '')
         repo_name = event.get('repo', {}).get('name', '')
@@ -84,12 +101,20 @@ class GithubService:
         if not event_id or not event_type or not created_at_raw:
             return None
 
+        # 화이트리스트에 없는 이벤트는 즉시 제외
+        if event_type not in _MEANINGFUL_EVENT_TYPES:
+            return None
+
         try:
             occurred_at = datetime.fromisoformat(created_at_raw.replace('Z', '+00:00'))
         except ValueError:
             return None
 
-        title, meta = self._build_title_meta(event_type, repo_name, event.get('payload', {}))
+        result = self._build_title_meta(event_type, repo_name, event.get('payload', {}))
+        # 세분화 조건 미충족(브랜치 생성, 잡다한 이슈 action 등) → 제외
+        if result is None:
+            return None
+        title, meta = result
         # DB 스키마(max_length) 초과 방지
         title = title[:200]
         meta = meta[:500]
@@ -102,16 +127,19 @@ class GithubService:
             occurred_at=occurred_at,
         )
 
-    def _build_title_meta(self, event_type: str, repo_name: str, payload: dict) -> tuple[str, str]:
-        """이벤트 유형별 프론트 표시용 title/meta 생성 규칙"""
+    def _build_title_meta(self, event_type: str, repo_name: str, payload: dict) -> tuple[str, str] | None:
+        """이벤트 유형별 프론트 표시용 title/meta 생성 규칙.
+
+        세분화 조건을 통과하지 못한 이벤트(예: CreateEvent의 브랜치 생성)는
+        None을 반환해 저장에서 제외한다.
+        """
         if event_type == 'PushEvent':
             commits = payload.get('commits', [])
             if commits:
                 message = commits[0].get('message', '')
-                # 첫 줄만 사용. 메시지가 비어 있으면 "커밋"으로 폴백
                 meta = message.splitlines()[0] if message else '커밋'
             else:
-                meta = '커밋'  # commits 배열이 비어 있을 수 있음
+                meta = '커밋'
             return repo_name, meta
 
         if event_type == 'PullRequestEvent':
@@ -119,10 +147,16 @@ class GithubService:
             pr_title = payload.get('pull_request', {}).get('title', '')
             return f'PR {action}', pr_title
 
+        if event_type == 'PullRequestReviewEvent':
+            pr_title = payload.get('pull_request', {}).get('title', '')
+            return f'PR 리뷰', pr_title
+
         if event_type == 'CreateEvent':
+            # 저장소 생성만 저장. 브랜치/태그 생성은 노이즈이므로 제외
             ref_type = payload.get('ref_type', '')
-            ref = payload.get('ref') or ''
-            return repo_name, f'{ref_type} 생성: {ref}'
+            if ref_type != 'repository':
+                return None
+            return repo_name, '저장소 생성'
 
         if event_type == 'ReleaseEvent':
             release = payload.get('release', {})
@@ -132,14 +166,10 @@ class GithubService:
 
         if event_type == 'IssuesEvent':
             action = payload.get('action', '')
+            # 의미 있는 action만 저장. 라벨링·할당 등 잡다한 action 제외
+            if action not in _ISSUES_ACTIONS:
+                return None
             issue_title = payload.get('issue', {}).get('title', '')
             return f'이슈 {action}', issue_title
 
-        if event_type == 'WatchEvent':
-            return repo_name, '스타 추가'
-
-        if event_type == 'ForkEvent':
-            return repo_name, '포크'
-
-        # 기타 이벤트
         return repo_name, event_type
