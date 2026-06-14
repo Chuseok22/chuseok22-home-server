@@ -1,4 +1,7 @@
 from django.urls import path
 
-# Task 4에서 실제 뷰 URL이 등록될 예정
-urlpatterns: list = []
+from apps.projects.views import ProjectListView
+
+urlpatterns = [
+    path('', ProjectListView.as_view(), name='project-list'),
+]
