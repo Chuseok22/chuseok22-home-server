@@ -1,3 +1,4 @@
+import atexit
 import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -50,7 +51,7 @@ def start_scheduler() -> None:
     # 30분마다 GitHub 활동 수집
     scheduler.add_job(
         _run_fetch_github_activities,
-        trigger=IntervalTrigger(minutes=30),
+        trigger=IntervalTrigger(minutes=30, timezone=_SCHEDULER_TIMEZONE),
         id='fetch_github_activities',
         replace_existing=True,
         coalesce=True,
@@ -59,4 +60,5 @@ def start_scheduler() -> None:
     )
 
     scheduler.start()
+    atexit.register(lambda: scheduler.shutdown(wait=False))
     logger.info('APScheduler 시작됨 (timezone=%s)', _SCHEDULER_TIMEZONE)

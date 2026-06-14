@@ -134,7 +134,7 @@ SEJONG_PASSWORD = env('SEJONG_PASSWORD', default='')
 
 # GitHub 활동 수집 설정
 GITHUB_PAT = env('GITHUB_PAT', default='')
-GITHUB_USERNAME = env('GITHUB_USERNAME', default='chuseok22')
+GITHUB_USERNAME = env('GITHUB_USERNAME', default='')
 
 # 스케줄러 설정 (django-apscheduler)
 # ENABLE_SCHEDULER: management command(migrate 등) 실행 시 스케줄러 기동을 막기 위한 게이트

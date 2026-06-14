@@ -38,6 +38,8 @@ class GithubService:
 
         실패 시 빈 리스트 반환(예외 전파 금지).
         """
+        if not self.token:
+            return []
         items: list[ActivityItem] = []
         for page in range(1, _MAX_PAGES + 1):
             raw_events = self._request_page(page)
@@ -51,11 +53,12 @@ class GithubService:
 
     def _request_page(self, page: int) -> list[dict]:
         url = f'{_API_BASE}/users/{self.username}/events'
-        headers = {
-            'Authorization': f'Bearer {self.token}',
+        headers: dict[str, str] = {
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
         }
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
         params = {'per_page': _PER_PAGE, 'page': page}
         try:
             response = requests.get(url, headers=headers, params=params, timeout=_REQUEST_TIMEOUT)
@@ -87,6 +90,9 @@ class GithubService:
             return None
 
         title, meta = self._build_title_meta(event_type, repo_name, event.get('payload', {}))
+        # DB 스키마(max_length) 초과 방지
+        title = title[:200]
+        meta = meta[:500]
         return ActivityItem(
             event_id=event_id,
             event_type=event_type,
