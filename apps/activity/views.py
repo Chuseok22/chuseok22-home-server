@@ -1,4 +1,5 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.types import OpenApiTypes
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
@@ -16,9 +17,18 @@ class ActivityPagination(PageNumberPagination):
     summary='GitHub 활동 목록 조회',
     description=(
         'DB에 캐싱된 GitHub 활동 이력을 발생 시각(occurred_at) 내림차순으로 반환한다. '
-        '인증 없이 접근 가능(AllowAny). PageNumberPagination(page_size=20)으로 페이지네이션된다. '
-        '실제 수집은 management command `fetch_github_activities`가 수행한다.'
+        '인증 없이 접근 가능. 페이지당 20건 고정이며 ?page= 파라미터로 페이지를 지정한다. '
+        '실제 수집은 management command fetch_github_activities가 수행한다.'
     ),
+    parameters=[
+        OpenApiParameter(
+            name='page',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description='페이지 번호 (기본값: 1)',
+        ),
+    ],
     responses={200: ActivityItemSerializer(many=True)},
 )
 class ActivityListView(ListAPIView):
