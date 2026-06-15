@@ -3,7 +3,6 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from django.core.management import call_command
 from django_apscheduler.jobstores import DjangoJobStore
 
@@ -21,7 +20,7 @@ def _run_check_new_notices() -> None:
 
 
 def _run_fetch_github_activities() -> None:
-    """30분마다 GitHub 활동 수집"""
+    """매일 KST 03:00 GitHub 활동 수집"""
     try:
         call_command('fetch_github_activities')
     except Exception as e:
@@ -48,10 +47,10 @@ def start_scheduler() -> None:
         misfire_grace_time=300,
     )
 
-    # 30분마다 GitHub 활동 수집
+    # 매일 KST 03:00 GitHub 활동 수집
     scheduler.add_job(
         _run_fetch_github_activities,
-        trigger=IntervalTrigger(minutes=30, timezone=_SCHEDULER_TIMEZONE),
+        trigger=CronTrigger(hour=3, minute=0, timezone=_SCHEDULER_TIMEZONE),
         id='fetch_github_activities',
         replace_existing=True,
         coalesce=True,
