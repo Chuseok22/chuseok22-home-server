@@ -64,7 +64,7 @@
   - `docker build` — 빌드 성공
   - `python manage.py check --settings=config.settings.production` — 설정 오류 없음
   - CI/CD 헬스체크 통과 (`/api/v1/health/` 200 응답)
-  - 필요한 환경변수 (`SECRET_KEY`, `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `ALLOWED_HOSTS`) 서버 `.env.production`에 설정 확인
+  - 필요한 환경변수 (`SECRET_KEY`, `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `ALLOWED_HOSTS`) 서버 `.env.production`에 설정 확인
 
 - 배포 후 필요한 수동 작업이 있는 경우 PR 본문에 명시:
   - 예: 새 management command 추가 시 서버에서 최초 1회 실행 필요

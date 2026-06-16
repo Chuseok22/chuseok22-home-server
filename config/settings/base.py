@@ -127,7 +127,6 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 
 # 텔레그램 알림 설정
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
-TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID', default='')
 
 # 학술정보원 스터디룸 조회 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')

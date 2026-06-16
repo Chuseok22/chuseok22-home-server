@@ -1,4 +1,5 @@
 from .base import BaseCrawler
+from .linkareer import LinkareerCrawler
 from .sejong import SejongNoticeCrawler
 from .sejong_do import SejongDoCrawler
 
@@ -6,6 +7,7 @@ from .sejong_do import SejongDoCrawler
 CRAWLER_REGISTRY: dict[str, type[BaseCrawler]] = {
     'sejong': SejongNoticeCrawler,
     'sejong_do': SejongDoCrawler,
+    'linkareer': LinkareerCrawler,
 }
 
 

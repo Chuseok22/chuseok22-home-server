@@ -1,12 +1,13 @@
 import logging
 import re
+from dataclasses import dataclass
 from datetime import date
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
-from .base import BaseCrawler, NoticeItem
+from .base import BaseCrawler, BaseNoticeItem
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,12 @@ _HEADERS = {
 }
 
 
+@dataclass
+class SejongNoticeItem(BaseNoticeItem):
+    """세종대학교 공지사항 아이템"""
+    published_at: date | None
+
+
 class SejongNoticeCrawler(BaseCrawler):
     """세종대학교 공지사항 크롤러
 
@@ -25,7 +32,7 @@ class SejongNoticeCrawler(BaseCrawler):
     https://www.sejong.ac.kr/kor/intro/notice3.do?mode=list&article.offset=0&articleLimit=10
     """
 
-    def crawl(self) -> list[NoticeItem]:
+    def crawl(self) -> list[SejongNoticeItem]:
         try:
             response = requests.get(self.list_url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
@@ -35,9 +42,9 @@ class SejongNoticeCrawler(BaseCrawler):
 
         return self._parse(response.text)
 
-    def _parse(self, html: str) -> list[NoticeItem]:
+    def _parse(self, html: str) -> list[SejongNoticeItem]:
         soup = BeautifulSoup(html, 'lxml')
-        items: list[NoticeItem] = []
+        items: list[SejongNoticeItem] = []
         seen_ids: set[str] = set()
 
         for row in soup.select('tbody tr'):
@@ -59,7 +66,7 @@ class SejongNoticeCrawler(BaseCrawler):
             full_url = self._build_detail_url(href)
             published_at = self._parse_date(row)
 
-            items.append(NoticeItem(
+            items.append(SejongNoticeItem(
                 article_id=article_id,
                 title=title,
                 url=full_url,
@@ -80,7 +87,7 @@ class SejongNoticeCrawler(BaseCrawler):
         base_path = urlparse(self.list_url).path
         return urljoin(f'{_BASE_DOMAIN}{base_path}', href)
 
-    def _parse_date(self, row: BeautifulSoup) -> date | None:
+    def _parse_date(self, row: Tag) -> date | None:
         date_tag = row.select_one('span.b-date')
         if not date_tag:
             return None
