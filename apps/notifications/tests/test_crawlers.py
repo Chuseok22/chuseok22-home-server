@@ -1,5 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from django.test import TestCase
+from bs4 import BeautifulSoup
 
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
@@ -82,16 +83,13 @@ class TestSejongDoCrawlerParseIsoDatetime(TestCase):
         self.crawler = SejongDoCrawler('https://do.sejong.ac.kr/ko/program/all/list/0/1?sort=date')
 
     def test_유효한_datetime_파싱(self) -> None:
-        from bs4 import BeautifulSoup
         html = '<time datetime="2025-06-01T09:00:00"></time>'
         soup = BeautifulSoup(html, 'lxml')
         time_tag = soup.find('time')
         result = self.crawler._parse_iso_datetime(time_tag)
-        from datetime import datetime
         self.assertEqual(result, datetime(2025, 6, 1, 9, 0, 0))
 
     def test_datetime_속성_없음(self) -> None:
-        from bs4 import BeautifulSoup
         html = '<time></time>'
         soup = BeautifulSoup(html, 'lxml')
         time_tag = soup.find('time')

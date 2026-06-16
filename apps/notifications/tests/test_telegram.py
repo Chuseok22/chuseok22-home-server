@@ -67,6 +67,8 @@ class TestTelegramServiceFormatMessage(TestCase):
         self.assertIn('대학생', result)
         self.assertIn('1000만원', result)
         self.assertIn('디자인, IT/개발', result)
+        self.assertIn('https://company.com', result)
+        self.assertIn('링커리어', result)
 
     def test_unknown_item_fallback(self) -> None:
         from apps.notifications.crawlers.base import BaseNoticeItem

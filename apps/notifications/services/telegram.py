@@ -87,7 +87,9 @@ class TelegramService:
             lines.append(f'📂 공모분야: {", ".join(item.categories)}')
         if item.benefit:
             lines.append(f'💰 활동혜택: {item.benefit}')
-        lines.append(f'🔗 {item.url}')
+        if item.homepage:
+            lines.append(f'🌐 홈페이지: {item.homepage}')
+        lines.append(f'🔗 링커리어: {item.url}')
         return '\n'.join(lines)
 
     def _fmt_period_dt(self, start: datetime | None, end: datetime | None) -> str:
