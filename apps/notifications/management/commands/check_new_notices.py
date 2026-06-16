@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import date
 
 from django.core.management.base import BaseCommand
@@ -80,6 +81,8 @@ class Command(BaseCommand):
                 notice.notified_at = timezone.now()
                 notice.save(update_fields=['is_notified', 'notified_at'])
                 self.stdout.write(f'  알림 발송 완료: {notice.title}')
+                # 텔레그램 동일 채팅방 분당 20개 제한 준수
+                time.sleep(1)
             else:
                 self.stderr.write(f'  알림 발송 실패: {notice.title}')
 
