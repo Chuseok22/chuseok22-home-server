@@ -5,7 +5,7 @@ from datetime import date
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from .base import BaseCrawler, BaseNoticeItem
 
@@ -87,7 +87,7 @@ class SejongNoticeCrawler(BaseCrawler):
         base_path = urlparse(self.list_url).path
         return urljoin(f'{_BASE_DOMAIN}{base_path}', href)
 
-    def _parse_date(self, row: BeautifulSoup) -> date | None:
+    def _parse_date(self, row: Tag) -> date | None:
         date_tag = row.select_one('span.b-date')
         if not date_tag:
             return None

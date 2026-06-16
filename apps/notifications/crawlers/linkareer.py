@@ -58,7 +58,7 @@ class LinkareerCrawler(BaseCrawler):
                 items = self._parse_list_from_next_data(data)
                 if items:
                     return items
-            except (json.JSONDecodeError, Exception) as e:
+            except Exception as e:
                 logger.warning('__NEXT_DATA__ 파싱 실패, HTML fallback 사용: %s', e)
 
         # HTML fallback
@@ -83,7 +83,7 @@ class LinkareerCrawler(BaseCrawler):
                 item = self._parse_detail_from_next_data(data, url)
                 if item:
                     return item
-            except (json.JSONDecodeError, Exception) as e:
+            except Exception as e:
                 logger.warning('상세 __NEXT_DATA__ 파싱 실패, HTML fallback 사용: %s', e)
 
         # HTML fallback
