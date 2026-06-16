@@ -96,24 +96,28 @@ class LinkareerCrawler(BaseCrawler):
     # ── 목록 파싱 ──────────────────────────────────────────────
 
     def _parse_list_from_next_data(self, data: dict) -> list[ContestItem]:
-        """__NEXT_DATA__ JSON에서 공모전 목록을 추출한다.
+        """__NEXT_DATA__ JSON의 __APOLLO_STATE__에서 공모전 목록을 추출한다.
 
-        실제 JSON 구조가 다를 경우 아래 경로를 수정한다.
+        링커리어는 Apollo Client를 사용하며, 데이터는 __APOLLO_STATE__에
+        'Activity:숫자' 형태의 키로 플랫하게 저장된다.
         """
         try:
             page_props = data.get('props', {}).get('pageProps', {})
-            # 가능한 경로들 순서대로 시도
-            activities = (
-                page_props.get('activityList', {}).get('activities')
-                or page_props.get('activities')
-                or page_props.get('data', {}).get('activities')
-            )
-            if not activities:
+            apollo_state = page_props.get('__APOLLO_STATE__', {})
+            if not apollo_state:
                 return []
 
             items = []
             seen_ids: set[str] = set()
-            for activity in activities:
+            for key, activity in apollo_state.items():
+                if not key.startswith('Activity:'):
+                    continue
+                if not isinstance(activity, dict):
+                    continue
+                # activityTypeID=3이 공모전 타입
+                if activity.get('activityTypeID') != 3:
+                    continue
+
                 aid = str(activity.get('id', ''))
                 title = activity.get('title', '')
                 if not aid or not title or aid in seen_ids:
