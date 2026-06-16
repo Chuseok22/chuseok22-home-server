@@ -31,7 +31,8 @@ class Command(BaseCommand):
             self._process_source(source, telegram)
 
     def _process_source(self, source: NoticeSource, telegram: TelegramService) -> None:
-        if not source.telegram_chat_id:
+        chat_id = source.telegram_chat_id.strip()
+        if not chat_id:
             logger.warning('[%s] telegram_chat_id 미설정 — 알림 발송 건너뜀', source.name)
             self.stderr.write(f'[{source.name}] telegram_chat_id 미설정, 알림 건너뜀')
             return
@@ -64,12 +65,16 @@ class Command(BaseCommand):
             if not created and notice.is_notified:
                 continue
 
-            # 상세 크롤링 지원 시 신규 항목만 추가 요청
-            detail = crawler.crawl_detail(item.url)
+            # 상세 크롤링 지원 시 신규 항목만 추가 요청 — 실패 시 원본 아이템으로 계속 진행
+            try:
+                detail = crawler.crawl_detail(item.url)
+            except Exception as e:
+                logger.error('상세 크롤링 실패 (url=%s): %s', item.url, e)
+                detail = None
             final_item = detail if detail is not None else item
 
             new_count += 1
-            success = telegram.send_notice(source.telegram_chat_id, source, final_item)
+            success = telegram.send_notice(chat_id, source, final_item)
             if success:
                 notice.is_notified = True
                 notice.notified_at = timezone.now()
