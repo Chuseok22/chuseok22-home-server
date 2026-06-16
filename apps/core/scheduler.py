@@ -30,8 +30,10 @@ def _run_fetch_github_activities() -> None:
 def start_scheduler() -> None:
     """BackgroundScheduler를 생성하고 잡을 등록한 뒤 시작한다.
 
-    고정 job id + replace_existing=True + 공유 DjangoJobStore 조합으로
-    Gunicorn 멀티워커 환경에서도 잡이 DB상 단일 레코드로 수렴해 중복 실행을 방지한다.
+    DjangoJobStore로 잡 정의를 DB에 영속한다.
+    중복 실행 방지는 다층으로 구성된다:
+    - 프로세스 간: Gunicorn --workers 1 설정으로 단일 워커 보장
+    - 프로세스 내: coalesce=True(동시 발동 압축), max_instances=1(동시 인스턴스 제한)
     """
     scheduler = BackgroundScheduler(timezone=_SCHEDULER_TIMEZONE)
     scheduler.add_jobstore(DjangoJobStore(), 'default')
