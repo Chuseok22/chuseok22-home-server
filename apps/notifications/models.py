@@ -7,6 +7,8 @@ class NoticeSource(models.Model):
     url = models.URLField(verbose_name='목록 URL')
     # 크롤러 타입 식별자 — 새 사이트 추가 시 crawlers/ 에 구현체 등록 후 사용
     crawler_type = models.CharField(max_length=50, verbose_name='크롤러 타입')
+    # 소스별 텔레그램 채팅방 ID — 빈 값이면 알림 발송 건너뜀
+    telegram_chat_id = models.CharField(max_length=100, blank=True, default='', verbose_name='텔레그램 채팅방 ID')
     is_active = models.BooleanField(default=True, verbose_name='활성화')
     created_at = models.DateTimeField(auto_now_add=True)
 
