@@ -32,4 +32,4 @@ RUN SECRET_KEY=build-time-dummy DATABASE_URL=sqlite:///dummy python manage.py co
 EXPOSE 8000
 
 # 컨테이너 시작 시 마이그레이션 후 gunicorn 기동
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${APP_PORT} --workers 2"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${APP_PORT} --workers 1"]
