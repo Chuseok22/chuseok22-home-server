@@ -133,7 +133,7 @@ TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')
 SEJONG_PASSWORD = env('SEJONG_PASSWORD', default='')
 # classic.sejong.ac.kr SSO 콜백 경로 — 브라우저 DevTools로 확인 후 .env에서 재정의 가능
-SEJONG_CLASSIC_SSO_CALLBACK_PATH = env('SEJONG_CLASSIC_SSO_CALLBACK_PATH', default='/login/ssoLogin.do')
+SEJONG_CLASSIC_SSO_CALLBACK_PATH = env('SEJONG_CLASSIC_SSO_CALLBACK_PATH', default='/_custom/sejong/sso/sso-return.jsp')
 
 # GitHub 활동 수집 설정
 GITHUB_PAT = env('GITHUB_PAT', default='')

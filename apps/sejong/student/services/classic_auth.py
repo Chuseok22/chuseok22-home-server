@@ -43,7 +43,8 @@ class SejongClassicAuthService:
         try:
             resp = portal.session.get(
                 callback_url,
-                params={'ssoToken': portal.ssotoken},
+                # ssotoken은 포털 로그인 시 이미 세션 쿠키에 포함됨, returnUrl만 전달
+                params={'returnUrl': '/classic/index.do'},
                 timeout=_REQUEST_TIMEOUT,
                 allow_redirects=True,
             )
