@@ -12,15 +12,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.library.models import ReservationAttendee, ReservationHistory
-from apps.library.serializers import (
+from apps.sejong.library.models import ReservationAttendee, ReservationHistory
+from apps.sejong.library.serializers import (
     ReservationAttendeeSerializer,
     StudyRoomReserveRequestSerializer,
     StudyRoomReserveResponseSerializer,
     StudyRoomSerializer,
 )
-from apps.library.services.study_room import StudyRoomService
-from apps.library.services.study_room_reservation import (
+from apps.sejong.library.services.study_room import StudyRoomService
+from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
     ReservationParams,
     StudyRoomReservationService,

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 import requests
 
-from apps.library.services.sejong_auth import SejongLibraryAuthService
-from apps.library.services.study_room import StudyRoomService
+from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
+from apps.sejong.library.services.study_room import StudyRoomService
 
 logger = logging.getLogger(__name__)
 

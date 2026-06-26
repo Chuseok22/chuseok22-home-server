@@ -16,7 +16,7 @@ urlpatterns = [
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # 학술정보원
-    path('api/v1/library/', include('apps.library.urls')),
+    path('api/v1/library/', include('apps.sejong.library.urls')),
 
     # GitHub 활동
     path('api/v1/activities/', include('apps.activity.urls')),

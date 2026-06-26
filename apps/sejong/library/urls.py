@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.library.views import (
+from apps.sejong.library.views import (
     ReservationAttendeeDestroyView,
     ReservationAttendeeListCreateView,
     StudyRoomListView,

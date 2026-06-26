@@ -30,7 +30,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'apps.core',
     'apps.notifications',
-    'apps.library',
+    'apps.sejong.library',
     'apps.activity',
     'apps.projects',
 ]
