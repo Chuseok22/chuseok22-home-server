@@ -24,6 +24,9 @@ urlpatterns = [
     # 프로젝트
     path('api/v1/projects/', include('apps.projects.urls')),
 
+    # 세종대 학생 조회
+    path('api/v1/sejong/students/', include('apps.sejong.student.urls')),
+
     # Swagger (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
