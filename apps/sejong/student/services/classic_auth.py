@@ -1,6 +1,7 @@
 import logging
 
 import requests
+from django.conf import settings
 
 from apps.sejong.auth.services.portal_sso import SejongPortalSSO
 
@@ -8,11 +9,6 @@ logger = logging.getLogger(__name__)
 
 _CLASSIC_BASE_URL = 'https://classic.sejong.ac.kr'
 _REQUEST_TIMEOUT = 15
-
-# ⚠️ 브라우저 DevTools 확인 후 수정 필요:
-# classic.sejong.ac.kr에 SSO 로그인 시 포털에서 redirect되는 콜백 경로
-# 예시: '/login/ssoLogin.do', '/classic/login/sso.do' 등
-_CLASSIC_SSO_CALLBACK_PATH = '/login/ssoLogin.do'
 
 _SEARCH_HEADERS = {
     'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -42,7 +38,8 @@ class SejongClassicAuthService:
         if not portal:
             return None
 
-        callback_url = f'{_CLASSIC_BASE_URL}{_CLASSIC_SSO_CALLBACK_PATH}'
+        sso_callback_path = settings.SEJONG_CLASSIC_SSO_CALLBACK_PATH
+        callback_url = f'{_CLASSIC_BASE_URL}{sso_callback_path}'
         try:
             resp = portal.session.get(
                 callback_url,
@@ -57,8 +54,8 @@ class SejongClassicAuthService:
 
         if not portal.session.cookies.get('CMS_JSESSIONID'):
             logger.error(
-                'CMS_JSESSIONID 쿠키 없음. _CLASSIC_SSO_CALLBACK_PATH(%s) 확인 필요.',
-                _CLASSIC_SSO_CALLBACK_PATH,
+                'CMS_JSESSIONID 쿠키 없음. SEJONG_CLASSIC_SSO_CALLBACK_PATH(%s) 확인 필요.',
+                sso_callback_path,
             )
             return None
 

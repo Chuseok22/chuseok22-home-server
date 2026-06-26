@@ -129,9 +129,11 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 # 텔레그램 알림 설정
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 
-# 학술정보원 스터디룸 조회 설정
+# 세종대 포털 인증 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')
 SEJONG_PASSWORD = env('SEJONG_PASSWORD', default='')
+# classic.sejong.ac.kr SSO 콜백 경로 — 브라우저 DevTools로 확인 후 .env에서 재정의 가능
+SEJONG_CLASSIC_SSO_CALLBACK_PATH = env('SEJONG_CLASSIC_SSO_CALLBACK_PATH', default='/login/ssoLogin.do')
 
 # GitHub 활동 수집 설정
 GITHUB_PAT = env('GITHUB_PAT', default='')

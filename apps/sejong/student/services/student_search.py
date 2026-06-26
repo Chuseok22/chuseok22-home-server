@@ -70,8 +70,17 @@ class StudentSearchService:
             logger.error('학생 조회 응답 파싱 실패 — 세션 만료 가능성: %s', e)
             return None  # 장애 — 뷰에서 503 반환
 
+        if not isinstance(data, dict):
+            logger.error('학생 조회 응답 스키마 불일치: top-level=%s', type(data).__name__)
+            return None
+
+        user_list = data.get('userList')
+        if not isinstance(user_list, list):
+            logger.error('학생 조회 응답 스키마 불일치: userList=%s', type(user_list).__name__)
+            return None
+
         results = []
-        for user in data.get('userList', []):
+        for user in user_list:
             try:
                 results.append(StudentInfo(
                     student_no=user['studentNo'],

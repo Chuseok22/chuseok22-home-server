@@ -63,13 +63,14 @@ class SejongLibraryAuthService:
 
 def _extract_token_from_chain(response: requests.Response) -> str | None:
     """redirect chain(history + 최종 URL)에서 libseat token 파라미터를 추출한다."""
-    urls = [r.url for r in response.history]
-    urls.append(response.url)
+    # 최신 URL(response.url) 우선 확인 후 역순 history 순회 — 최종 발급된 토큰 우선 확보
+    urls = [response.url, *(r.url for r in reversed(response.history))]
 
     for url in urls:
-        if not url or _LIBSEAT_HOST not in url:
+        parsed = urlparse(url)
+        if parsed.hostname != _LIBSEAT_HOST:
             continue
-        params = parse_qs(urlparse(url).query)
+        params = parse_qs(parsed.query)
         token_list = params.get('token', [])
         if token_list and token_list[0]:
             return token_list[0]
