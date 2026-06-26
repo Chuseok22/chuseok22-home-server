@@ -6,8 +6,8 @@ from urllib.parse import urlparse, parse_qs
 import requests
 from bs4 import BeautifulSoup
 
-from apps.library.services.sejong_auth import SejongLibraryAuthService
-from apps.library.services.ssl_compat import LegacySSLAdapter
+from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
+from apps.sejong.auth.services.ssl_compat import LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
 

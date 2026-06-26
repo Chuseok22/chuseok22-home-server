@@ -16,13 +16,16 @@ urlpatterns = [
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # 학술정보원
-    path('api/v1/library/', include('apps.library.urls')),
+    path('api/v1/library/', include('apps.sejong.library.urls')),
 
     # GitHub 활동
     path('api/v1/activities/', include('apps.activity.urls')),
 
     # 프로젝트
     path('api/v1/projects/', include('apps.projects.urls')),
+
+    # 세종대 학생 조회
+    path('api/v1/sejong/students/', include('apps.sejong.student.urls')),
 
     # Swagger (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
