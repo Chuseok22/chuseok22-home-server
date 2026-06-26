@@ -67,7 +67,7 @@ class StudyRoomListView(APIView):
             service = StudyRoomService()
             rooms = service.fetch_all_rooms(reserve_date=reserve_date)
         except ValueError as e:
-            logger.error('스터디룸 서비스 초기화 실패: %s', e)
+            logger.error('스터디룸 서비스 설정 오류 (자격증명 누락): %s', e)
             return Response({'detail': '서비스 설정이 올바르지 않습니다.'}, status=503)
 
         if not rooms:
@@ -115,31 +115,30 @@ class StudyRoomReserveView(APIView):
 
         try:
             service = StudyRoomReservationService()
+            if data['auto_select']:
+                result = service.auto_reserve(
+                    reserve_date=data['reserve_date'],
+                    start_time=data['start_time'],
+                    use_time=data['use_time'],
+                    attendees=attendees,
+                )
+            else:
+                params = ReservationParams(
+                    room_no=data['room_no'],
+                    room_gb=data['room_gb'],
+                    seat_cnt=data['seat_cnt'],
+                    sroom_title=data['sroom_title'],
+                    room_name=data['room_name'],
+                    seq=data['seq'],
+                    reserve_date=data['reserve_date'],
+                    start_time=data['start_time'],
+                    use_time=data['use_time'],
+                    attendees=attendees,
+                )
+                result = service.reserve(params)
         except ValueError as e:
-            logger.error('예약 서비스 초기화 실패: %s', e)
+            logger.error('예약 서비스 설정 오류 (자격증명 누락): %s', e)
             return Response({'detail': '서비스 설정이 올바르지 않습니다.'}, status=503)
-
-        if data['auto_select']:
-            result = service.auto_reserve(
-                reserve_date=data['reserve_date'],
-                start_time=data['start_time'],
-                use_time=data['use_time'],
-                attendees=attendees,
-            )
-        else:
-            params = ReservationParams(
-                room_no=data['room_no'],
-                room_gb=data['room_gb'],
-                seat_cnt=data['seat_cnt'],
-                sroom_title=data['sroom_title'],
-                room_name=data['room_name'],
-                seq=data['seq'],
-                reserve_date=data['reserve_date'],
-                start_time=data['start_time'],
-                use_time=data['use_time'],
-                attendees=attendees,
-            )
-            result = service.reserve(params)
 
         try:
             # 성공/실패 관계없이 이력 저장
