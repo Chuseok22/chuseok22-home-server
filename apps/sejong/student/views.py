@@ -73,4 +73,5 @@ class StudentSearchView(APIView):
                 status=503,
             )
 
-        return Response({'results': StudentSearchResponseSerializer({'results': results}).data['results']})
+        data = StudentSearchResponseSerializer({'results': results}).data
+        return Response(data)

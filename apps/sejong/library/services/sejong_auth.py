@@ -62,6 +62,7 @@ class SejongLibraryAuthService:
 
 
 def _extract_token_from_chain(response: requests.Response) -> str | None:
+    """redirect chain(history + 최종 URL)에서 libseat token 파라미터를 추출한다."""
     urls = [r.url for r in response.history]
     urls.append(response.url)
 
@@ -77,4 +78,5 @@ def _extract_token_from_chain(response: requests.Response) -> str | None:
 
 
 def _mask_token_in_url(url: str) -> str:
+    """URL에서 token 파라미터 값을 마스킹한다 (로그 노출 방지)."""
     return re.sub(r'(token=)[^&]+', r'\1***', url)
