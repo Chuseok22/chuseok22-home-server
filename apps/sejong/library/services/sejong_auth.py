@@ -4,10 +4,8 @@ from dataclasses import dataclass
 from urllib.parse import urlparse, parse_qs
 
 import requests
-from django.conf import settings
 
 from apps.sejong.auth.services.portal_sso import SejongPortalSSO
-from apps.sejong.auth.services.ssl_compat import LegacySSLAdapter
 
 logger = logging.getLogger(__name__)
 
