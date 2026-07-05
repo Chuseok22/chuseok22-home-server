@@ -1,0 +1,18 @@
+{% extends "site/base.html" %}
+
+{% block title %}스터디룸 예약 — 백지훈{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">스터디룸 예약</h1>
+<form
+  hx-get="{% url 'site:lab-library-rooms' %}"
+  hx-target="#rooms"
+  class="flex gap-2 mb-4"
+>
+  <input type="text" name="reserve_date" value="{{ today }}" class="input input-bordered" placeholder="YYYYMMDD">
+  <button type="submit" class="btn btn-primary">가용 현황 조회</button>
+</form>
+<div id="rooms"></div>
+<div id="reserve-form" class="mt-4"></div>
+<div id="reserve-result" class="mt-4"></div>
+{% endblock %}

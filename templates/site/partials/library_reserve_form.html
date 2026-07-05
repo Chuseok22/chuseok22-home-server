@@ -1,0 +1,17 @@
+<form hx-post="{% url 'site:lab-library-reserve' %}" hx-target="#reserve-result" class="card bg-base-200 p-4 flex flex-col gap-2">
+  <p class="font-semibold">{{ slot.room_name }} · {{ slot.start_time }} 예약</p>
+  <input type="hidden" name="room_no" value="{{ slot.room_no }}">
+  <input type="hidden" name="room_gb" value="{{ slot.room_gb }}">
+  <input type="hidden" name="seat_cnt" value="{{ slot.seat_cnt }}">
+  <input type="hidden" name="sroom_title" value="{{ slot.sroom_title }}">
+  <input type="hidden" name="room_name" value="{{ slot.room_name }}">
+  <input type="hidden" name="seq" value="{{ slot.seq }}">
+  <input type="hidden" name="reserve_date" value="{{ slot.reserve_date }}">
+  <input type="hidden" name="start_time" value="{{ slot.start_time }}">
+  <select name="use_time" class="select select-bordered">
+    <option value="60">60분</option>
+    <option value="120">120분</option>
+  </select>
+  <input type="text" name="attendees_raw" class="input input-bordered" placeholder="22011315-백지훈,22011316-홍길동">
+  <button type="submit" class="btn btn-primary btn-sm">예약하기</button>
+</form>

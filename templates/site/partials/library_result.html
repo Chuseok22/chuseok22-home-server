@@ -1,0 +1,7 @@
+{% if result %}
+<div class="alert {% if result.success %}alert-success{% else %}alert-error{% endif %}">
+  {{ result.result_message }}
+</div>
+{% elif errors %}
+<div class="alert alert-error">입력 오류: {{ errors }}</div>
+{% endif %}
