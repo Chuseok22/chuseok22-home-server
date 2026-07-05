@@ -1,0 +1,151 @@
+import pytest
+from django.urls import reverse
+
+
+@pytest.mark.django_db
+def test_home_페이지_200_응답() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert response.status_code == 200
+    assert '백지훈' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_카테고리별_프로젝트를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    Project.objects.create(
+        category=ProjectCategory.SIDE,
+        title='개인 홈서버',
+        description='Django 홈서버',
+        status=ProjectStatus.IN_PROGRESS,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+
+    assert response.status_code == 200
+    assert '개인 홈서버' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_목록은_공개된_포스트만_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='공개 글', slug='public-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+    Post.objects.create(title='비공개 글', slug='draft-post', content='본문', is_published=False)
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '공개 글' in body
+    assert '비공개 글' not in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_마크다운을_HTML로_렌더링한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='마크다운 글', slug='markdown-post', content='# 제목입니다',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'markdown-post'}))
+
+    assert response.status_code == 200
+    assert '<h1>제목입니다</h1>' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_비공개_포스트_상세는_404() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    Post.objects.create(title='비공개 글', slug='draft-post', content='본문', is_published=False)
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'draft-post'}))
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_lab_목록은_소유자전용_도구를_잠금_표시한다() -> None:
+    from django.test import Client
+
+    from apps.site.models import Tool
+
+    # slug='library'는 Task 9 시드 마이그레이션(0002_seed_tools)이 이미 사용하므로 충돌을 피하기 위해 별도 slug 사용
+    Tool.objects.create(
+        title='스터디룸 예약', slug='library-lock-test', description='학술정보원 스터디룸 예약',
+        is_owner_only=True, url_name='site:lab-library-placeholder',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '스터디룸 예약' in body
+    assert '소유자 전용' in body  # 잠금 카드 문구만 확인, 링크는 렌더링되지 않음(잠금 분기에서 {% url %} 자체를 호출하지 않음)
+
+
+@pytest.mark.django_db
+def test_lab_목록은_소유자에게_실제_링크를_보여준다() -> None:
+    from django.contrib.auth import get_user_model
+
+    from apps.site.models import Tool
+
+    # slug='library'는 Task 9 시드 마이그레이션(0002_seed_tools)이 이미 사용하므로 충돌을 피하기 위해 별도 slug 사용
+    Tool.objects.create(
+        title='스터디룸 예약', slug='library-link-test', description='학술정보원 스터디룸 예약',
+        is_owner_only=True, url_name='site:lab-library',
+    )
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+
+    from django.test import Client
+
+    client = Client()
+    client.force_login(owner)
+    response = client.get(reverse('site:lab-index'))
+
+    assert 'href="/lab/library/"' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_시드된_Tool은_소유자에게_두_링크_모두_보여준다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'href="/lab/library/"' in body
+    assert 'href="/lab/student/"' in body

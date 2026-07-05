@@ -1,0 +1,38 @@
+{% extends "site/base.html" %}
+{% load engagement_tags %}
+
+{% block title %}{{ post.title }} — 백지훈{% endblock %}
+
+{% block content %}
+<article class="prose max-w-none">
+  <h1>{{ post.title }}</h1>
+  {{ content_html|safe }}
+</article>
+
+<section class="mt-6">
+  {% if user.is_authenticated %}
+  {% include "engagement/like_button.html" with target=post %}
+  {% else %}
+  <span class="opacity-60">❤️ {{ like_count }}</span>
+  {% endif %}
+</section>
+
+<section class="mt-8">
+  <h2 class="text-xl font-semibold mb-4">댓글</h2>
+  {% if user.is_authenticated %}
+  <form
+    hx-post="{% url 'engagement:comment-create' post|content_type_app_label post|content_type_model post.pk %}"
+    hx-target="#comments"
+    class="flex gap-2 mb-4"
+  >
+    <input type="text" name="body" class="input input-bordered flex-1" placeholder="댓글을 입력하세요">
+    <button type="submit" class="btn btn-primary">등록</button>
+  </form>
+  {% else %}
+  <p class="opacity-60">댓글을 작성하려면 <a href="{% url 'github_login' %}" class="link">GitHub 로그인</a>이 필요합니다.</p>
+  {% endif %}
+  <div id="comments">
+    {% include "engagement/comments.html" %}
+  </div>
+</section>
+{% endblock %}
