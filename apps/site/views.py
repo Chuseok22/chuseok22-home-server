@@ -47,7 +47,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     post = get_object_or_404(Post, slug=slug, is_published=True)
     content_html = render_markdown(post.content)
     content_type = ContentType.objects.get_for_model(Post)
-    comments = Comment.objects.filter(content_type=content_type, object_id=post.pk)
+    comments = Comment.objects.filter(content_type=content_type, object_id=post.pk).select_related('author')
     like_count = Like.objects.filter(content_type=content_type, object_id=post.pk).count()
     is_liked = (
         request.user.is_authenticated
