@@ -1,0 +1,27 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}관리자 대시보드{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">관리자 대시보드</h1>
+<div class="grid gap-4 sm:grid-cols-3">
+  <a href="{% url 'dashboard:project-list' %}" class="card bg-base-200 hover:bg-base-300">
+    <div class="card-body">
+      <h2 class="card-title">프로젝트 관리</h2>
+      <p class="opacity-70">포트폴리오 프로젝트 등록·수정·삭제</p>
+    </div>
+  </a>
+  <a href="{% url 'dashboard:post-list' %}" class="card bg-base-200 hover:bg-base-300">
+    <div class="card-body">
+      <h2 class="card-title">블로그 관리</h2>
+      <p class="opacity-70">블로그 포스트 등록·수정·삭제</p>
+    </div>
+  </a>
+  <a href="{% url 'dashboard:automation-list' %}" class="card bg-base-200 hover:bg-base-300">
+    <div class="card-body">
+      <h2 class="card-title">자동화 설정</h2>
+      <p class="opacity-70">크롤링·수집 잡 활성화·실행 시각 제어</p>
+    </div>
+  </a>
+</div>
+{% endblock %}
