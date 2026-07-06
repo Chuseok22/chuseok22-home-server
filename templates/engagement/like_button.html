@@ -1,0 +1,10 @@
+{% load engagement_tags %}
+<button
+  id="like-button"
+  class="btn btn-sm {% if is_liked %}btn-primary{% else %}btn-outline{% endif %}"
+  hx-post="{% url 'engagement:like-toggle' target|content_type_app_label target|content_type_model target.pk %}"
+  hx-target="#like-button"
+  hx-swap="outerHTML"
+>
+  ❤️ {{ like_count }}
+</button>

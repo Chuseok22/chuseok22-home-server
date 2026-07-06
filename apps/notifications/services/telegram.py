@@ -28,6 +28,14 @@ class TelegramService:
         message = self._format_message(source, item)
         return self._send(message, chat_id)
 
+    def send_admin_alert(self, message: str) -> bool:
+        """댓글·좋아요 등 사이트 이벤트를 관리자 채팅방으로 발송한다."""
+        chat_id = settings.TELEGRAM_ADMIN_CHAT_ID
+        if not chat_id:
+            logger.warning('TELEGRAM_ADMIN_CHAT_ID 미설정 — 관리자 알림을 건너뜁니다.')
+            return False
+        return self._send(message, chat_id)
+
     def _format_message(self, source: NoticeSource, item: BaseNoticeItem) -> str:
         if isinstance(item, SejongNoticeItem):
             return self._format_sejong_notice(source, item)

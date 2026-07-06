@@ -12,11 +12,14 @@ ENV PYTHONUNBUFFERED=1 \
 # 작업 디렉터리
 WORKDIR /app
 
-# 시스템 패키지 (필요 최소한만)
+# 시스템 패키지
 # - ca-certificates: https 요청 시 인증서 문제 방지 (httpx 등)
+# - nodejs/npm: django-tailwind 빌드에 필요
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      ca-certificates && \
+      ca-certificates \
+      nodejs \
+      npm && \
     rm -rf /var/lib/apt/lists/*
 
 # requirements 먼저 복사해 Docker 레이어 캐시 활용
@@ -25,6 +28,11 @@ RUN pip install --no-cache-dir -r /app/requirements/production.txt
 
 # 애플리케이션 소스 코드 복사
 COPY . /app
+
+# Tailwind CSS 프로덕션 빌드 (Node 의존성 설치 포함)
+# tailwind install/build는 기본적으로 비대화식으로 동작해 별도 플래그 없이 Docker 빌드에서 그대로 동작한다.
+RUN SECRET_KEY=build-time-dummy DATABASE_URL=sqlite:///dummy python manage.py tailwind install && \
+    SECRET_KEY=build-time-dummy DATABASE_URL=sqlite:///dummy python manage.py tailwind build
 
 # whitenoise 정적파일 수집 (DB 불필요, 빌드 타임에 처리)
 RUN SECRET_KEY=build-time-dummy DATABASE_URL=sqlite:///dummy python manage.py collectstatic --noinput

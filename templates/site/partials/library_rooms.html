@@ -1,0 +1,23 @@
+<div class="grid gap-2">
+  {% for room in rooms %}
+  <div class="card bg-base-200">
+    <div class="card-body p-4">
+      <h3 class="font-semibold">{{ room.room_name }} ({{ room.seat_cnt }}인실)</h3>
+      <div class="flex gap-1 flex-wrap">
+        {% for slot in room.slots %}
+        {% if slot.is_available %}
+        <button
+          class="btn btn-xs btn-outline"
+          hx-get="{% url 'site:lab-library-reserve-form' %}"
+          hx-target="#reserve-form"
+          hx-vals='{"room_no": "{{ slot.room_no|escapejs }}", "room_gb": "{{ slot.room_gb|escapejs }}", "seat_cnt": "{{ room.seat_cnt|escapejs }}", "sroom_title": "{{ slot.sroom_title|escapejs }}", "room_name": "{{ slot.room_name|escapejs }}", "seq": "{{ slot.seq|escapejs }}", "reserve_date": "{{ reserve_date|escapejs }}", "start_time": "{{ slot.start_time|escapejs }}"}'
+        >{{ slot.time_label }}</button>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <p class="opacity-60">가용 정보를 불러올 수 없습니다.</p>
+  {% endfor %}
+</div>

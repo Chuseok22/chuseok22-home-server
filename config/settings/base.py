@@ -17,6 +17,7 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
 ]
 
 THIRD_PARTY_APPS = [
@@ -25,6 +26,11 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
     'corsheaders',
     'django_apscheduler',
+    'tailwind',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.github',
 ]
 
 LOCAL_APPS = [
@@ -34,9 +40,23 @@ LOCAL_APPS = [
     'apps.activity',
     'apps.projects',
     'apps.sejong.student',
+    'apps.blog',
+    'theme',
+    'apps.accounts',
+    'apps.site',
+    'apps.engagement',
 ]
 
+TAILWIND_APP_NAME = 'theme'
+
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+SITE_ID = 1
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -46,6 +66,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -128,6 +149,7 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 
 # 텔레그램 알림 설정
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID', default='')
 
 # 세종대 포털 인증 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')
@@ -144,3 +166,23 @@ GITHUB_USERNAME = env('GITHUB_USERNAME', default='')
 ENABLE_SCHEDULER = env.bool('ENABLE_SCHEDULER', default=False)
 APSCHEDULER_DATETIME_FORMAT = 'N j, Y, f:s a'
 APSCHEDULER_RUN_NOW_TIMEOUT = 25  # 초
+
+# GitHub OAuth 소셜 로그인
+SOCIALACCOUNT_PROVIDERS = {
+    'github': {
+        'APP': {
+            'client_id': env('GITHUB_OAUTH_CLIENT_ID', default=''),
+            'secret': env('GITHUB_OAUTH_CLIENT_SECRET', default=''),
+        },
+    },
+}
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+LOGIN_REDIRECT_URL = '/'
+
+# 자체 이메일/비밀번호 회원가입 차단 (GitHub OAuth 소셜 로그인만 허용)
+ACCOUNT_ADAPTER = 'apps.accounts.adapters.NoLocalSignupAccountAdapter'
+# ACCOUNT_ADAPTER의 is_open_for_signup=False가 소셜 로그인 신규가입까지 막는 것을 방지
+SOCIALACCOUNT_ADAPTER = 'apps.accounts.adapters.AllowSocialSignupAdapter'
+
+# 사이트 소유자로 자동 승격할 GitHub 숫자 사용자 ID (username이 아님 — 개명·재등록에 영향받지 않음)
+GITHUB_OWNER_ID = env('GITHUB_OWNER_ID', default='')

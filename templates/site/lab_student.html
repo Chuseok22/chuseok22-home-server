@@ -1,0 +1,13 @@
+{% extends "site/base.html" %}
+
+{% block title %}학생 조회 — 백지훈{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">학생 조회</h1>
+<form hx-get="{% url 'site:lab-student-search' %}" hx-target="#results" class="flex gap-2 mb-4">
+  <input type="text" name="name" class="input input-bordered" placeholder="이름">
+  <input type="text" name="student_no" class="input input-bordered" placeholder="학번">
+  <button type="submit" class="btn btn-primary">검색</button>
+</form>
+<div id="results"></div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}백지훈{% endblock %}</title>
+  <script>
+    (function () {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
+  <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+  <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
+  <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+</head>
+<body
+  class="min-h-screen bg-base-100 text-base-content"
+  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+>
+  <!-- hx-headers가 body 전체에 CSRF 토큰을 실어 모든 htmx 요청(폼 안/밖 버튼 포함)에 자동 첨부한다.
+       CsrfViewMiddleware가 활성화되어 있어 이게 없으면 모든 htmx POST가 403으로 거부된다. -->
+  <header class="border-b border-base-300">
+    <nav class="navbar max-w-4xl mx-auto" x-data="{ theme: localStorage.getItem('theme') || 'light' }">
+      <div class="flex-1">
+        <a href="{% url 'site:home' %}" class="font-mono font-bold text-lg">chuseok22</a>
+      </div>
+      <div class="flex-none gap-2">
+        <a href="{% url 'site:projects' %}" class="btn btn-ghost btn-sm">Projects</a>
+        <a href="{% url 'site:blog-list' %}" class="btn btn-ghost btn-sm">Blog</a>
+        <a href="{% url 'site:lab-index' %}" class="btn btn-ghost btn-sm">Lab</a>
+        {% if user.is_authenticated %}
+        <span class="text-sm opacity-70">{{ user.username }}</span>
+        <a href="{% url 'account_logout' %}" class="btn btn-ghost btn-sm">로그아웃</a>
+        {% else %}
+        <a href="{% url 'github_login' %}" class="btn btn-ghost btn-sm">GitHub 로그인</a>
+        {% endif %}
+        <button
+          class="btn btn-ghost btn-sm"
+          @click="theme = theme === 'light' ? 'dark' : 'light'; localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme)"
+        >🌓</button>
+      </div>
+    </nav>
+  </header>
+  <main class="max-w-4xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
+</body>
+</html>
