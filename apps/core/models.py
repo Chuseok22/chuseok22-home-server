@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator
 from django.db import models
 
 
@@ -9,8 +10,10 @@ class ScheduledJobConfig(models.Model):
 
     job_id = models.CharField(max_length=100, unique=True)
     is_enabled = models.BooleanField(default=True)
-    cron_hour = models.PositiveSmallIntegerField()
-    cron_minute = models.PositiveSmallIntegerField(default=0)
+    # ScheduledJobConfigForm이 폼 레벨에서 0-23/0-59를 이미 검증하지만,
+    # 폼을 거치지 않는 향후 경로(admin 등록, shell 조작 등)에 대비한 모델 레벨 방어선.
+    cron_hour = models.PositiveSmallIntegerField(validators=[MaxValueValidator(23)])
+    cron_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

@@ -119,7 +119,7 @@ def test_프로젝트_삭제는_POST만_허용() -> None:
 
 
 @pytest.mark.django_db
-def test_비staff는_프로젝트_생성_불가() -> None:
+def test_비staff는_프로젝트_목록_접근_불가() -> None:
     reader = User.objects.create_user(username='reader', is_staff=False)
     client = Client()
     client.force_login(reader)
@@ -127,3 +127,15 @@ def test_비staff는_프로젝트_생성_불가() -> None:
     response = client.get(reverse('dashboard:project-list'))
 
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_비staff는_프로젝트_생성_요청_불가() -> None:
+    reader = User.objects.create_user(username='reader', is_staff=False)
+    client = Client()
+    client.force_login(reader)
+
+    response = client.post(reverse('dashboard:project-create'), {'title': '무단 생성'})
+
+    assert response.status_code == 403
+    assert not Project.objects.filter(title='무단 생성').exists()

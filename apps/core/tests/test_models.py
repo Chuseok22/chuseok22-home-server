@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.core.models import ScheduledJobConfig
@@ -9,6 +10,14 @@ from apps.core.scheduler import JOB_DEFINITIONS, get_or_seed_job_config
 def test_ScheduledJobConfig_문자열_표현() -> None:
     config = ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=8, cron_minute=0)
     assert str(config) == 'check_new_notices'
+
+
+@pytest.mark.django_db
+def test_cron_hour_cron_minute_범위_초과시_full_clean에서_거부된다() -> None:
+    """ScheduledJobConfigForm을 거치지 않는 경로(admin, shell 등) 대비 모델 레벨 방어선을 검증한다."""
+    config = ScheduledJobConfig(job_id='check_new_notices', cron_hour=24, cron_minute=60)
+    with pytest.raises(ValidationError):
+        config.full_clean()
 
 
 @pytest.mark.django_db
