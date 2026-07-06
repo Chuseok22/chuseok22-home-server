@@ -11,6 +11,6 @@ def test_media_url이_업로드된_파일을_서빙한다(client: Client) -> Non
     try:
         response = client.get('/media/test_media_serving_sample.txt')
         assert response.status_code == 200
-        assert response.content == b'hello'
+        assert b''.join(response.streaming_content) == b'hello'
     finally:
         test_file.unlink()

@@ -29,7 +29,13 @@ def test_png_이미지_업로드시_webp로_변환되어_저장된다(settings, 
 
 def test_투명_배경_png는_rgba로_유지되어_webp로_저장된다(settings, tmp_path) -> None:
     settings.MEDIA_ROOT = tmp_path
-    upload = _make_image_upload('transparent.png', 'PNG', mode='RGBA')
+    buffer = io.BytesIO()
+    # 실제로 투명한 픽셀(alpha=0)이어야 webp 저장 시 알파 채널이 보존된다.
+    # 완전 불투명(alpha=255)이면 libwebp가 중복 알파 평면을 제거해 RGB로 저장되므로,
+    # 이 테스트가 검증하려는 "투명 배경 보존"을 실제로 재현하려면 alpha=0 픽셀이 필요하다.
+    Image.new('RGBA', (10, 10), color=(255, 0, 0, 0)).save(buffer, format='PNG')
+    buffer.seek(0)
+    upload = SimpleUploadedFile('transparent.png', buffer.read(), content_type='image/png')
 
     result = save_uploaded_media(upload)
 
