@@ -34,6 +34,9 @@ urlpatterns = [
     # 댓글·좋아요
     path('engagement/', include('apps.engagement.urls')),
 
+    # 커스텀 관리자 대시보드
+    path('dashboard/', include('apps.dashboard.urls')),
+
     # 공개 사이트 (SSR) — 항상 마지막에 배치
     path('', include('apps.site.urls')),
 ]
