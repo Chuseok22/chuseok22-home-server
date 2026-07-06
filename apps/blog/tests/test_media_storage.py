@@ -114,3 +114,25 @@ def test_heic_이미지_업로드시_webp로_변환되어_저장된다(settings,
 
     assert result.success is True
     assert result.url.endswith('.webp')
+
+
+def test_mp4_동영상은_원본_그대로_저장되고_video_태그가_생성된다(settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    upload = SimpleUploadedFile('clip.mp4', b'fake-video-bytes', content_type='video/mp4')
+
+    result = save_uploaded_media(upload)
+
+    assert result.success is True
+    assert result.url.endswith('.mp4')
+    assert result.markdown == f'<video controls src="{result.url}"></video>'
+
+
+def test_pdf_문서는_원본_그대로_저장되고_링크가_생성된다(settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    upload = SimpleUploadedFile('resume.pdf', b'%PDF-1.4 fake', content_type='application/pdf')
+
+    result = save_uploaded_media(upload)
+
+    assert result.success is True
+    assert result.url.endswith('.pdf')
+    assert result.markdown == f'[resume.pdf]({result.url})'

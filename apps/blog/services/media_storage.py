@@ -17,6 +17,8 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 pillow_heif.register_heif_opener()
 
 _IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'}
+_VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm'}
+_DOCUMENT_EXTENSIONS = {'.pdf'}
 _MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 _WEBP_QUALITY = 82
 
@@ -40,6 +42,12 @@ def save_uploaded_media(uploaded_file: UploadedFile) -> MediaUploadResult:
 
     if extension in _IMAGE_EXTENSIONS:
         return _save_image(uploaded_file, extension)
+    if extension in _VIDEO_EXTENSIONS:
+        return _store(uploaded_file, extension, markdown_builder=_video_markdown)
+    if extension in _DOCUMENT_EXTENSIONS:
+        # 파일명에 [ ] 가 있으면 마크다운 링크 문법이 깨지므로 링크 텍스트에서만 제거한다.
+        safe_name = uploaded_file.name.replace('[', '').replace(']', '')
+        return _store(uploaded_file, extension, markdown_builder=lambda url: f'[{safe_name}]({url})')
 
     return MediaUploadResult(success=False, error_message=f'지원하지 않는 파일 형식입니다: {extension}')
 
@@ -80,3 +88,7 @@ def _store(file_content: File, extension: str, markdown_builder: Callable[[str],
 
 def _image_markdown(url: str) -> str:
     return f'![업로드 이미지]({url})'
+
+
+def _video_markdown(url: str) -> str:
+    return f'<video controls src="{url}"></video>'
