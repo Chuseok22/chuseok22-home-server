@@ -42,4 +42,4 @@ def test_마크다운_미리보기가_렌더링된다(admin_client: Client) -> N
     response = admin_client.get(url)
 
     assert response.status_code == 200
-    assert b'<h1>' in response.content
+    assert '<h1>헤딩</h1>' in response.content.decode()
