@@ -8,12 +8,15 @@ from io import BytesIO
 from pathlib import Path
 from typing import Callable
 
+import pillow_heif
 from django.core.files.base import ContentFile, File
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import UploadedFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+pillow_heif.register_heif_opener()
+
+_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'}
 _MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 _WEBP_QUALITY = 82
 

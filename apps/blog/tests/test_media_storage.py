@@ -97,3 +97,20 @@ def test_지원하지_않는_확장자는_거부된다() -> None:
 
     assert result.success is False
     assert '지원하지 않는' in result.error_message
+
+
+def test_heic_이미지_업로드시_webp로_변환되어_저장된다(settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    import pillow_heif
+
+    pil_image = Image.new('RGB', (10, 10), color='blue')
+    heif_file = pillow_heif.from_pillow(pil_image)
+    buffer = io.BytesIO()
+    heif_file.save(buffer, format='HEIF')
+    buffer.seek(0)
+    upload = SimpleUploadedFile('photo.heic', buffer.read(), content_type='image/heic')
+
+    result = save_uploaded_media(upload)
+
+    assert result.success is True
+    assert result.url.endswith('.webp')
