@@ -11,25 +11,31 @@ urlpatterns = [
     # Core
     path('api/v1/', include('apps.core.urls')),
 
-    # JWT 인증
+    # JWT 인증 (기존 API 전용)
     path('api/v1/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # 학술정보원
+    # 학술정보원 (기존 REST API — 서비스 레이어는 apps.site가 재사용, 엔드포인트는 유지)
     path('api/v1/library/', include('apps.sejong.library.urls')),
 
     # GitHub 활동
     path('api/v1/activities/', include('apps.activity.urls')),
 
-    # 프로젝트
-    path('api/v1/projects/', include('apps.projects.urls')),
-
-    # 세종대 학생 조회
+    # 세종대 학생 조회 (기존 REST API)
     path('api/v1/sejong/students/', include('apps.sejong.student.urls')),
 
     # Swagger (drf-spectacular)
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('docs/swagger/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+
+    # 소셜 로그인 (django-allauth)
+    path('accounts/', include('allauth.urls')),
+
+    # 댓글·좋아요
+    path('engagement/', include('apps.engagement.urls')),
+
+    # 공개 사이트 (SSR) — 항상 마지막에 배치
+    path('', include('apps.site.urls')),
 ]
 
 if settings.DEBUG:
