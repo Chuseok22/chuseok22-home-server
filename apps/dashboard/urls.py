@@ -18,4 +18,9 @@ urlpatterns = [
     path('posts/new/', views.post_form, name='post-create'),
     path('posts/<int:pk>/edit/', views.post_form, name='post-update'),
     path('posts/<int:pk>/delete/', views.post_delete, name='post-delete'),
+
+    path('automation/', views.automation_list, name='automation-list'),
+    path('automation/table/', views.automation_table_body, name='automation-table-body'),
+    path('automation/<str:job_id>/edit/', views.automation_form, name='automation-form'),
+    path('automation/<str:job_id>/update/', views.automation_update, name='automation-update'),
 ]
