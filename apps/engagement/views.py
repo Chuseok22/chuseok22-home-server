@@ -41,7 +41,7 @@ def comment_create(request: HttpRequest, app_label: str, model: str, object_id: 
     else:
         Comment.objects.create(content_type=content_type, object_id=target.pk, author=request.user, body=body)
 
-    comments = Comment.objects.filter(content_type=content_type, object_id=target.pk)
+    comments = Comment.objects.filter(content_type=content_type, object_id=target.pk).select_related('author')
     return render(request, 'engagement/comments.html', {'comments': comments, 'target': target, 'error': error})
 
 
@@ -50,11 +50,13 @@ def comment_create(request: HttpRequest, app_label: str, model: str, object_id: 
 def like_toggle(request: HttpRequest, app_label: str, model: str, object_id: int) -> HttpResponse:
     """좋아요 토글 (htmx 부분 응답으로 갱신된 좋아요 수 반환)."""
     content_type, target = _resolve_target(app_label, model, object_id)
-    like = Like.objects.filter(content_type=content_type, object_id=target.pk, user=request.user).first()
-    if like:
+    # get_or_create는 동시 요청으로 create가 IntegrityError를 만나도 내부적으로 재조회해 반환하므로
+    # unique_like_per_user_per_target 제약과 결합한 레이스 컨디션을 원자적으로 처리한다.
+    like, created = Like.objects.get_or_create(
+        content_type=content_type, object_id=target.pk, user=request.user,
+    )
+    if not created:
         like.delete()
-    else:
-        Like.objects.create(content_type=content_type, object_id=target.pk, user=request.user)
 
     like_count = Like.objects.filter(content_type=content_type, object_id=target.pk).count()
     is_liked = Like.objects.filter(content_type=content_type, object_id=target.pk, user=request.user).exists()
