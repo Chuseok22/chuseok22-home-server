@@ -16,4 +16,4 @@ bleach==6.4.*
 django-tailwind==3.8.*
 django-allauth==65.3.*
 Pillow==11.*
-pillow-heif==0.22.*
+pillow-heif==1.4.*
