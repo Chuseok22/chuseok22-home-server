@@ -35,6 +35,34 @@ def test_프로젝트_생성() -> None:
 
 
 @pytest.mark.django_db
+def test_하이라이트_빈값이면_빈리스트로_저장된다() -> None:
+    """highlights 텍스트영역을 빈 값으로 제출해도 IntegrityError 없이 빈 리스트로 저장되어야 한다."""
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.post(reverse('dashboard:project-create'), {
+        'category': 'side',
+        'title': '하이라이트 없는 프로젝트',
+        'description': '설명',
+        'tags': '[]',
+        'status': 'in_progress',
+        'order': 0,
+        'period': '',
+        'team_size': '',
+        'role': '',
+        'highlights': '',
+        'github_href': '',
+        'demo_href': '',
+        'title_href': '',
+    })
+
+    assert response.status_code == 200
+    project = Project.objects.get(title='하이라이트 없는 프로젝트')
+    assert project.highlights == []
+
+
+@pytest.mark.django_db
 def test_필수_필드_누락시_저장되지_않는다() -> None:
     owner = User.objects.create_user(username='owner', is_staff=True)
     client = Client()

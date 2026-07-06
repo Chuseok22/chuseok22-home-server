@@ -29,6 +29,27 @@ def test_포스트_생성() -> None:
 
 
 @pytest.mark.django_db
+def test_태그_빈값이면_빈리스트로_저장된다() -> None:
+    """tags 텍스트영역을 빈 값으로 제출해도 IntegrityError 없이 빈 리스트로 저장되어야 한다."""
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.post(reverse('dashboard:post-create'), {
+        'title': '태그 없는 포스트',
+        'slug': 'no-tags-post',
+        'summary': '',
+        'content': '본문 내용',
+        'tags': '',
+        'published_at': '',
+    })
+
+    assert response.status_code == 200
+    post = Post.objects.get(slug='no-tags-post')
+    assert post.tags == []
+
+
+@pytest.mark.django_db
 def test_슬러그_중복시_저장되지_않는다() -> None:
     owner = User.objects.create_user(username='owner', is_staff=True)
     Post.objects.create(title='기존 글', slug='dup-slug', content='...')
