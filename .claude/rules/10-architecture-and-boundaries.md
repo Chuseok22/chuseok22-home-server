@@ -42,14 +42,6 @@
 `apps.site.views → apps.blog/projects/engagement/sejong.*.models`처럼 표현 계층이 도메인 모델을
 직접 조회하는 것은 이 예외에 한해 허용한다. 그 외 앱 간 직접 model import는 여전히 금지다.
 
-**예외 — 관리 대시보드(`apps.dashboard`)**: Issue #26(커스텀 관리자 UI)에서 `apps.dashboard`도 같은
-이유로 `apps.projects.Project`, `apps.blog.Post` 모델을 서비스 레이어 없이 직접 조회·수정한다(단순 CRUD
-관리 화면이므로 서비스 레이어가 불필요). `apps.dashboard.views → apps.projects/blog.models`도 이 예외에
-포함한다. 자동화 스케줄 조회·시딩(`apps.core.scheduler`의 `JOB_DEFINITIONS`, `get_or_seed_job_config`,
-`get_scheduler`)은 대시보드 뷰가 `apps.core.scheduler`의 공개 인터페이스를 직접 참조하는 것을 이 예외에
-포함하되, 설정 갱신(DB 저장 + 실행 중 스케줄러 즉시 반영)은 반드시
-`apps.core.services.scheduler_service.update_job_schedule`을 통해서만 수행한다.
-
 ## Data flow
 
 **REST API 흐름:**
