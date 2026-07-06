@@ -181,6 +181,8 @@ LOGIN_REDIRECT_URL = '/'
 
 # 자체 이메일/비밀번호 회원가입 차단 (GitHub OAuth 소셜 로그인만 허용)
 ACCOUNT_ADAPTER = 'apps.accounts.adapters.NoLocalSignupAccountAdapter'
+# ACCOUNT_ADAPTER의 is_open_for_signup=False가 소셜 로그인 신규가입까지 막는 것을 방지
+SOCIALACCOUNT_ADAPTER = 'apps.accounts.adapters.AllowSocialSignupAdapter'
 
 # 사이트 소유자로 자동 승격할 GitHub 숫자 사용자 ID (username이 아님 — 개명·재등록에 영향받지 않음)
 GITHUB_OWNER_ID = env('GITHUB_OWNER_ID', default='')
