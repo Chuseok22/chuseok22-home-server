@@ -1,4 +1,8 @@
+from typing import Any
+
+from django import forms
 from django.contrib import admin, messages
+from django.http import HttpRequest, HttpResponse
 
 from apps.core.models import ScheduledJobConfig
 from apps.core.scheduler import JOB_DEFINITIONS, get_scheduler
@@ -14,11 +18,13 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
     def label(self, obj: ScheduledJobConfig) -> str:
         return JOB_DEFINITIONS.get(obj.job_id, {}).get('label', obj.job_id)
 
-    def has_add_permission(self, request) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:
         # job_id는 JOB_DEFINITIONS와 1:1로 시딩되는 값이라 임의 생성을 막는다.
         return False
 
-    def changelist_view(self, request, extra_context=None):
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> HttpResponse:
         if get_scheduler() is None:
             self.message_user(
                 request,
@@ -27,7 +33,13 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
             )
         return super().changelist_view(request, extra_context)
 
-    def save_model(self, request, obj: ScheduledJobConfig, form, change: bool) -> None:
+    def save_model(
+        self,
+        request: HttpRequest,
+        obj: ScheduledJobConfig,
+        form: forms.ModelForm,
+        change: bool,
+    ) -> None:
         # 기본 obj.save() 대신 기존 서비스 레이어를 재사용해 DB 저장 + 실행 중 스케줄러 즉시 반영을 함께 처리한다.
         update_job_schedule(
             obj.job_id,
