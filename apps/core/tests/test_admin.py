@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from apscheduler.jobstores.base import JobLookupError
 from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
@@ -38,6 +39,32 @@ def test_새_행_추가는_허용되지_않는다(admin_client: Client) -> None:
     url = reverse('admin:core_scheduledjobconfig_add')
     response = admin_client.get(url)
     assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_행_삭제는_허용되지_않는다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=8, cron_minute=0)
+    url = reverse('admin:core_scheduledjobconfig_delete', args=[config.pk])
+    response = admin_client.get(url)
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_스케줄러에_job이_없으면_경고_메시지가_노출되고_저장은_유지된다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=8, cron_minute=0)
+    url = reverse('admin:core_scheduledjobconfig_change', args=[config.pk])
+
+    with patch('apps.core.admin.update_job_schedule', side_effect=JobLookupError(config.job_id)):
+        response = admin_client.post(url, {
+            'is_enabled': 'on',
+            'cron_hour': 10,
+            'cron_minute': 30,
+            '_save': 'Save',
+        }, follow=True)
+
+    assert response.status_code == 200
+    messages = [m.message for m in response.context['messages']]
+    assert any('즉시 반영하지 못했습니다' in m for m in messages)
 
 
 @pytest.mark.django_db
