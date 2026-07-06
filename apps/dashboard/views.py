@@ -2,8 +2,9 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
+from apps.blog.models import Post
 from apps.dashboard.decorators import dashboard_required
-from apps.dashboard.forms import ProjectForm
+from apps.dashboard.forms import PostForm, ProjectForm
 from apps.projects.models import Project
 
 
@@ -50,3 +51,42 @@ def project_delete(request: HttpRequest, pk: int) -> HttpResponse:
     project = get_object_or_404(Project, pk=pk)
     project.delete()
     return render(request, 'dashboard/projects/_table_body.html', {'projects': Project.objects.all()})
+
+
+# --- Post CRUD ---
+
+@dashboard_required
+def post_list(request: HttpRequest) -> HttpResponse:
+    """블로그 포스트 목록 페이지."""
+    return render(request, 'dashboard/blog/list.html', {'posts': Post.objects.all()})
+
+
+@dashboard_required
+def post_table_body(request: HttpRequest) -> HttpResponse:
+    """블로그 포스트 목록 테이블 본문 (htmx 부분 응답)."""
+    return render(request, 'dashboard/blog/_table_body.html', {'posts': Post.objects.all()})
+
+
+@dashboard_required
+def post_form(request: HttpRequest, pk: int | None = None) -> HttpResponse:
+    """블로그 포스트 생성/수정 폼 (htmx 부분 응답)."""
+    post = get_object_or_404(Post, pk=pk) if pk else None
+
+    if request.method == 'POST':
+        form = PostForm(request.POST, instance=post)
+        if form.is_valid():
+            form.save()
+            return render(request, 'dashboard/blog/_table_body.html', {'posts': Post.objects.all()})
+        return render(request, 'dashboard/blog/_form.html', {'form': form, 'post': post}, status=200)
+
+    form = PostForm(instance=post)
+    return render(request, 'dashboard/blog/_form.html', {'form': form, 'post': post})
+
+
+@dashboard_required
+@require_POST
+def post_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    """블로그 포스트 삭제 (htmx 부분 응답)."""
+    post = get_object_or_404(Post, pk=pk)
+    post.delete()
+    return render(request, 'dashboard/blog/_table_body.html', {'posts': Post.objects.all()})

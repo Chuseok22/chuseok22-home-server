@@ -1,0 +1,28 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}블로그 관리{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">블로그 관리</h1>
+  <button
+    class="btn btn-primary btn-sm"
+    hx-get="{% url 'dashboard:post-create' %}"
+    hx-target="#post-table-body"
+    hx-swap="outerHTML"
+  >새 포스트</button>
+</div>
+<div class="overflow-x-auto">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>제목</th>
+        <th>공개 여부</th>
+        <th>발행일시</th>
+        <th></th>
+      </tr>
+    </thead>
+    {% include "dashboard/blog/_table_body.html" %}
+  </table>
+</div>
+{% endblock %}
