@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import NoReverseMatch, reverse
 
 
 class Tool(models.Model):
@@ -19,3 +21,10 @@ class Tool(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def clean(self) -> None:
+        # url_name이 reverse 불가능한 값이면 lab_index 공개 페이지가 NoReverseMatch로 깨지므로 저장 전 검증한다.
+        try:
+            reverse(self.url_name)
+        except NoReverseMatch as error:
+            raise ValidationError({'url_name': 'reverse할 수 없는 URL name입니다.'}) from error
