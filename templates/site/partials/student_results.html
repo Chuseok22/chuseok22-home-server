@@ -1,0 +1,12 @@
+<div class="grid gap-2">
+  {% for student in results %}
+  <div class="card bg-base-200">
+    <div class="card-body p-4">
+      <p><strong>{{ student.name }}</strong> ({{ student.student_no }})</p>
+      <p class="opacity-70 text-sm">{{ student.dept_name }}</p>
+    </div>
+  </div>
+  {% empty %}
+  <p class="opacity-60">검색 결과가 없습니다.</p>
+  {% endfor %}
+</div>
