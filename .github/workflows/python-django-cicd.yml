@@ -15,6 +15,7 @@ env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   PORT: 8082
   APP_PORT: 8000
+  MOUNT_DIR: /volume1/project/chuseok22-home/server # 산출물 저장용 호스트 절대경로 (컨테이너 /app/output에 마운트, 미디어 외 다른 산출물도 이 아래에 저장)
 
 jobs:
   build:
@@ -80,7 +81,8 @@ jobs:
             IMAGE=${{ env.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${BRANCH}
             PORT=${{ env.PORT }}
             APP_PORT=${{ env.APP_PORT }}
-            WORKDIR="/opt/${PROJECT_NAME}/${BRANCH}"
+            MOUNT_DIR=${{ env.MOUNT_DIR }}
+            WORKDIR="/opt/${PROJECT_NAME}"
 
             echo "브랜치: ${BRANCH}"
             echo "이미지: ${IMAGE}"
@@ -100,7 +102,7 @@ jobs:
 
             echo "디렉토리 구조 생성"
             echo $PW | sudo -S mkdir -p "${WORKDIR}"
-            echo $PW | sudo -S mkdir -p "${WORKDIR}/media"
+            echo $PW | sudo -S mkdir -p "${MOUNT_DIR}"
 
             echo ".env 파일 구성"
             echo '${{ secrets.ENV_FILE }}' | sudo tee "${WORKDIR}/.env" > /dev/null
@@ -109,7 +111,7 @@ jobs:
             echo $PW | sudo -S docker run -d -p "${PORT}":"${APP_PORT}" --name "${CONTAINER_NAME}" \
               -e TZ=Asia/Seoul \
               --env-file "${WORKDIR}/.env" \
-              -v "${WORKDIR}/media":/app/media \
+              -v "${MOUNT_DIR}":/app/output \
               "${IMAGE}"
 
             echo "헬스체크 (최대 120회, 1초간격)"
