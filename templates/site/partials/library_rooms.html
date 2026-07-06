@@ -10,7 +10,7 @@
           class="btn btn-xs btn-outline"
           hx-get="{% url 'site:lab-library-reserve-form' %}"
           hx-target="#reserve-form"
-          hx-vals='{"room_no": "{{ slot.room_no }}", "room_gb": "{{ slot.room_gb }}", "seat_cnt": "{{ room.seat_cnt }}", "sroom_title": "{{ slot.sroom_title }}", "room_name": "{{ slot.room_name }}", "seq": "{{ slot.seq }}", "reserve_date": "{{ reserve_date }}", "start_time": "{{ slot.start_time }}"}'
+          hx-vals='{"room_no": "{{ slot.room_no|escapejs }}", "room_gb": "{{ slot.room_gb|escapejs }}", "seat_cnt": "{{ room.seat_cnt|escapejs }}", "sroom_title": "{{ slot.sroom_title|escapejs }}", "room_name": "{{ slot.room_name|escapejs }}", "seq": "{{ slot.seq|escapejs }}", "reserve_date": "{{ reserve_date|escapejs }}", "start_time": "{{ slot.start_time|escapejs }}"}'
         >{{ slot.time_label }}</button>
         {% endif %}
         {% endfor %}
