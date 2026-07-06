@@ -25,3 +25,10 @@ def test_render_markdown_script_태그는_제거된다() -> None:
     result = render_markdown('본문 <script>alert(1)</script> 텍스트')
 
     assert '<script>' not in result
+
+
+def test_video_태그는_허용된_속성만_남기고_렌더링된다() -> None:
+    result = render_markdown('<video controls src="/media/blog/uploads/x.mp4" onerror="alert(1)"></video>')
+
+    assert '<video controls src="/media/blog/uploads/x.mp4">' in result
+    assert 'onerror' not in result
