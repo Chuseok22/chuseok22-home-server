@@ -1,0 +1,11 @@
+{% if error %}
+<div class="alert alert-error mb-2">{{ error }}</div>
+{% endif %}
+{% for comment in comments %}
+<div class="border-b border-base-300 py-2">
+  <p class="text-sm font-semibold">{{ comment.author }}</p>
+  <p>{{ comment.body }}</p>
+</div>
+{% empty %}
+<p class="opacity-60">첫 댓글을 남겨보세요.</p>
+{% endfor %}
