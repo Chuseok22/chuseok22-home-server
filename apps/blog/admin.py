@@ -48,6 +48,11 @@ class PostAdmin(admin.ModelAdmin):
         return custom_urls + super().get_urls()
 
     def upload_media_view(self, request: HttpRequest) -> JsonResponse:
+        # admin_view()는 로그인·staff 여부만 검사하므로, Post 변경 권한이 없는 staff 계정의
+        # 업로드를 막으려면 모델 단위 권한을 별도로 확인해야 한다.
+        if not self.has_change_permission(request):
+            return JsonResponse({'success': False, 'error_message': '권한이 없습니다.'}, status=403)
+
         if request.method != 'POST' or 'file' not in request.FILES:
             return JsonResponse({'success': False, 'error_message': '업로드할 파일이 없습니다.'}, status=400)
 

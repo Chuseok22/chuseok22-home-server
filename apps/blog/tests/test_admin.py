@@ -68,6 +68,20 @@ def test_로그인하지_않으면_업로드_엔드포인트_접근이_거부된
 
 
 @pytest.mark.django_db
+def test_post_변경_권한이_없는_스태프는_업로드가_거부된다(settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    user = User.objects.create_user(username='staff', email='staff@example.com', password='pw12345!', is_staff=True)
+    client = Client()
+    client.force_login(user)
+    url = reverse('admin:blog_post_upload_media')
+    upload = _make_png_upload('photo.png')
+
+    response = client.post(url, {'file': upload})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
 def test_관리자는_이미지를_업로드하고_마크다운을_응답받는다(admin_client: Client, settings, tmp_path) -> None:
     settings.MEDIA_ROOT = tmp_path
     url = reverse('admin:blog_post_upload_media')
