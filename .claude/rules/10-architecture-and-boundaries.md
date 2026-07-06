@@ -36,6 +36,12 @@
 
 **금지 의존 관계**: `models → services`, `services → views`, 앱 간 직접 model import
 
+**예외 — SSR 표현 계층(`apps.site`)**: Issue #25(SSR 마이그레이션)에서 `apps.site`는 REST API
+레이어 없이 뷰가 각 도메인 앱의 `models`(조회)와 `services/`(외부 연동·쓰기)를 직접 호출하는
+구조로 설계됐다(`docs/superpowers/plans/2026-07-05-site-ssr-migration.md` Architecture 절 참고).
+`apps.site.views → apps.blog/projects/engagement/sejong.*.models`처럼 표현 계층이 도메인 모델을
+직접 조회하는 것은 이 예외에 한해 허용한다. 그 외 앱 간 직접 model import는 여전히 금지다.
+
 ## Data flow
 
 **REST API 흐름:**
