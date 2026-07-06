@@ -56,7 +56,9 @@ def _save_image(uploaded_file: UploadedFile, extension: str) -> MediaUploadResul
     try:
         image = Image.open(uploaded_file)
         image.load()
-    except (UnidentifiedImageError, OSError):
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
+        # DecompressionBombError는 OSError의 하위 클래스가 아니라서 별도로 잡아야 한다.
+        # 픽셀 수가 MAX_IMAGE_PIXELS의 2배를 넘는 업로드(압축 폭탄)를 거부하기 위함.
         return MediaUploadResult(success=False, error_message='올바른 이미지 파일이 아닙니다.')
 
     if getattr(image, 'is_animated', False):

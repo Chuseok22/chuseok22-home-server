@@ -87,6 +87,17 @@ def test_손상된_이미지_파일은_거부된다() -> None:
     assert '이미지' in result.error_message
 
 
+def test_압축_폭탄_이미지는_거부된다(monkeypatch) -> None:
+    # DecompressionBombError는 OSError를 상속하지 않으므로 별도 처리가 필요하다.
+    monkeypatch.setattr(Image, 'MAX_IMAGE_PIXELS', 10)
+    upload = _make_image_upload('bomb.png', 'PNG', size=(100, 100))
+
+    result = save_uploaded_media(upload)
+
+    assert result.success is False
+    assert '이미지' in result.error_message
+
+
 def test_50mb_초과_파일은_거부된다() -> None:
     oversized = SimpleUploadedFile('big.png', b'0' * (50 * 1024 * 1024 + 1), content_type='image/png')
 
