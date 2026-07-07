@@ -126,6 +126,9 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_RATES': {
+        'blog_ingest': '30/day',
+    },
 }
 
 SIMPLE_JWT = {
@@ -189,3 +192,6 @@ SOCIALACCOUNT_ADAPTER = 'apps.accounts.adapters.AllowSocialSignupAdapter'
 
 # 사이트 소유자로 자동 승격할 GitHub 숫자 사용자 ID (username이 아님 — 개명·재등록에 영향받지 않음)
 GITHUB_OWNER_ID = env('GITHUB_OWNER_ID', default='')
+
+# 블로그 자동 포스팅(ingest) 전용 API 키 — 기존 JWT 로그인과 분리된 별도 인증
+BLOG_INGEST_API_KEY = env('BLOG_INGEST_API_KEY', default='')
