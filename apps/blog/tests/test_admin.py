@@ -7,7 +7,7 @@ from django.test import Client
 from django.urls import reverse
 from PIL import Image
 
-from apps.blog.models import Post
+from apps.blog.models import Category, Post
 
 
 @pytest.fixture
@@ -18,13 +18,20 @@ def admin_client(db) -> Client:
     return client
 
 
+@pytest.fixture
+def category(db) -> Category:
+    return Category.objects.create(name='개발', slug='dev')
+
+
 @pytest.mark.django_db
-def test_태그가_빈값이어도_저장된다(admin_client: Client) -> None:
+def test_태그가_빈값이어도_저장된다(admin_client: Client, category: Category) -> None:
     url = reverse('admin:blog_post_add')
     response = admin_client.post(url, {
         'title': '테스트 포스트',
         'slug': 'test-post',
         'summary': '',
+        'category': category.id,
+        'repo_url': '',
         'content': '# 제목',
         'tags': '',
         'is_published': '',
@@ -94,3 +101,16 @@ def test_관리자는_이미지를_업로드하고_마크다운을_응답받는�
     assert data['success'] is True
     assert data['url'].endswith('.webp')
     assert '![업로드 이미지]' in data['markdown']
+
+
+@pytest.mark.django_db
+def test_카테고리_admin에서_소분류는_상위_카테고리_선택지에_없다(admin_client: Client) -> None:
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category.objects.create(name='waitee-app', slug='waitee-app', parent=parent)
+
+    url = reverse('admin:blog_category_add')
+    response = admin_client.get(url)
+
+    parent_choices = list(response.context['adminform'].form.fields['parent'].queryset)
+    assert child not in parent_choices
+    assert parent in parent_choices
