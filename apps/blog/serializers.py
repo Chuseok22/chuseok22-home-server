@@ -6,7 +6,7 @@ class BlogIngestSerializer(serializers.Serializer):
 
     title = serializers.CharField(max_length=200)
     summary = serializers.CharField(max_length=300, required=False, allow_blank=True, default='')
-    content = serializers.CharField()
+    content = serializers.CharField(max_length=50000)
     tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
     category_name = serializers.CharField(max_length=50)
     repo_url = serializers.URLField(required=False, allow_blank=True, default='')

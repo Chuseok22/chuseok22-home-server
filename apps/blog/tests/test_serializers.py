@@ -34,6 +34,17 @@ def test_category_name이_없으면_무효하다() -> None:
     assert 'category_name' in serializer.errors
 
 
+def test_content가_상한을_초과하면_무효하다() -> None:
+    serializer = BlogIngestSerializer(data={
+        'title': '작업 회고',
+        'content': 'x' * 50001,
+        'category_name': 'waitee-app',
+    })
+
+    assert not serializer.is_valid()
+    assert 'content' in serializer.errors
+
+
 def test_모든_필드를_채우면_그대로_반영된다() -> None:
     serializer = BlogIngestSerializer(data={
         'title': '작업 회고',
