@@ -1,6 +1,8 @@
 import pytest
 
-from apps.blog.models import Post
+from django.core.exceptions import ValidationError
+
+from apps.blog.models import Category, Post
 
 
 @pytest.mark.django_db
@@ -30,3 +32,21 @@ def test_post_정렬은_published_at_역순() -> None:
     )
 
     assert list(Post.objects.all()) == [newer, older]
+
+
+@pytest.mark.django_db
+def test_카테고리는_3단계_중첩이_금지된다() -> None:
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category.objects.create(name='waitee-app', slug='waitee-app', parent=parent)
+    grandchild = Category(name='세부', slug='detail', parent=child)
+
+    with pytest.raises(ValidationError):
+        grandchild.clean()
+
+
+@pytest.mark.django_db
+def test_카테고리는_최상위끼리는_중첩_제약에_걸리지_않는다() -> None:
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category(name='waitee-app', slug='waitee-app', parent=parent)
+
+    child.clean()  # 예외가 발생하지 않아야 한다
