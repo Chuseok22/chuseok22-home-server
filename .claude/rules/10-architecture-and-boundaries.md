@@ -94,3 +94,10 @@ urlpatterns += [
 /api/v1/auth/token/refresh/ - JWT 갱신
 /docs/swagger/           - Swagger UI
 ```
+
+## Blog Category 계층 제약
+
+- `apps.blog.Category`는 `parent` 자기참조 FK로 대분류/소분류 **2단계까지만** 허용한다.
+- `Category.clean()`이 "부모로 지정하려는 카테고리가 이미 누군가의 자식인 경우" `ValidationError`를 발생시켜 3단계 이상 중첩을 막는다.
+- Admin에서도 `CategoryAdmin.formfield_for_foreignkey()`가 `parent` 드롭다운을 최상위(`parent__isnull=True`) 카테고리로 제한한다.
+- 이 불변조건을 우회하는 방식(예: `parent`를 통해 재귀적으로 트리를 순회하는 로직 추가)은 도입하지 않는다. 3단계 이상이 필요해지면 `clean()`의 깊이 검증 자체를 완화하는 별도 논의를 거친다.
