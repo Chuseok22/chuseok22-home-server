@@ -1,5 +1,8 @@
-from django.http import HttpRequest
+from typing import ClassVar
+
+from django.urls import reverse
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -14,9 +17,9 @@ from apps.blog.services.slug import generate_unique_slug
 class BlogIngestView(APIView):
     """외부 프로젝트 작업 결과를 블로그 초안으로 등록하는 ingest 전용 엔드포인트."""
 
-    authentication_classes: list = []
-    permission_classes = [HasBlogIngestKey]
-    throttle_classes = [ScopedRateThrottle]
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list] = [HasBlogIngestKey]
+    throttle_classes: ClassVar[list] = [ScopedRateThrottle]
     throttle_scope = 'blog_ingest'
 
     @extend_schema(
@@ -35,7 +38,7 @@ class BlogIngestView(APIView):
         },
         tags=['blog'],
     )
-    def post(self, request: HttpRequest) -> Response:
+    def post(self, request: Request) -> Response:
         serializer = BlogIngestSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
@@ -57,7 +60,7 @@ class BlogIngestView(APIView):
             {
                 'id': post.id,
                 'slug': post.slug,
-                'admin_url': f'/admin/blog/post/{post.id}/change/',
+                'admin_url': reverse('admin:blog_post_change', args=[post.id]),
             },
             status=201,
         )
