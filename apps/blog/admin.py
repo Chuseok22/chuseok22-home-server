@@ -31,7 +31,12 @@ class CategoryAdmin(admin.ModelAdmin):
     def formfield_for_foreignkey(self, db_field: ForeignKey, request: HttpRequest, **kwargs) -> forms.Field:
         # 소분류가 다른 소분류의 부모가 되는 3단계 중첩을 UI 단에서부터 차단한다.
         if db_field.name == 'parent':
-            kwargs['queryset'] = Category.objects.filter(parent__isnull=True)
+            queryset = Category.objects.filter(parent__isnull=True)
+            # 최상위 카테고리 편집 시 자기 자신을 부모로 선택하는 자기참조를 막는다.
+            object_id = request.resolver_match.kwargs.get('object_id') if request.resolver_match else None
+            if object_id:
+                queryset = queryset.exclude(pk=object_id)
+            kwargs['queryset'] = queryset
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 

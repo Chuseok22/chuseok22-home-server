@@ -50,3 +50,21 @@ def test_카테고리는_최상위끼리는_중첩_제약에_걸리지_않는다
     child = Category(name='waitee-app', slug='waitee-app', parent=parent)
 
     child.clean()  # 예외가 발생하지 않아야 한다
+
+
+@pytest.mark.django_db
+def test_카테고리는_자기_자신을_부모로_지정할_수_없다() -> None:
+    category = Category.objects.create(name='개발', slug='dev')
+    category.parent = category
+
+    with pytest.raises(ValidationError):
+        category.save()
+
+
+@pytest.mark.django_db
+def test_카테고리_save는_ORM_경로에서도_3단계_중첩을_거부한다() -> None:
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category.objects.create(name='waitee-app', slug='waitee-app', parent=parent)
+
+    with pytest.raises(ValidationError):
+        Category.objects.create(name='세부', slug='detail', parent=child)

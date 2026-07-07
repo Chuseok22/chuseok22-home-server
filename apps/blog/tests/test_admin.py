@@ -114,3 +114,16 @@ def test_카테고리_admin에서_소분류는_상위_카테고리_선택지에_
     parent_choices = list(response.context['adminform'].form.fields['parent'].queryset)
     assert child not in parent_choices
     assert parent in parent_choices
+
+
+@pytest.mark.django_db
+def test_카테고리_admin_수정화면에서_자기_자신은_상위_카테고리_선택지에_없다(admin_client: Client) -> None:
+    parent = Category.objects.create(name='개발', slug='dev')
+    other = Category.objects.create(name='일상', slug='daily')
+
+    url = reverse('admin:blog_category_change', args=[parent.pk])
+    response = admin_client.get(url)
+
+    parent_choices = list(response.context['adminform'].form.fields['parent'].queryset)
+    assert parent not in parent_choices
+    assert other in parent_choices
