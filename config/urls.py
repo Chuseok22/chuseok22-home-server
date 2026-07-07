@@ -1,12 +1,16 @@
 from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
+from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     # Django Admin
     path('admin/', admin.site.urls),
+
+    # 업로드된 이미지·미디어 서빙 (nginx 없이 Django가 직접 서빙)
+    path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
 
     # Core
     path('api/v1/', include('apps.core.urls')),

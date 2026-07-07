@@ -111,6 +111,9 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'output' / 'media'  # /app/output 전체가 배포 시 영구 볼륨에 마운트되며, 미디어 외 다른 산출물도 이 아래에 추가될 수 있다
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {

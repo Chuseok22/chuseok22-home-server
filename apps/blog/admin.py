@@ -1,10 +1,13 @@
 from django import forms
 from django.contrib import admin
+from django.http import HttpRequest, JsonResponse
+from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from apps.blog.models import Post
 from apps.blog.services.markdown_renderer import render_markdown
+from apps.blog.services.media_storage import save_uploaded_media
 
 
 class PostAdminForm(forms.ModelForm):
@@ -30,6 +33,34 @@ class PostAdmin(admin.ModelAdmin):
         (None, {'fields': ('title', 'slug', 'summary', 'tags', 'is_published', 'published_at')}),
         ('본문', {'fields': ('content', 'content_preview')}),
     )
+
+    class Media:
+        js = ('blog/admin/post_media_upload.js',)
+
+    def get_urls(self) -> list:
+        custom_urls = [
+            path(
+                'upload-media/',
+                self.admin_site.admin_view(self.upload_media_view),
+                name='blog_post_upload_media',
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def upload_media_view(self, request: HttpRequest) -> JsonResponse:
+        # admin_view()는 로그인·staff 여부만 검사하므로, Post 변경 권한이 없는 staff 계정의
+        # 업로드를 막으려면 모델 단위 권한을 별도로 확인해야 한다.
+        if not self.has_change_permission(request):
+            return JsonResponse({'success': False, 'error_message': '권한이 없습니다.'}, status=403)
+
+        if request.method != 'POST' or 'file' not in request.FILES:
+            return JsonResponse({'success': False, 'error_message': '업로드할 파일이 없습니다.'}, status=400)
+
+        result = save_uploaded_media(request.FILES['file'])
+        if not result.success:
+            return JsonResponse({'success': False, 'error_message': result.error_message}, status=400)
+
+        return JsonResponse({'success': True, 'url': result.url, 'markdown': result.markdown})
 
     @admin.display(description='렌더링 미리보기')
     def content_preview(self, obj: Post) -> str:

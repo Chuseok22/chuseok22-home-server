@@ -10,12 +10,15 @@ _ALLOWED_TAGS = [
     'ul', 'ol', 'li',
     'blockquote',
     'a', 'img',
+    'video', 'source',
     'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ]
 
 _ALLOWED_ATTRIBUTES = {
     'a': ['href', 'title'],
     'img': ['src', 'alt', 'title'],
+    'video': ['src', 'controls'],
+    'source': ['src', 'type'],
 }
 
 
