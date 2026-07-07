@@ -1,11 +1,12 @@
 from django import forms
 from django.contrib import admin
+from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from apps.blog.models import Post
+from apps.blog.models import Category, Post
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.blog.services.media_storage import save_uploaded_media
 
@@ -21,6 +22,24 @@ class PostAdminForm(forms.ModelForm):
         return self.cleaned_data.get('tags') or []
 
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'parent')
+    list_filter = ('parent',)
+    prepopulated_fields = {'slug': ('name',)}
+
+    def formfield_for_foreignkey(self, db_field: ForeignKey, request: HttpRequest, **kwargs) -> forms.Field:
+        # 소분류가 다른 소분류의 부모가 되는 3단계 중첩을 UI 단에서부터 차단한다.
+        if db_field.name == 'parent':
+            queryset = Category.objects.filter(parent__isnull=True)
+            # 최상위 카테고리 편집 시 자기 자신을 부모로 선택하는 자기참조를 막는다.
+            object_id = request.resolver_match.kwargs.get('object_id') if request.resolver_match else None
+            if object_id:
+                queryset = queryset.exclude(pk=object_id)
+            kwargs['queryset'] = queryset
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     form = PostAdminForm
@@ -30,7 +49,7 @@ class PostAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug': ('title',)}
     readonly_fields = ('content_preview',)
     fieldsets = (
-        (None, {'fields': ('title', 'slug', 'summary', 'tags', 'is_published', 'published_at')}),
+        (None, {'fields': ('title', 'slug', 'summary', 'category', 'repo_url', 'tags', 'is_published', 'published_at')}),
         ('본문', {'fields': ('content', 'content_preview')}),
     )
 

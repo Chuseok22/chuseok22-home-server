@@ -25,6 +25,9 @@ urlpatterns = [
     # GitHub 활동
     path('api/v1/activities/', include('apps.activity.urls')),
 
+    # 블로그 자동 포스팅(ingest) — 전용 API 키 인증
+    path('api/v1/blog/', include('apps.blog.urls')),
+
     # 세종대 학생 조회 (기존 REST API)
     path('api/v1/sejong/students/', include('apps.sejong.student.urls')),
 
