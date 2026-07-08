@@ -1,0 +1,7 @@
+{% extends "site/base.html" %}
+{# django-allauth 계정 페이지(account/*, socialaccount/*)가 공통으로 상속받는 레이아웃 진입점이다.    #}
+{# site/base.html을 그대로 확장해 헤더·푸터·CSS·테마를 재사용하며, site/base.html은 수정하지 않는다.   #}
+{# title 블록 안에서 head_title을 중첩 선언해 allauth 템플릿들의 {% block head_title %} 오버라이드를   #}
+{# 그대로 전달받는다. content 블록은 site/base.html과 이름이 동일(content)해 별도 선언 없이 allauth 쪽 #}
+{# {% block content %}{% endblock %} 오버라이드가 자동으로 <main> 영역에 렌더링된다.                #}
+{% block title %}{% block head_title %}{% endblock head_title %} · 백지훈{% endblock title %}
