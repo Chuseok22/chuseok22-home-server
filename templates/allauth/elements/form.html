@@ -1,0 +1,9 @@
+{% load allauth %}
+<form method="{{ attrs.method }}" action="{{ attrs.action }}" class="space-y-4">
+    {% slot body %}
+    {% endslot %}
+    <div class="flex gap-2">
+        {% slot actions %}
+        {% endslot %}
+    </div>
+</form>
