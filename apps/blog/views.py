@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django.urls import reverse
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -25,15 +26,16 @@ class BlogIngestView(APIView):
     @extend_schema(
         summary='블로그 글 자동 등록 (Ingest)',
         description=(
-            '외부 프로젝트에서 작업 결과를 블로그 초안으로 등록한다. '
+            '외부 프로젝트에서 작업 결과를 블로그 글로 등록한다. '
             '`X-Blog-Ingest-Key` 헤더의 전용 API 키로만 인증하며(JWT 미사용), '
-            '항상 초안(`is_published=False`) 상태로 생성된다. '
+            '`is_published`(기본값 `false`)로 즉시 공개 여부를 지정할 수 있다. '
+            '`true`로 등록하면 `published_at`도 현재 시각으로 함께 설정된다. '
             '`category_name`은 기존에 존재하는 카테고리(대분류/소분류 무관) 이름과 정확히 일치해야 하며, '
             '없으면 422를 반환한다. 존재하는 카테고리 목록은 `GET /api/v1/blog/categories/`로 조회할 수 있다.'
         ),
         request=BlogIngestSerializer,
         responses={
-            201: OpenApiResponse(description='초안 생성 성공'),
+            201: OpenApiResponse(description='글 생성 성공(초안 또는 공개)'),
             400: OpenApiResponse(description='입력 검증 오류'),
             403: OpenApiResponse(description='API 키 누락 또는 불일치'),
             422: OpenApiResponse(description='카테고리를 찾을 수 없음'),
@@ -61,7 +63,8 @@ class BlogIngestView(APIView):
             tags=data['tags'],
             category=category,
             repo_url=data['repo_url'],
-            is_published=False,
+            is_published=data['is_published'],
+            published_at=timezone.now() if data['is_published'] else None,
         )
 
         return Response(
