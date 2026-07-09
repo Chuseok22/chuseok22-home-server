@@ -7,10 +7,10 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.blog.models import Post
+from apps.blog.models import Category, Post
 from apps.blog.permissions import HasBlogIngestKey
-from apps.blog.serializers import BlogIngestSerializer
-from apps.blog.services.category import get_or_create_dev_category
+from apps.blog.serializers import BlogIngestSerializer, CategoryListSerializer
+from apps.blog.services.category import CategoryNotFoundError, get_category_by_name
 from apps.blog.services.slug import generate_unique_slug
 
 
@@ -28,13 +28,15 @@ class BlogIngestView(APIView):
             '외부 프로젝트에서 작업 결과를 블로그 초안으로 등록한다. '
             '`X-Blog-Ingest-Key` 헤더의 전용 API 키로만 인증하며(JWT 미사용), '
             '항상 초안(`is_published=False`) 상태로 생성된다. '
-            '`category_name`으로 넘긴 값은 "개발" 대분류 아래 소분류로 자동 생성(get_or_create)된다.'
+            '`category_name`은 기존에 존재하는 카테고리(대분류/소분류 무관) 이름과 정확히 일치해야 하며, '
+            '없으면 422를 반환한다. 존재하는 카테고리 목록은 `GET /api/v1/blog/categories/`로 조회할 수 있다.'
         ),
         request=BlogIngestSerializer,
         responses={
             201: OpenApiResponse(description='초안 생성 성공'),
             400: OpenApiResponse(description='입력 검증 오류'),
             403: OpenApiResponse(description='API 키 누락 또는 불일치'),
+            422: OpenApiResponse(description='카테고리를 찾을 수 없음'),
         },
         tags=['blog'],
     )
@@ -44,7 +46,13 @@ class BlogIngestView(APIView):
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
-        category = get_or_create_dev_category(data['category_name'])
+        try:
+            category = get_category_by_name(data['category_name'])
+        except CategoryNotFoundError:
+            return Response(
+                {'detail': f"카테고리 '{data['category_name']}'이 존재하지 않습니다. Admin에서 먼저 생성해주세요."},
+                status=422,
+            )
         post = Post.objects.create(
             title=data['title'],
             slug=generate_unique_slug(Post, data['title']),
@@ -64,3 +72,25 @@ class BlogIngestView(APIView):
             },
             status=201,
         )
+
+
+class BlogCategoryListView(APIView):
+    """ingest API에 사용할 수 있는 기존 카테고리 전체 목록을 조회하는 엔드포인트."""
+
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list] = [HasBlogIngestKey]
+
+    @extend_schema(
+        summary='블로그 카테고리 목록 조회',
+        description=(
+            'ingest API(`POST /api/v1/blog/ingest/`)에서 사용할 수 있는 기존 카테고리 전체 목록을 반환한다. '
+            '`X-Blog-Ingest-Key` 헤더의 전용 API 키로만 인증한다(JWT 미사용). '
+            '`parent_name`이 `null`이면 대분류(최상위 카테고리)다.'
+        ),
+        responses={200: CategoryListSerializer(many=True)},
+        tags=['blog'],
+    )
+    def get(self, request: Request) -> Response:
+        categories = Category.objects.select_related('parent').all()
+        serializer = CategoryListSerializer(categories, many=True)
+        return Response(serializer.data)

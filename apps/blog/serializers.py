@@ -1,8 +1,10 @@
 from rest_framework import serializers
 
+from apps.blog.models import Category
+
 
 class BlogIngestSerializer(serializers.Serializer):
-    """블로그 ingest API 요청 검증. category_name은 소분류(저장소명)로 사용된다."""
+    """블로그 ingest API 요청 검증. category_name은 기존 카테고리(대분류/소분류 무관) 이름과 정확히 일치해야 한다."""
 
     title = serializers.CharField(max_length=200)
     summary = serializers.CharField(max_length=300, required=False, allow_blank=True, default='')
@@ -10,3 +12,14 @@ class BlogIngestSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
     category_name = serializers.CharField(max_length=50)
     repo_url = serializers.URLField(required=False, allow_blank=True, default='')
+
+
+class CategoryListSerializer(serializers.Serializer):
+    """카테고리 목록 조회 API 응답 직렬화."""
+
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    parent_name = serializers.SerializerMethodField()
+
+    def get_parent_name(self, obj: Category) -> str | None:
+        return obj.parent.name if obj.parent else None
