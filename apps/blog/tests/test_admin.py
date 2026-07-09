@@ -127,3 +127,38 @@ def test_카테고리_admin_수정화면에서_자기_자신은_상위_카테고
     parent_choices = list(response.context['adminform'].form.fields['parent'].queryset)
     assert parent not in parent_choices
     assert other in parent_choices
+
+
+@pytest.mark.django_db
+def test_슬러그를_비워두면_Post가_자동_생성한다(admin_client: Client, category: Category) -> None:
+    url = reverse('admin:blog_post_add')
+    response = admin_client.post(url, {
+        'title': '슬러그 자동생성 테스트',
+        'slug': '',
+        'summary': '',
+        'category': category.id,
+        'repo_url': '',
+        'content': '# 제목',
+        'tags': '',
+        'is_published': '',
+        'published_at_0': '',
+        'published_at_1': '',
+        '_save': 'Save',
+    })
+
+    assert response.status_code == 302
+    post = Post.objects.get(title='슬러그 자동생성 테스트')
+    assert post.slug != ''
+
+
+@pytest.mark.django_db
+def test_슬러그를_비워두면_Category가_자동_생성한다(admin_client: Client) -> None:
+    url = reverse('admin:blog_category_add')
+    response = admin_client.post(url, {
+        'name': '테스트카테고리',
+        'slug': '',
+    })
+
+    assert response.status_code == 302
+    category = Category.objects.get(name='테스트카테고리')
+    assert category.slug != ''
