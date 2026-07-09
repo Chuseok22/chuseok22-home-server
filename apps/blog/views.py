@@ -7,9 +7,9 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.blog.models import Post
+from apps.blog.models import Category, Post
 from apps.blog.permissions import HasBlogIngestKey
-from apps.blog.serializers import BlogIngestSerializer
+from apps.blog.serializers import BlogIngestSerializer, CategoryListSerializer
 from apps.blog.services.category import CategoryNotFoundError, get_category_by_name
 from apps.blog.services.slug import generate_unique_slug
 
@@ -72,3 +72,25 @@ class BlogIngestView(APIView):
             },
             status=201,
         )
+
+
+class BlogCategoryListView(APIView):
+    """ingest API에 사용할 수 있는 기존 카테고리 전체 목록을 조회하는 엔드포인트."""
+
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list] = [HasBlogIngestKey]
+
+    @extend_schema(
+        summary='블로그 카테고리 목록 조회',
+        description=(
+            'ingest API(`POST /api/v1/blog/ingest/`)에서 사용할 수 있는 기존 카테고리 전체 목록을 반환한다. '
+            '`X-Blog-Ingest-Key` 헤더의 전용 API 키로만 인증한다(JWT 미사용). '
+            '`parent_name`이 `null`이면 대분류(최상위 카테고리)다.'
+        ),
+        responses={200: CategoryListSerializer(many=True)},
+        tags=['blog'],
+    )
+    def get(self, request: Request) -> Response:
+        categories = Category.objects.select_related('parent').all()
+        serializer = CategoryListSerializer(categories, many=True)
+        return Response(serializer.data)

@@ -1,4 +1,9 @@
+from typing import TYPE_CHECKING
+
 from rest_framework import serializers
+
+if TYPE_CHECKING:
+    from apps.blog.models import Category
 
 
 class BlogIngestSerializer(serializers.Serializer):
@@ -10,3 +15,14 @@ class BlogIngestSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
     category_name = serializers.CharField(max_length=50)
     repo_url = serializers.URLField(required=False, allow_blank=True, default='')
+
+
+class CategoryListSerializer(serializers.Serializer):
+    """카테고리 목록 조회 API 응답 직렬화."""
+
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    parent_name = serializers.SerializerMethodField()
+
+    def get_parent_name(self, obj: 'Category') -> str | None:
+        return obj.parent.name if obj.parent else None
