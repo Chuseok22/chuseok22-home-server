@@ -6,7 +6,7 @@ class Category(models.Model):
     """블로그 카테고리. 대분류(parent=None)/소분류(parent=대분류) 2단계까지만 허용한다."""
 
     name = models.CharField(max_length=50, unique=True, verbose_name='이름')
-    slug = models.SlugField(unique=True, verbose_name='슬러그')
+    slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
     parent = models.ForeignKey(
         'self', null=True, blank=True,
         on_delete=models.PROTECT, related_name='children',
@@ -29,9 +29,9 @@ class Category(models.Model):
 
     def save(self, *args: object, **kwargs: object) -> None:
         # Admin 폼 밖(서비스 레이어의 get_or_create 등)에서도 계층 불변조건이 지켜지도록
-        # 저장 시점에 항상 clean()을 실행한다. full_clean()은 사용하지 않는다 —
-        # slug 필드가 allow_unicode=True 없이 정의되어 있어, generate_unique_slug()가
-        # 만드는 한글 슬러그가 clean_fields()의 기본 ASCII 검증에서 거부되기 때문이다.
+        # 저장 시점에 항상 clean()을 실행한다. full_clean()이 아닌 clean()만 호출하는 이유는
+        # 계층 깊이 검증(parent 관련)만 필요하고, 필드 단위 검증(validate_unique 등)은
+        # DB의 unique 제약으로 이미 보장되기 때문이다.
         self.clean()
         super().save(*args, **kwargs)
 
@@ -43,7 +43,7 @@ class Post(models.Model):
     """블로그 포스트. 본문은 Markdown 원문으로 저장한다."""
 
     title = models.CharField(max_length=200, verbose_name='제목')
-    slug = models.SlugField(unique=True, verbose_name='슬러그')
+    slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
     summary = models.CharField(max_length=300, blank=True, verbose_name='요약')
     content = models.TextField(verbose_name='본문 (Markdown)')
     tags = models.JSONField(default=list, blank=True, verbose_name='태그')

@@ -12,6 +12,7 @@ class BlogIngestSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
     category_name = serializers.CharField(max_length=50)
     repo_url = serializers.URLField(required=False, allow_blank=True, default='')
+    is_published = serializers.BooleanField(required=False, default=False)
 
 
 class CategoryListSerializer(serializers.Serializer):

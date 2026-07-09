@@ -93,3 +93,46 @@ def test_대분류_이름으로도_등록된다(client: Client, settings) -> Non
     post = Post.objects.get(id=response.json()['id'])
     assert post.category.name == '일상'
     assert post.category.parent is None
+
+
+@pytest.mark.django_db
+def test_is_published_true면_바로_공개되고_published_at이_설정된다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    Category.objects.create(name='일상', slug='daily')
+    url = reverse('blog-ingest')
+
+    response = client.post(
+        url,
+        data={
+            'title': '공개 테스트',
+            'content': '내용',
+            'category_name': '일상',
+            'is_published': True,
+        },
+        content_type='application/json',
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 201
+    post = Post.objects.get(id=response.json()['id'])
+    assert post.is_published is True
+    assert post.published_at is not None
+
+
+@pytest.mark.django_db
+def test_is_published을_생략하면_초안으로_저장된다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    Category.objects.create(name='일상', slug='daily')
+    url = reverse('blog-ingest')
+
+    response = client.post(
+        url,
+        data={'title': '초안 테스트', 'content': '내용', 'category_name': '일상'},
+        content_type='application/json',
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 201
+    post = Post.objects.get(id=response.json()['id'])
+    assert post.is_published is False
+    assert post.published_at is None

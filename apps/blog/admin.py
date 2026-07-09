@@ -9,6 +9,7 @@ from django.utils.safestring import mark_safe
 from apps.blog.models import Category, Post
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.blog.services.media_storage import save_uploaded_media
+from apps.blog.services.slug import generate_unique_slug
 
 
 class PostAdminForm(forms.ModelForm):
@@ -27,6 +28,11 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'parent')
     list_filter = ('parent',)
     prepopulated_fields = {'slug': ('name',)}
+
+    def save_model(self, request: HttpRequest, obj: Category, form: forms.ModelForm, change: bool) -> None:
+        if not obj.slug:
+            obj.slug = generate_unique_slug(Category, obj.name)
+        super().save_model(request, obj, form, change)
 
     def formfield_for_foreignkey(self, db_field: ForeignKey, request: HttpRequest, **kwargs) -> forms.Field:
         # 소분류가 다른 소분류의 부모가 되는 3단계 중첩을 UI 단에서부터 차단한다.
@@ -52,6 +58,11 @@ class PostAdmin(admin.ModelAdmin):
         (None, {'fields': ('title', 'slug', 'summary', 'category', 'repo_url', 'tags', 'is_published', 'published_at')}),
         ('본문', {'fields': ('content', 'content_preview')}),
     )
+
+    def save_model(self, request: HttpRequest, obj: Post, form: forms.ModelForm, change: bool) -> None:
+        if not obj.slug:
+            obj.slug = generate_unique_slug(Post, obj.title)
+        super().save_model(request, obj, form, change)
 
     class Media:
         js = ('blog/admin/post_media_upload.js',)
