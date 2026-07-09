@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 
 class BlogIngestSerializer(serializers.Serializer):
-    """블로그 ingest API 요청 검증. category_name은 소분류(저장소명)로 사용된다."""
+    """블로그 ingest API 요청 검증. category_name은 기존 카테고리(대분류/소분류 무관) 이름과 정확히 일치해야 한다."""
 
     title = serializers.CharField(max_length=200)
     summary = serializers.CharField(max_length=300, required=False, allow_blank=True, default='')
