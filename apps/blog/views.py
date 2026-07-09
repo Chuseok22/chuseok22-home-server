@@ -16,7 +16,7 @@ from apps.blog.services.slug import generate_unique_slug
 
 
 class BlogIngestView(APIView):
-    """외부 프로젝트 작업 결과를 블로그 초안으로 등록하는 ingest 전용 엔드포인트."""
+    """외부 프로젝트 작업 결과를 블로그 글로 등록하는 ingest 전용 엔드포인트."""
 
     authentication_classes: ClassVar[list] = []
     permission_classes: ClassVar[list] = [HasBlogIngestKey]
