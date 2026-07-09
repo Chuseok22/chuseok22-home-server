@@ -5,9 +5,10 @@
 ## Stack
 
 - Python 3.12 / Django 5.1 / Django REST Framework
-- PostgreSQL (production) / SQLite (development)
+- PostgreSQL — `DATABASE_URL` 환경변수 기반(`django-environ`)으로 production/development 공통 설정, 별도 SQLite 오버라이드 없음
 - Gunicorn + WhiteNoise
 - Docker + GitHub Actions CI/CD
+- pytest + pytest-django (테스트), django-allauth(GitHub 소셜 로그인), django-tailwind, django-apscheduler(인앱 스케줄러)
 
 ## 핵심 규칙
 
