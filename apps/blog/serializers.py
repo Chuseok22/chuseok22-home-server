@@ -1,9 +1,6 @@
-from typing import TYPE_CHECKING
-
 from rest_framework import serializers
 
-if TYPE_CHECKING:
-    from apps.blog.models import Category
+from apps.blog.models import Category
 
 
 class BlogIngestSerializer(serializers.Serializer):
@@ -24,5 +21,5 @@ class CategoryListSerializer(serializers.Serializer):
     slug = serializers.CharField()
     parent_name = serializers.SerializerMethodField()
 
-    def get_parent_name(self, obj: 'Category') -> str | None:
+    def get_parent_name(self, obj: Category) -> str | None:
         return obj.parent.name if obj.parent else None
