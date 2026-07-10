@@ -2,6 +2,8 @@
 
 이미지는 압축 효율이 좋은 webp로 변환해 저장하고, 동영상·문서는 원본 그대로 저장한다.
 """
+import logging
+import re
 import uuid
 from dataclasses import dataclass
 from io import BytesIO
@@ -9,12 +11,15 @@ from pathlib import Path
 from typing import Callable
 
 import pillow_heif
+from django.conf import settings
 from django.core.files.base import ContentFile, File
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import UploadedFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 pillow_heif.register_heif_opener()
+
+logger = logging.getLogger(__name__)
 
 _IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'}
 _VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm'}
@@ -94,3 +99,24 @@ def _image_markdown(url: str) -> str:
 
 def _video_markdown(url: str) -> str:
     return f'<video controls src="{url}"></video>'
+
+
+_MEDIA_PATH_PATTERN = re.compile(re.escape(settings.MEDIA_URL) + r'(blog/uploads/[^\s\)"\']+)')
+
+
+def extract_media_paths(content: str) -> list[str]:
+    """본문에서 참조된 blog/uploads 하위 미디어 파일의 스토리지 상대 경로를 추출한다."""
+    return _MEDIA_PATH_PATTERN.findall(content)
+
+
+def delete_media_files(paths: list[str]) -> None:
+    """주어진 스토리지 상대 경로의 파일들을 삭제한다. 개별 파일 삭제 실패는 로깅만 하고 계속 진행한다."""
+    storage = FileSystemStorage()
+    for path in paths:
+        try:
+            if storage.exists(path):
+                storage.delete(path)
+        except Exception as e:
+            # OSError뿐 아니라 Django의 SuspiciousFileOperation(경로 검증 실패) 등도 포함해
+            # 어떤 이유로든 파일 삭제가 실패해도 포스트 삭제·정리 커맨드 자체는 막지 않는다.
+            logger.error('미디어 파일 삭제 실패: %s (%s)', path, e)

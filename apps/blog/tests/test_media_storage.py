@@ -3,7 +3,7 @@ import io
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
-from apps.blog.services.media_storage import save_uploaded_media
+from apps.blog.services.media_storage import extract_media_paths, save_uploaded_media
 
 
 def _make_image_upload(
@@ -153,3 +153,27 @@ def test_pdf_문서는_원본_그대로_저장되고_링크가_생성된다(sett
     assert result.success is True
     assert result.url.endswith('.pdf')
     assert result.markdown == f'[resume.pdf]({result.url})'
+
+
+def test_extract_media_paths_본문에서_업로드_경로를_추출한다() -> None:
+    content = (
+        '# 제목\n\n'
+        '![이미지](/media/blog/uploads/a.webp)\n\n'
+        '<video controls src="/media/blog/uploads/b.mp4"></video>'
+    )
+
+    paths = extract_media_paths(content)
+
+    assert paths == ['blog/uploads/a.webp', 'blog/uploads/b.mp4']
+
+
+def test_extract_media_paths_참조가_없으면_빈_리스트를_반환한다() -> None:
+    paths = extract_media_paths('일반 텍스트만 있는 본문')
+
+    assert paths == []
+
+
+def test_extract_media_paths_blog_uploads가_아닌_경로는_추출하지_않는다() -> None:
+    paths = extract_media_paths('![외부 이미지](https://example.com/photo.png)')
+
+    assert paths == []
