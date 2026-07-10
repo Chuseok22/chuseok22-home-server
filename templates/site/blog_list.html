@@ -4,16 +4,5 @@
 
 {% block content %}
 <h1 class="text-2xl font-bold mb-6">Blog</h1>
-<div class="flex flex-col gap-4">
-  {% for post in posts %}
-  <article>
-    <a href="{% url 'site:blog-detail' post.slug %}" class="text-lg font-semibold link link-hover">
-      {{ post.title }}
-    </a>
-    <p class="opacity-70 text-sm">{{ post.summary }}</p>
-  </article>
-  {% empty %}
-  <p class="opacity-60">등록된 글이 없습니다.</p>
-  {% endfor %}
-</div>
+{% include "site/partials/blog_content.html" %}
 {% endblock %}

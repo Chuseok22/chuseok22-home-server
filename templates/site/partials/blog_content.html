@@ -1,0 +1,56 @@
+<div id="blog-content" class="flex gap-8">
+  <aside class="w-48 shrink-0">
+    <ul class="menu menu-sm p-0">
+      <li>
+        <a
+          href="{% url 'site:blog-list' %}"
+          hx-get="{% url 'site:blog-list' %}"
+          hx-target="#blog-content"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          class="{% if not selected_category_slug %}font-bold bg-base-200{% endif %}"
+        >전체 ({{ total_post_count }})</a>
+      </li>
+      {% for item in sidebar_items %}
+      <li>
+        <a
+          href="{% url 'site:blog-list' %}?category={{ item.slug }}"
+          hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+          hx-target="#blog-content"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          class="{% if selected_category_slug == item.slug %}font-bold bg-base-200{% endif %}"
+        >{{ item.name }} ({{ item.post_count }})</a>
+        {% if item.children %}
+        <ul>
+          {% for child in item.children %}
+          <li>
+            <a
+              href="{% url 'site:blog-list' %}?category={{ child.slug }}"
+              hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+              hx-target="#blog-content"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              class="{% if selected_category_slug == child.slug %}font-bold bg-base-200{% endif %}"
+            >{{ child.name }} ({{ child.post_count }})</a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <div class="flex flex-col gap-4 flex-1">
+    {% for post in posts %}
+    <article>
+      <a href="{% url 'site:blog-detail' post.slug %}" class="text-lg font-semibold link link-hover">
+        {{ post.title }}
+      </a>
+      <p class="opacity-70 text-sm">{{ post.summary }}</p>
+    </article>
+    {% empty %}
+    <p class="opacity-60">등록된 글이 없습니다.</p>
+    {% endfor %}
+  </div>
+</div>
