@@ -48,3 +48,18 @@ def test_get_or_seed_job_config는_기존_값을_덮어쓰지_않는다() -> Non
     assert config.cron_hour == 23
     assert config.cron_minute == 59
     assert config.is_enabled is False
+
+
+@pytest.mark.django_db
+def test_cron_day_of_week_기본값은_매일이다() -> None:
+    config = ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=8, cron_minute=0)
+    assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
+def test_cron_day_of_week에_유효하지_않은_값은_full_clean에서_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0, cron_day_of_week='invalid',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
