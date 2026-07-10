@@ -48,6 +48,13 @@
         {{ post.title }}
       </a>
       <p class="opacity-70 text-sm">{{ post.summary }}</p>
+      {% if post.tags.all %}
+      <div class="not-prose flex gap-2 flex-wrap mt-1">
+        {% for tag in post.tags.all %}
+        <span class="badge badge-outline badge-sm">{{ tag.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
     </article>
     {% empty %}
     <p class="opacity-60">등록된 글이 없습니다.</p>

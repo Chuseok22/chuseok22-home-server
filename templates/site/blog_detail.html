@@ -6,6 +6,13 @@
 {% block content %}
 <article class="prose max-w-none">
   <h1>{{ post.title }}</h1>
+  {% if post.tags.all %}
+  <div class="not-prose flex gap-2 flex-wrap">
+    {% for tag in post.tags.all %}
+    <span class="badge badge-outline badge-sm">{{ tag.name }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
   {{ content_html|safe }}
 </article>
 

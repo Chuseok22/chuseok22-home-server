@@ -2,7 +2,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 
-from apps.blog.models import Category, Post
+from apps.blog.models import Category, Post, Tag
 
 
 @pytest.mark.django_db
@@ -136,3 +136,43 @@ def test_is_published을_생략하면_초안으로_저장된다(client: Client, 
     post = Post.objects.get(id=response.json()['id'])
     assert post.is_published is False
     assert post.published_at is None
+
+
+@pytest.mark.django_db
+def test_ingest는_태그_목록을_Tag로_변환해서_연결한다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    Category.objects.create(name='일상', slug='daily')
+    url = reverse('blog-ingest')
+
+    response = client.post(
+        url,
+        data={'title': '태그 테스트', 'content': '내용', 'category_name': '일상', 'tags': ['Django', 'React']},
+        content_type='application/json',
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 201
+    post = Post.objects.get(id=response.json()['id'])
+    assert {tag.name for tag in post.tags.all()} == {'Django', 'React'}
+
+
+@pytest.mark.django_db
+def test_ingest는_대소문자만_다른_태그를_기존_태그로_재사용한다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    Category.objects.create(name='일상', slug='daily')
+    url = reverse('blog-ingest')
+
+    client.post(
+        url,
+        data={'title': '첫 글', 'content': '내용', 'category_name': '일상', 'tags': ['Django']},
+        content_type='application/json',
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+    client.post(
+        url,
+        data={'title': '둘째 글', 'content': '내용', 'category_name': '일상', 'tags': ['django']},
+        content_type='application/json',
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert Tag.objects.count() == 1

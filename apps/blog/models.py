@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class Category(models.Model):
@@ -39,6 +40,38 @@ class Category(models.Model):
         return self.name
 
 
+class Tag(models.Model):
+    """블로그 태그. 대소문자만 다른 동일 태그의 중복 생성을 막는다."""
+
+    name = models.CharField(max_length=50, verbose_name='이름')
+    slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
+
+    class Meta:
+        db_table = 'blog_tag'
+        ordering = ['name']
+        verbose_name = '태그'
+        verbose_name_plural = '태그 목록'
+        constraints = [
+            models.UniqueConstraint(Lower('name'), name='unique_tag_name_ci'),
+        ]
+
+    def clean(self) -> None:
+        # DB의 UniqueConstraint(Lower('name'))는 항상 걸리지만, 어드민 "새 태그 추가" 팝업처럼
+        # 폼 검증을 거치는 경로에서 IntegrityError 대신 친절한 메시지를 보여주기 위해
+        # 동일 조건을 애플리케이션 레벨에서도 검사한다.
+        if Tag.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
+            raise ValidationError(f"태그 '{self.name}'이 이미 존재합니다 (대소문자 무시).")
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        # slug 자동 생성은 어드민(TagAdmin.save_model)·서비스(get_or_create_tags) 등
+        # 호출 시점에 명시적으로 처리한다 — Category/Post와 동일한 패턴.
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Post(models.Model):
     """블로그 포스트. 본문은 Markdown 원문으로 저장한다."""
 
@@ -46,7 +79,7 @@ class Post(models.Model):
     slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
     summary = models.CharField(max_length=300, blank=True, verbose_name='요약')
     content = models.TextField(verbose_name='본문 (Markdown)')
-    tags = models.JSONField(default=list, blank=True, verbose_name='태그')
+    tags = models.ManyToManyField(Tag, blank=True, related_name='posts', verbose_name='태그')
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, null=True, related_name='posts',
         verbose_name='카테고리',

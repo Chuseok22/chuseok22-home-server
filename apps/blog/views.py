@@ -13,6 +13,7 @@ from apps.blog.permissions import HasBlogIngestKey
 from apps.blog.serializers import BlogIngestSerializer, CategoryListSerializer
 from apps.blog.services.category import CategoryNotFoundError, get_category_by_name
 from apps.blog.services.slug import generate_unique_slug
+from apps.blog.services.tags import get_or_create_tags
 
 
 class BlogIngestView(APIView):
@@ -60,12 +61,12 @@ class BlogIngestView(APIView):
             slug=generate_unique_slug(Post, data['title']),
             summary=data['summary'],
             content=data['content'],
-            tags=data['tags'],
             category=category,
             repo_url=data['repo_url'],
             is_published=data['is_published'],
             published_at=timezone.now() if data['is_published'] else None,
         )
+        post.tags.set(get_or_create_tags(data['tags']))
 
         return Response(
             {
