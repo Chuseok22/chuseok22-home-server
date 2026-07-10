@@ -104,16 +104,22 @@ class GithubStatsService:
 
     def _parse(self, user: dict) -> GithubStats:
         weeks = user.get('contributionsCollection', {}).get('contributionCalendar', {}).get('weeks', [])
-        contribution_days = tuple(
-            ContributionDay(
-                date=datetime.strptime(day['date'], '%Y-%m-%d').date(),
-                contribution_count=day['contributionCount'],
-            )
-            for week in weeks
-            for day in week.get('contributionDays', [])
-        )
+        contribution_days = []
+        for week in weeks:
+            for day in week.get('contributionDays', []):
+                raw_date = day.get('date')
+                raw_count = day.get('contributionCount')
+                if raw_date is None or raw_count is None:
+                    logger.error('GitHub GraphQL 컨트리뷰션 응답에 필수 필드 누락: %s', day)
+                    continue
+                try:
+                    parsed_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+                except ValueError:
+                    logger.error('GitHub GraphQL 컨트리뷰션 날짜 파싱 실패: %s', raw_date)
+                    continue
+                contribution_days.append(ContributionDay(date=parsed_date, contribution_count=raw_count))
 
         repo_nodes = user.get('repositories', {}).get('nodes', [])
         total_stars = sum(node.get('stargazerCount', 0) for node in repo_nodes)
 
-        return GithubStats(contribution_days=contribution_days, total_stars=total_stars)
+        return GithubStats(contribution_days=tuple(contribution_days), total_stars=total_stars)

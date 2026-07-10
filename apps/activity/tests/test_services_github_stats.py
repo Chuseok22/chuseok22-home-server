@@ -92,3 +92,38 @@ def test_fetch는_GraphQL_errors_필드가_있으면_빈_결과를_반환한다(
         result = GithubStatsService().fetch()
 
     assert result == GithubStats(contribution_days=(), total_stars=0)
+
+
+def test_fetch는_컨트리뷰션_day에_필수_키가_없으면_해당_day를_건너뛴다(settings) -> None:
+    settings.GITHUB_PAT = 'test-token'
+    settings.GITHUB_USERNAME = 'testuser'
+
+    payload = {
+        'data': {
+            'user': {
+                'contributionsCollection': {
+                    'contributionCalendar': {
+                        'weeks': [
+                            {
+                                'contributionDays': [
+                                    {'date': '2026-01-01', 'contributionCount': 3},
+                                    {'date': '2026-01-02'},
+                                ]
+                            }
+                        ]
+                    }
+                },
+                'repositories': {'nodes': []},
+            }
+        }
+    }
+
+    with patch(
+        'apps.activity.services.github_stats.requests.post',
+        return_value=_mock_response(payload),
+    ):
+        result = GithubStatsService().fetch()
+
+    assert len(result.contribution_days) == 1
+    assert result.contribution_days[0].date.isoformat() == '2026-01-01'
+    assert result.contribution_days[0].contribution_count == 3
