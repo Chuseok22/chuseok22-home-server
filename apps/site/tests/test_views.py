@@ -56,6 +56,92 @@ def test_blog_목록은_공개된_포스트만_보여준다() -> None:
 
 
 @pytest.mark.django_db
+def test_blog_목록은_category_파라미터로_소분류_글만_필터링한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category.objects.create(name='waitee-app', slug='waitee-app', parent=parent)
+    Post.objects.create(
+        title='대분류 글', slug='dev-post', content='본문', category=parent,
+        is_published=True, published_at=timezone.now(),
+    )
+    Post.objects.create(
+        title='소분류 글', slug='child-post', content='본문', category=child,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': 'waitee-app'})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '소분류 글' in body
+    assert '대분류 글' not in body
+
+
+@pytest.mark.django_db
+def test_blog_목록은_대분류_slug로_필터링하면_소분류_글도_포함한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    parent = Category.objects.create(name='개발', slug='dev')
+    child = Category.objects.create(name='waitee-app', slug='waitee-app', parent=parent)
+    Post.objects.create(
+        title='대분류 글', slug='dev-post', content='본문', category=parent,
+        is_published=True, published_at=timezone.now(),
+    )
+    Post.objects.create(
+        title='소분류 글', slug='child-post', content='본문', category=child,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': 'dev'})
+    body = response.content.decode()
+
+    assert '대분류 글' in body
+    assert '소분류 글' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록은_존재하지_않는_카테고리면_빈_목록과_200을_반환한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': '없는-슬러그'})
+
+    assert response.status_code == 200
+    assert '등록된 글이 없습니다.' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_목록_context에_사이드바_항목과_전체_글_개수가_담긴다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    Post.objects.create(
+        title='글', slug='post-1', content='본문', category=category,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+
+    assert response.context['total_post_count'] == 1
+    assert len(response.context['sidebar_items']) == 1
+    assert response.context['sidebar_items'][0].slug == 'dev'
+    assert response.context['selected_category_slug'] is None
+
+
+@pytest.mark.django_db
 def test_blog_상세는_마크다운을_HTML로_렌더링한다() -> None:
     from django.test import Client
     from django.utils import timezone
