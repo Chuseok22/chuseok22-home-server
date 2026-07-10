@@ -74,6 +74,11 @@ class PostAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.upload_media_view),
                 name='blog_post_upload_media',
             ),
+            path(
+                'preview/',
+                self.admin_site.admin_view(self.preview_view),
+                name='blog_post_preview',
+            ),
         ]
         return custom_urls + super().get_urls()
 
@@ -91,6 +96,17 @@ class PostAdmin(admin.ModelAdmin):
             return JsonResponse({'success': False, 'error_message': result.error_message}, status=400)
 
         return JsonResponse({'success': True, 'url': result.url, 'markdown': result.markdown})
+
+    def preview_view(self, request: HttpRequest) -> JsonResponse:
+        # upload_media_view와 동일하게 Post 변경 권한이 없는 staff 계정의 요청을 차단한다.
+        if not self.has_change_permission(request):
+            return JsonResponse({'error_message': '권한이 없습니다.'}, status=403)
+
+        if request.method != 'POST':
+            return JsonResponse({'error_message': 'POST 요청만 허용됩니다.'}, status=400)
+
+        content = request.POST.get('content', '')
+        return JsonResponse({'html': render_markdown(content)})
 
     @admin.display(description='렌더링 미리보기')
     def content_preview(self, obj: Post) -> str:
