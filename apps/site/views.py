@@ -5,7 +5,6 @@ from django.utils import timezone
 
 from apps.activity.models import GithubActivity, GithubContributionDay, GithubProfileStats
 from apps.blog.models import Post
-from apps.site.services.contribution_grid import build_contribution_weeks
 from apps.blog.services.category import (
     filter_published_posts_by_category_slug,
     get_category_sidebar_items,
@@ -29,6 +28,7 @@ from apps.site.forms import (
     StudentSearchForm,
 )
 from apps.site.models import Tool
+from apps.site.services.contribution_grid import build_contribution_weeks
 
 
 def home(request: HttpRequest) -> HttpResponse:
