@@ -74,3 +74,14 @@ def test_고아_미디어_정리_잡은_기본값이_일요일_새벽3시다() -
     assert config.cron_hour == 3
     assert config.cron_minute == 0
     assert config.cron_day_of_week == 'sun'
+
+
+@pytest.mark.django_db
+def test_GitHub_통계_수집_잡은_기본값이_새벽_3시_5분이다() -> None:
+    definition = JOB_DEFINITIONS['fetch_github_stats']
+
+    config = get_or_seed_job_config('fetch_github_stats', definition)
+
+    assert config.cron_hour == 3
+    assert config.cron_minute == 5
+    assert config.cron_day_of_week == '*'
