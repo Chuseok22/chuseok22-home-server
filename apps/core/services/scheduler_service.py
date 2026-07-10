@@ -4,12 +4,13 @@ from apps.core.models import ScheduledJobConfig
 from apps.core.scheduler import SCHEDULER_TIMEZONE, get_scheduler
 
 
-def update_job_schedule(job_id: str, is_enabled: bool, hour: int, minute: int) -> None:
+def update_job_schedule(job_id: str, is_enabled: bool, hour: int, minute: int, day_of_week: str) -> None:
     """자동화 잡 설정을 DB에 저장하고, 실행 중인 스케줄러가 있으면 즉시 반영한다."""
     config = ScheduledJobConfig.objects.get(job_id=job_id)
     config.is_enabled = is_enabled
     config.cron_hour = hour
     config.cron_minute = minute
+    config.cron_day_of_week = day_of_week
     config.save()
 
     scheduler = get_scheduler()
@@ -18,7 +19,7 @@ def update_job_schedule(job_id: str, is_enabled: bool, hour: int, minute: int) -
 
     scheduler.reschedule_job(
         job_id,
-        trigger=CronTrigger(hour=hour, minute=minute, timezone=SCHEDULER_TIMEZONE),
+        trigger=CronTrigger(hour=hour, minute=minute, day_of_week=day_of_week, timezone=SCHEDULER_TIMEZONE),
     )
     if is_enabled:
         scheduler.resume_job(job_id)

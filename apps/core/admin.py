@@ -12,7 +12,7 @@ from apps.core.services.scheduler_service import update_job_schedule
 
 @admin.register(ScheduledJobConfig)
 class ScheduledJobConfigAdmin(admin.ModelAdmin):
-    list_display = ('label', 'is_enabled', 'cron_hour', 'cron_minute', 'updated_at')
+    list_display = ('label', 'is_enabled', 'cron_hour', 'cron_minute', 'cron_day_of_week', 'updated_at')
     readonly_fields = ('job_id', 'updated_at')
 
     @admin.display(description='작업')
@@ -54,6 +54,7 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
                 is_enabled=obj.is_enabled,
                 hour=obj.cron_hour,
                 minute=obj.cron_minute,
+                day_of_week=obj.cron_day_of_week,
             )
         except JobLookupError:
             # update_job_schedule 내부에서 DB 저장은 이미 완료된 상태 — 실행 중 스케줄러에
