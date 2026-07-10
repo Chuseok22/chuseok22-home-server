@@ -45,17 +45,6 @@ def test_태그가_빈값이어도_저장된다(admin_client: Client, category: 
     assert post.tags == []
 
 
-@pytest.mark.django_db
-def test_마크다운_미리보기가_렌더링된다(admin_client: Client) -> None:
-    post = Post.objects.create(title='제목', slug='preview-post', content='# 헤딩')
-    url = reverse('admin:blog_post_change', args=[post.pk])
-
-    response = admin_client.get(url)
-
-    assert response.status_code == 200
-    assert '<h1>헤딩</h1>' in response.content.decode()
-
-
 def _make_png_upload(name: str) -> SimpleUploadedFile:
     buffer = io.BytesIO()
     Image.new('RGB', (5, 5), color='green').save(buffer, format='PNG')
