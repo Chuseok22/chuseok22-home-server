@@ -4,6 +4,7 @@
 """
 import logging
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from io import BytesIO
@@ -120,3 +121,32 @@ def delete_media_files(paths: list[str]) -> None:
             # OSError뿐 아니라 Django의 SuspiciousFileOperation(경로 검증 실패) 등도 포함해
             # 어떤 이유로든 파일 삭제가 실패해도 포스트 삭제·정리 커맨드 자체는 막지 않는다.
             logger.error('미디어 파일 삭제 실패: %s (%s)', path, e)
+
+
+_UPLOAD_DIR = 'blog/uploads'
+
+
+def find_orphaned_media(grace_seconds: int = 24 * 60 * 60) -> list[str]:
+    """어떤 포스트에도 참조되지 않고, 수정 시각이 grace_seconds 이전인 blog/uploads 하위 파일의 스토리지 상대 경로를 반환한다."""
+    from apps.blog.models import Post  # 이 함수를 쓰지 않는 다른 코드가 media_storage를 import할 때 불필요하게 Post를 로드하지 않도록 지연 import한다.
+
+    referenced: set[str] = set()
+    for content in Post.objects.values_list('content', flat=True):
+        referenced.update(extract_media_paths(content))
+
+    upload_dir = Path(settings.MEDIA_ROOT) / _UPLOAD_DIR
+    if not upload_dir.exists():
+        return []
+
+    cutoff = time.time() - grace_seconds
+    orphaned: list[str] = []
+    for file_path in upload_dir.iterdir():
+        if not file_path.is_file():
+            continue
+        relative_path = f'{_UPLOAD_DIR}/{file_path.name}'
+        if relative_path in referenced:
+            continue
+        if file_path.stat().st_mtime > cutoff:
+            continue
+        orphaned.append(relative_path)
+    return orphaned
