@@ -2,7 +2,7 @@ import pytest
 
 from django.core.exceptions import ValidationError
 
-from apps.blog.models import Category, Post
+from apps.blog.models import Category, Post, Tag
 
 
 @pytest.mark.django_db
@@ -68,3 +68,19 @@ def test_카테고리_save는_ORM_경로에서도_3단계_중첩을_거부한다
 
     with pytest.raises(ValidationError):
         Category.objects.create(name='세부', slug='detail', parent=child)
+
+
+@pytest.mark.django_db
+def test_대소문자만_다른_태그_이름은_생성할_수_없다() -> None:
+    Tag.objects.create(name='Django', slug='django')
+
+    with pytest.raises(ValidationError):
+        Tag(name='django', slug='django-2').save()
+
+
+@pytest.mark.django_db
+def test_태그는_최초_입력_케이스_그대로_저장된다() -> None:
+    tag = Tag.objects.create(name='React', slug='react')
+
+    assert tag.name == 'React'
+    assert str(tag) == 'React'
