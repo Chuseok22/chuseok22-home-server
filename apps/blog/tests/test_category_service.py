@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from apps.blog.models import Category, Post
+from apps.blog.models import Category, Post, Tag
 from apps.blog.services.category import (
     CategoryNotFoundError,
     filter_published_posts_by_category_slug,
@@ -190,3 +190,20 @@ def test_category_slug가_없으면_전체_공개_글을_반환한다() -> None:
     result = filter_published_posts_by_category_slug(None)
 
     assert result.count() == 1
+
+
+@pytest.mark.django_db
+def test_전체_공개_글_조회는_태그를_prefetch해서_N플러스1을_방지한다(django_assert_num_queries) -> None:
+    category = Category.objects.create(name='개발', slug='dev')
+    tag = Tag.objects.create(name='Django', slug='django')
+    for i in range(3):
+        post = Post.objects.create(
+            title=f'글{i}', slug=f'post-{i}', content='본문', category=category,
+            is_published=True, published_at=timezone.now(),
+        )
+        post.tags.add(tag)
+
+    with django_assert_num_queries(2):  # 1: posts 조회, 1: tags prefetch
+        posts = list(filter_published_posts_by_category_slug(None))
+        for post in posts:
+            list(post.tags.all())
