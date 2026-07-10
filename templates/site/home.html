@@ -1,4 +1,6 @@
 {% extends "site/base.html" %}
+{% load humanize %}
+{% load activity_tags %}
 
 {% block title %}백지훈 — Home{% endblock %}
 
@@ -6,5 +8,48 @@
 <section class="prose max-w-none">
   <h1>백지훈</h1>
   <p>백엔드 개발자. Django 기반 서비스를 만듭니다.</p>
+</section>
+
+<section class="mt-10">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold">GitHub 컨트리뷰션</h2>
+    <span class="badge badge-outline gap-1">⭐ {{ total_stars }}</span>
+  </div>
+  {% if contribution_weeks %}
+  <div class="overflow-x-auto">
+    <div class="flex gap-1 w-max">
+      {% for week in contribution_weeks %}
+      <div class="flex flex-col gap-1">
+        {% for day in week %}
+        <div
+          class="w-2.5 h-2.5 rounded-sm {{ day.contribution_count|contribution_level_class }}"
+          title="{{ day.date }}: {{ day.contribution_count }}회"
+        ></div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<section class="mt-10">
+  <h2 class="text-lg font-bold mb-4">최근 활동</h2>
+  {% if recent_activities %}
+  <ul class="flex flex-col gap-3">
+    {% for activity in recent_activities %}
+    <li class="flex items-start gap-3 p-3 rounded-lg bg-base-200">
+      <span class="text-xl">{{ activity.event_type|activity_icon }}</span>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium truncate">{{ activity.title }}</p>
+        <p class="text-sm opacity-70 truncate">{{ activity.meta }}</p>
+      </div>
+      <span class="text-xs opacity-50 whitespace-nowrap">{{ activity.occurred_at|naturaltime }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm opacity-60">아직 기록된 활동이 없습니다.</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -367,3 +367,68 @@ def test_시드된_Tool은_소유자에게_두_링크_모두_보여준다() -> N
     assert response.status_code == 200
     assert 'href="/lab/library/"' in body
     assert 'href="/lab/student/"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_활동_아이콘과_제목을_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.activity.models import GithubActivity
+
+    GithubActivity.objects.create(
+        event_id='evt-1', event_type='PushEvent', repo_name='chuseok22/test-repo',
+        title='chuseok22/test-repo', meta='커밋 메시지', occurred_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '📝' in body
+    assert 'chuseok22/test-repo' in body
+    assert '커밋 메시지' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_활동이_없으면_안내_문구를_보여준다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '아직 기록된 활동이 없습니다.' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_총_star_수를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.activity.models import GithubProfileStats
+
+    GithubProfileStats.objects.create(pk=1, total_stars=8)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '⭐ 8' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_컨트리뷰션_데이터가_있으면_그리드를_렌더링한다() -> None:
+    from datetime import date
+
+    from django.test import Client
+
+    from apps.activity.models import GithubContributionDay
+
+    # contribution_count=7 -> Task 6의 contribution_level_class 경계값(7~9)에서 'bg-success/80' 반환
+    GithubContributionDay.objects.create(date=date(2026, 1, 1), contribution_count=7)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'bg-success/80' in body
