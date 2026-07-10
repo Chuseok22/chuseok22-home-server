@@ -14,6 +14,75 @@ def test_home_페이지_200_응답() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_최근_활동_5건만_context에_담는다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.activity.models import GithubActivity
+
+    for i in range(7):
+        GithubActivity.objects.create(
+            event_id=f'evt-{i}',
+            event_type='PushEvent',
+            repo_name='chuseok22/test-repo',
+            title='커밋',
+            meta=f'메시지 {i}',
+            occurred_at=timezone.now() - timezone.timedelta(hours=i),
+        )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert len(response.context['recent_activities']) == 5
+    assert response.context['recent_activities'][0].event_id == 'evt-0'
+
+
+@pytest.mark.django_db
+def test_home_은_star_통계가_없으면_0을_반환한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert response.context['total_stars'] == 0
+
+
+@pytest.mark.django_db
+def test_home_은_총_star_수를_context에_담는다() -> None:
+    from django.test import Client
+
+    from apps.activity.models import GithubProfileStats
+
+    GithubProfileStats.objects.create(pk=1, total_stars=8)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert response.context['total_stars'] == 8
+
+
+@pytest.mark.django_db
+def test_home_은_컨트리뷰션_데이터를_주단위로_묶어_context에_담는다() -> None:
+    from datetime import date, timedelta
+
+    from django.test import Client
+
+    from apps.activity.models import GithubContributionDay
+
+    start = date(2026, 1, 1)
+    for i in range(9):
+        GithubContributionDay.objects.create(date=start + timedelta(days=i), contribution_count=i)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    weeks = response.context['contribution_weeks']
+
+    assert len(weeks) == 2
+    assert len(weeks[0]) == 7
+    assert len(weeks[1]) == 2
+
+
+@pytest.mark.django_db
 def test_projects_페이지는_카테고리별_프로젝트를_보여준다() -> None:
     from django.test import Client
 
