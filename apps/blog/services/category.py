@@ -75,7 +75,7 @@ def filter_published_posts_by_category_slug(category_slug: str | None) -> QueryS
     소분류 slug면 그 소분류 공개 글만 반환한다.
     존재하지 않는 slug면 빈 QuerySet을 반환한다.
     """
-    posts = Post.objects.filter(is_published=True)
+    posts = Post.objects.filter(is_published=True).prefetch_related('tags')
     if category_slug is None:
         return posts
 
