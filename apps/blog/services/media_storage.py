@@ -141,12 +141,17 @@ def find_orphaned_media(grace_seconds: int = 24 * 60 * 60) -> list[str]:
     cutoff = time.time() - grace_seconds
     orphaned: list[str] = []
     for file_path in upload_dir.iterdir():
-        if not file_path.is_file():
+        try:
+            if not file_path.is_file():
+                continue
+            relative_path = f'{_UPLOAD_DIR}/{file_path.name}'
+            if relative_path in referenced:
+                continue
+            if file_path.stat().st_mtime > cutoff:
+                continue
+            orphaned.append(relative_path)
+        except FileNotFoundError:
+            # 파일이 스캔 중에 삭제된 경우(예: 포스트 삭제 신호 핸들러가 같은 파일을 지운 경우)
+            # 이는 고아 파일이 아니므로 계속 진행한다.
             continue
-        relative_path = f'{_UPLOAD_DIR}/{file_path.name}'
-        if relative_path in referenced:
-            continue
-        if file_path.stat().st_mtime > cutoff:
-            continue
-        orphaned.append(relative_path)
     return orphaned
