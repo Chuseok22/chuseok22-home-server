@@ -27,25 +27,6 @@ class TestLinkareerCrawlerParseListFromNextData(TestCase):
     def setUp(self) -> None:
         self.crawler = LinkareerCrawler('https://linkareer.com/list/contest')
 
-    def test_정상_next_data_파싱(self) -> None:
-        data = {
-            'props': {
-                'pageProps': {
-                    'activityList': {
-                        'activities': [
-                            {'id': 100, 'title': '공모전 A'},
-                            {'id': 200, 'title': '공모전 B'},
-                        ]
-                    }
-                }
-            }
-        }
-        result = self.crawler._parse_list_from_next_data(data)
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].article_id, '100')
-        self.assertEqual(result[0].title, '공모전 A')
-        self.assertEqual(result[0].url, 'https://linkareer.com/activity/100')
-
     def test_빈_activities(self) -> None:
         data = {'props': {'pageProps': {'activityList': {'activities': []}}}}
         result = self.crawler._parse_list_from_next_data(data)

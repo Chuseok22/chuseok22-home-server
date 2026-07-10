@@ -4,6 +4,10 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from apps.blog.models import Post
+from apps.blog.services.category import (
+    filter_published_posts_by_category_slug,
+    get_category_sidebar_items,
+)
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.engagement.models import Comment, Like
 from apps.projects.models import Project
@@ -37,9 +41,22 @@ def projects(request: HttpRequest) -> HttpResponse:
 
 
 def blog_list(request: HttpRequest) -> HttpResponse:
-    """공개된 블로그 포스트 목록."""
-    post_list = Post.objects.filter(is_published=True)
-    return render(request, 'site/blog_list.html', {'posts': post_list})
+    """공개된 블로그 포스트 목록. ?category=<slug>로 카테고리 필터링,
+    HX-Request 헤더가 있으면 사이드바+목록 프래그먼트만 반환한다.
+    단, HX-History-Restore-Request(htmx 히스토리 캐시 미스로 인한 재요청)인 경우는
+    htmx가 풀 페이지 응답을 기대하므로 예외로 취급한다."""
+    category_slug = request.GET.get('category') or None
+    context = {
+        'posts': filter_published_posts_by_category_slug(category_slug),
+        'sidebar_items': get_category_sidebar_items(),
+        'selected_category_slug': category_slug,
+        'total_post_count': Post.objects.filter(is_published=True).count(),
+    }
+    is_htmx_fragment_request = (
+        request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request')
+    )
+    template_name = 'site/partials/blog_content.html' if is_htmx_fragment_request else 'site/blog_list.html'
+    return render(request, template_name, context)
 
 
 def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
