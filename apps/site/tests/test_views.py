@@ -442,14 +442,16 @@ def test_home_템플릿은_총_star_수를_보여준다() -> None:
 
 @pytest.mark.django_db
 def test_home_템플릿은_컨트리뷰션_데이터가_있으면_그리드를_렌더링한다() -> None:
-    from datetime import date
+    from datetime import date, timedelta
 
     from django.test import Client
 
     from apps.activity.models import GithubContributionDay
 
+    # 상대 날짜 사용: home()이 date.today() 기준 371일 윈도우로 필터링하므로,
+    # 하드코딩된 절대 날짜는 시간이 지나면 윈도우 밖으로 밀려나 테스트가 깨진다.
     # contribution_count=7 -> Task 6의 contribution_level_class 경계값(7~9)에서 'bg-success/80' 반환
-    GithubContributionDay.objects.create(date=date(2026, 1, 1), contribution_count=7)
+    GithubContributionDay.objects.create(date=date.today() - timedelta(days=30), contribution_count=7)
 
     client = Client()
     response = client.get(reverse('site:home'))

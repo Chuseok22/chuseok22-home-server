@@ -106,7 +106,6 @@ urlpatterns += [
 /api/v1/auth/token/              - JWT 발급
 /api/v1/auth/token/refresh/      - JWT 갱신
 /api/v1/library/                 - 세종대 학술정보원 (apps.sejong.library)
-/api/v1/activities/              - GitHub 활동 등 (apps.activity)
 /api/v1/blog/                    - 블로그 ingest/카테고리 API (apps.blog)
 /api/v1/sejong/students/         - 세종대 학생 조회 (apps.sejong.student)
 /api/schema/, /docs/swagger/     - drf-spectacular 스키마/Swagger UI
