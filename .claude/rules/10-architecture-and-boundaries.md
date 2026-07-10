@@ -41,7 +41,7 @@
 **예외 — SSR 표현 계층(`apps.site`)**: Issue #25(SSR 마이그레이션)에서 `apps.site`는 REST API
 레이어 없이 뷰가 각 도메인 앱의 `models`(조회)와 `services/`(외부 연동·쓰기)를 직접 호출하는
 구조로 설계됐다(`docs/superpowers/plans/2026-07-05-site-ssr-migration.md` Architecture 절 참고).
-`apps.site.views → apps.blog/projects/engagement/sejong.*.models`처럼 표현 계층이 도메인 모델을
+`apps.site.views → apps.blog/projects/activity/engagement/sejong.*.models`처럼 표현 계층이 도메인 모델을
 직접 조회하는 것은 이 예외에 한해 허용한다. 그 외 앱 간 직접 model import는 여전히 금지다.
 
 **예외 — `apps.sejong.auth`(도메인 네임스페이스 내 공용 인증 서비스)**: `apps.sejong` 네임스페이스는
@@ -106,7 +106,6 @@ urlpatterns += [
 /api/v1/auth/token/              - JWT 발급
 /api/v1/auth/token/refresh/      - JWT 갱신
 /api/v1/library/                 - 세종대 학술정보원 (apps.sejong.library)
-/api/v1/activities/              - GitHub 활동 등 (apps.activity)
 /api/v1/blog/                    - 블로그 ingest/카테고리 API (apps.blog)
 /api/v1/sejong/students/         - 세종대 학생 조회 (apps.sejong.student)
 /api/schema/, /docs/swagger/     - drf-spectacular 스키마/Swagger UI

@@ -29,6 +29,13 @@ JOB_DEFINITIONS = {
         'default_minute': 0,
         'default_day_of_week': '*',
     },
+    'fetch_github_stats': {
+        'label': 'GitHub 통계 수집 (잔디·star)',
+        'command': 'fetch_github_stats',
+        'default_hour': 3,
+        'default_minute': 5,
+        'default_day_of_week': '*',
+    },
     'cleanup_orphaned_media': {
         'label': '고아 이미지 파일 정리',
         'command': 'cleanup_orphaned_media',

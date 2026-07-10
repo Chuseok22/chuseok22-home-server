@@ -22,9 +22,6 @@ urlpatterns = [
     # 학술정보원 (기존 REST API — 서비스 레이어는 apps.site가 재사용, 엔드포인트는 유지)
     path('api/v1/library/', include('apps.sejong.library.urls')),
 
-    # GitHub 활동
-    path('api/v1/activities/', include('apps.activity.urls')),
-
     # 블로그 자동 포스팅(ingest) — 전용 API 키 인증
     path('api/v1/blog/', include('apps.blog.urls')),
 

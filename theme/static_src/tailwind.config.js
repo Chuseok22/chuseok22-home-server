@@ -6,6 +6,15 @@
  */
 
 module.exports = {
+    // apps/site/templatetags/activity_tags.py의 contribution_level_class가
+    // 템플릿에 리터럴로 나타나지 않는 클래스명을 동적으로 반환하므로 safelist로 강제 포함한다.
+    safelist: [
+        'bg-base-300',
+        'bg-success/30',
+        'bg-success/55',
+        'bg-success/80',
+        'bg-success',
+    ],
     content: [
         /**
          * HTML. Paths to Django template files that will contain Tailwind CSS classes.
