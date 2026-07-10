@@ -4,21 +4,22 @@ from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
 
-from apps.blog.models import Category, Post
+from apps.blog.models import Category, Post, Tag
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.blog.services.media_storage import save_uploaded_media
 from apps.blog.services.slug import generate_unique_slug
 
 
-class PostAdminForm(forms.ModelForm):
-    class Meta:
-        model = Post
-        fields = '__all__'
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    search_fields = ('name',)
+    prepopulated_fields = {'slug': ('name',)}
 
-    # Post.tags는 blank=True라 필드는 이미 required=False지만,
-    # 빈 값 제출 시 None이 되어 NOT NULL 컬럼에서 IntegrityError가 발생한다.
-    def clean_tags(self) -> list:
-        return self.cleaned_data.get('tags') or []
+    def save_model(self, request: HttpRequest, obj: Tag, form: forms.ModelForm, change: bool) -> None:
+        if not obj.slug:
+            obj.slug = generate_unique_slug(Tag, obj.name)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Category)
@@ -46,11 +47,11 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    form = PostAdminForm
     list_display = ('title', 'is_published', 'published_at', 'updated_at')
     list_filter = ('is_published',)
     search_fields = ('title', 'content')
     prepopulated_fields = {'slug': ('title',)}
+    autocomplete_fields = ('tags',)
     fieldsets = (
         (None, {'fields': ('title', 'slug', 'summary', 'category', 'repo_url', 'tags', 'is_published', 'published_at')}),
         ('본문', {'fields': ('content',)}),
