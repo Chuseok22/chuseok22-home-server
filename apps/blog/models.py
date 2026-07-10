@@ -79,7 +79,7 @@ class Post(models.Model):
     slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
     summary = models.CharField(max_length=300, blank=True, verbose_name='요약')
     content = models.TextField(verbose_name='본문 (Markdown)')
-    tags = models.JSONField(default=list, blank=True, verbose_name='태그')
+    tags = models.ManyToManyField(Tag, blank=True, related_name='posts', verbose_name='태그')
     category = models.ForeignKey(
         Category, on_delete=models.PROTECT, null=True, related_name='posts',
         verbose_name='카테고리',
