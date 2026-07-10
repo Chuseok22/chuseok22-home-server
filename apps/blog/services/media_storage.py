@@ -2,6 +2,9 @@
 
 이미지는 압축 효율이 좋은 webp로 변환해 저장하고, 동영상·문서는 원본 그대로 저장한다.
 """
+import logging
+import re
+import time
 import uuid
 from dataclasses import dataclass
 from io import BytesIO
@@ -9,12 +12,15 @@ from pathlib import Path
 from typing import Callable
 
 import pillow_heif
+from django.conf import settings
 from django.core.files.base import ContentFile, File
 from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import UploadedFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 pillow_heif.register_heif_opener()
+
+logger = logging.getLogger(__name__)
 
 _IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif'}
 _VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm'}
@@ -94,3 +100,58 @@ def _image_markdown(url: str) -> str:
 
 def _video_markdown(url: str) -> str:
     return f'<video controls src="{url}"></video>'
+
+
+_MEDIA_PATH_PATTERN = re.compile(re.escape(settings.MEDIA_URL) + r'(blog/uploads/[^\s\)"\']+)')
+
+
+def extract_media_paths(content: str) -> list[str]:
+    """본문에서 참조된 blog/uploads 하위 미디어 파일의 스토리지 상대 경로를 추출한다."""
+    return _MEDIA_PATH_PATTERN.findall(content)
+
+
+def delete_media_files(paths: list[str]) -> None:
+    """주어진 스토리지 상대 경로의 파일들을 삭제한다. 개별 파일 삭제 실패는 로깅만 하고 계속 진행한다."""
+    storage = FileSystemStorage()
+    for path in paths:
+        try:
+            if storage.exists(path):
+                storage.delete(path)
+        except Exception as e:
+            # OSError뿐 아니라 Django의 SuspiciousFileOperation(경로 검증 실패) 등도 포함해
+            # 어떤 이유로든 파일 삭제가 실패해도 포스트 삭제·정리 커맨드 자체는 막지 않는다.
+            logger.error('미디어 파일 삭제 실패: %s (%s)', path, e)
+
+
+_UPLOAD_DIR = 'blog/uploads'
+
+
+def find_orphaned_media(grace_seconds: int = 24 * 60 * 60) -> list[str]:
+    """어떤 포스트에도 참조되지 않고, 수정 시각이 grace_seconds 이전인 blog/uploads 하위 파일의 스토리지 상대 경로를 반환한다."""
+    from apps.blog.models import Post  # 이 함수를 쓰지 않는 다른 코드가 media_storage를 import할 때 불필요하게 Post를 로드하지 않도록 지연 import한다.
+
+    referenced: set[str] = set()
+    for content in Post.objects.values_list('content', flat=True):
+        referenced.update(extract_media_paths(content))
+
+    upload_dir = Path(settings.MEDIA_ROOT) / _UPLOAD_DIR
+    if not upload_dir.exists():
+        return []
+
+    cutoff = time.time() - grace_seconds
+    orphaned: list[str] = []
+    for file_path in upload_dir.iterdir():
+        try:
+            if not file_path.is_file():
+                continue
+            relative_path = f'{_UPLOAD_DIR}/{file_path.name}'
+            if relative_path in referenced:
+                continue
+            if file_path.stat().st_mtime > cutoff:
+                continue
+            orphaned.append(relative_path)
+        except FileNotFoundError:
+            # 파일이 스캔 중에 삭제된 경우(예: 포스트 삭제 신호 핸들러가 같은 파일을 지운 경우)
+            # 이는 고아 파일이 아니므로 계속 진행한다.
+            continue
+    return orphaned

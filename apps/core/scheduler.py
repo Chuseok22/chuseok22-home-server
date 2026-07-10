@@ -20,12 +20,21 @@ JOB_DEFINITIONS = {
         'command': 'check_new_notices',
         'default_hour': 8,
         'default_minute': 0,
+        'default_day_of_week': '*',
     },
     'fetch_github_activities': {
         'label': 'GitHub 활동 수집',
         'command': 'fetch_github_activities',
         'default_hour': 3,
         'default_minute': 0,
+        'default_day_of_week': '*',
+    },
+    'cleanup_orphaned_media': {
+        'label': '고아 이미지 파일 정리',
+        'command': 'cleanup_orphaned_media',
+        'default_hour': 3,
+        'default_minute': 0,
+        'default_day_of_week': 'sun',
     },
 }
 
@@ -44,6 +53,7 @@ def get_or_seed_job_config(job_id: str, definition: dict) -> ScheduledJobConfig:
         defaults={
             'cron_hour': definition['default_hour'],
             'cron_minute': definition['default_minute'],
+            'cron_day_of_week': definition['default_day_of_week'],
         },
     )
     return config
@@ -74,7 +84,12 @@ def start_scheduler() -> None:
         scheduler.add_job(
             _run_job,
             args=[definition['command']],
-            trigger=CronTrigger(hour=config.cron_hour, minute=config.cron_minute, timezone=SCHEDULER_TIMEZONE),
+            trigger=CronTrigger(
+                hour=config.cron_hour,
+                minute=config.cron_minute,
+                day_of_week=config.cron_day_of_week,
+                timezone=SCHEDULER_TIMEZONE,
+            ),
             id=job_id,
             replace_existing=True,
             coalesce=True,

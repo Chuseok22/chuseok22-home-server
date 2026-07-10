@@ -3,8 +3,6 @@ from django.contrib import admin
 from django.db.models import ForeignKey
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
-from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 
 from apps.blog.models import Category, Post
 from apps.blog.services.markdown_renderer import render_markdown
@@ -53,10 +51,9 @@ class PostAdmin(admin.ModelAdmin):
     list_filter = ('is_published',)
     search_fields = ('title', 'content')
     prepopulated_fields = {'slug': ('title',)}
-    readonly_fields = ('content_preview',)
     fieldsets = (
         (None, {'fields': ('title', 'slug', 'summary', 'category', 'repo_url', 'tags', 'is_published', 'published_at')}),
-        ('본문', {'fields': ('content', 'content_preview')}),
+        ('본문', {'fields': ('content',)}),
     )
 
     def save_model(self, request: HttpRequest, obj: Post, form: forms.ModelForm, change: bool) -> None:
@@ -65,7 +62,8 @@ class PostAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     class Media:
-        js = ('blog/admin/post_media_upload.js',)
+        js = ('blog/admin/post_media_upload.js', 'blog/admin/post_split_preview.js')
+        css = {'all': ('blog/admin/post_split_preview.css',)}
 
     def get_urls(self) -> list:
         custom_urls = [
@@ -73,6 +71,11 @@ class PostAdmin(admin.ModelAdmin):
                 'upload-media/',
                 self.admin_site.admin_view(self.upload_media_view),
                 name='blog_post_upload_media',
+            ),
+            path(
+                'preview/',
+                self.admin_site.admin_view(self.preview_view),
+                name='blog_post_preview',
             ),
         ]
         return custom_urls + super().get_urls()
@@ -92,10 +95,13 @@ class PostAdmin(admin.ModelAdmin):
 
         return JsonResponse({'success': True, 'url': result.url, 'markdown': result.markdown})
 
-    @admin.display(description='렌더링 미리보기')
-    def content_preview(self, obj: Post) -> str:
-        if not obj.content:
-            return '-'
-        # apps/site 공개 페이지(templates/site/blog_detail.html의 {{ content_html|safe }})와
-        # 동일하게, render_markdown()이 이미 bleach로 sanitize한 결과를 신뢰해 그대로 렌더링한다.
-        return format_html('<div>{}</div>', mark_safe(render_markdown(obj.content)))
+    def preview_view(self, request: HttpRequest) -> JsonResponse:
+        # upload_media_view와 동일하게 Post 변경 권한이 없는 staff 계정의 요청을 차단한다.
+        if not self.has_change_permission(request):
+            return JsonResponse({'error_message': '권한이 없습니다.'}, status=403)
+
+        if request.method != 'POST':
+            return JsonResponse({'error_message': 'POST 요청만 허용됩니다.'}, status=400)
+
+        content = request.POST.get('content', '')
+        return JsonResponse({'html': render_markdown(content)})

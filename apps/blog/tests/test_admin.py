@@ -45,17 +45,6 @@ def test_태그가_빈값이어도_저장된다(admin_client: Client, category: 
     assert post.tags == []
 
 
-@pytest.mark.django_db
-def test_마크다운_미리보기가_렌더링된다(admin_client: Client) -> None:
-    post = Post.objects.create(title='제목', slug='preview-post', content='# 헤딩')
-    url = reverse('admin:blog_post_change', args=[post.pk])
-
-    response = admin_client.get(url)
-
-    assert response.status_code == 200
-    assert '<h1>헤딩</h1>' in response.content.decode()
-
-
 def _make_png_upload(name: str) -> SimpleUploadedFile:
     buffer = io.BytesIO()
     Image.new('RGB', (5, 5), color='green').save(buffer, format='PNG')
@@ -162,3 +151,35 @@ def test_슬러그를_비워두면_Category가_자동_생성한다(admin_client:
     assert response.status_code == 302
     category = Category.objects.get(name='테스트카테고리')
     assert category.slug != ''
+
+
+@pytest.mark.django_db
+def test_로그인하지_않으면_미리보기_엔드포인트_접근이_거부된다() -> None:
+    client = Client()
+    url = reverse('admin:blog_post_preview')
+
+    response = client.post(url, {'content': '# 제목'})
+
+    assert response.status_code == 302  # admin_site.admin_view()가 미인증 요청을 로그인 페이지로 redirect
+
+
+@pytest.mark.django_db
+def test_post_변경_권한이_없는_스태프는_미리보기_요청이_거부된다() -> None:
+    user = User.objects.create_user(username='staff', email='staff@example.com', password='pw12345!', is_staff=True)
+    client = Client()
+    client.force_login(user)
+    url = reverse('admin:blog_post_preview')
+
+    response = client.post(url, {'content': '# 제목'})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_관리자는_미리보기_엔드포인트에서_렌더링된_html을_받는다(admin_client: Client) -> None:
+    url = reverse('admin:blog_post_preview')
+
+    response = admin_client.post(url, {'content': '# 제목'})
+
+    assert response.status_code == 200
+    assert '<h1>제목</h1>' in response.json()['html']

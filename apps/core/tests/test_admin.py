@@ -27,11 +27,12 @@ def test_저장_시_update_job_schedule이_호출된다(admin_client: Client) ->
             'is_enabled': 'on',
             'cron_hour': 10,
             'cron_minute': 30,
+            'cron_day_of_week': 'mon',
             '_save': 'Save',
         })
 
     assert response.status_code == 302
-    mock_update.assert_called_once_with('check_new_notices', is_enabled=True, hour=10, minute=30)
+    mock_update.assert_called_once_with('check_new_notices', is_enabled=True, hour=10, minute=30, day_of_week='mon')
 
 
 @pytest.mark.django_db
@@ -59,6 +60,7 @@ def test_스케줄러에_job이_없으면_경고_메시지가_노출되고_저�
             'is_enabled': 'on',
             'cron_hour': 10,
             'cron_minute': 30,
+            'cron_day_of_week': 'mon',
             '_save': 'Save',
         }, follow=True)
 

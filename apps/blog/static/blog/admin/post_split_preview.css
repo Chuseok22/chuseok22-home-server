@@ -1,0 +1,113 @@
+.blog-split-pane {
+  display: flex;
+  gap: 16px;
+  height: 70vh;
+  margin-bottom: 8px;
+}
+
+.blog-editor-pane,
+.blog-preview-pane {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.blog-editor-pane textarea {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  resize: none;
+}
+
+.blog-preview-pane {
+  border: 1px solid #ccc;
+  padding: 16px;
+  background: #fff;
+  color: #222;
+}
+
+/* Django Admin 5.1은 prefers-color-scheme 기반 다크 모드를 기본 제공하므로,
+   미리보기 pane도 라이트 컬러로 고정하지 않고 같은 방식으로 대응한다. */
+@media (prefers-color-scheme: dark) {
+  .blog-preview-pane {
+    background: #1b1b1b;
+    color: #e5e5e5;
+    border-color: #444;
+  }
+
+  .blog-preview-pane pre,
+  .blog-preview-pane code {
+    background: #2a2a2a;
+  }
+
+  .blog-preview-pane blockquote {
+    border-left-color: #555;
+    color: #aaa;
+  }
+
+  .blog-preview-pane th,
+  .blog-preview-pane td {
+    border-color: #444;
+  }
+}
+
+.blog-preview-pane h1,
+.blog-preview-pane h2,
+.blog-preview-pane h3 {
+  font-weight: 700;
+  margin: 0.6em 0 0.4em;
+}
+
+.blog-preview-pane h1 {
+  font-size: 1.8em;
+}
+
+.blog-preview-pane h2 {
+  font-size: 1.5em;
+}
+
+.blog-preview-pane h3 {
+  font-size: 1.25em;
+}
+
+.blog-preview-pane p {
+  margin: 0.6em 0;
+  line-height: 1.6;
+}
+
+.blog-preview-pane pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.blog-preview-pane code {
+  font-family: monospace;
+  background: #f0f0f0;
+  padding: 2px 4px;
+  border-radius: 2px;
+}
+
+.blog-preview-pane blockquote {
+  border-left: 3px solid #ccc;
+  margin: 0.6em 0;
+  padding-left: 12px;
+  color: #555;
+}
+
+.blog-preview-pane table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.blog-preview-pane th,
+.blog-preview-pane td {
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+}
+
+.blog-preview-pane img,
+.blog-preview-pane video {
+  max-width: 100%;
+}
