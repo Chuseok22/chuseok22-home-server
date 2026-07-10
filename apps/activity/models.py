@@ -19,3 +19,30 @@ class GithubActivity(models.Model):
 
     def __str__(self) -> str:
         return f'[{self.event_type}] {self.repo_name}'
+
+
+class GithubContributionDay(models.Model):
+    """GitHub GraphQL API로 수집한 날짜별 컨트리뷰션(잔디) 수"""
+    date = models.DateField(unique=True, verbose_name='날짜')
+    contribution_count = models.PositiveIntegerField(default=0, verbose_name='컨트리뷰션 수')
+
+    class Meta:
+        verbose_name = 'GitHub 컨트리뷰션'
+        verbose_name_plural = 'GitHub 컨트리뷰션 목록'
+        ordering = ('date',)
+
+    def __str__(self) -> str:
+        return f'{self.date} ({self.contribution_count})'
+
+
+class GithubProfileStats(models.Model):
+    """GitHub 프로필 요약 통계 (싱글턴 레코드, pk=1 고정)"""
+    total_stars = models.PositiveIntegerField(default=0, verbose_name='총 star 수')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='갱신 시각')
+
+    class Meta:
+        verbose_name = 'GitHub 프로필 통계'
+        verbose_name_plural = 'GitHub 프로필 통계'
+
+    def __str__(self) -> str:
+        return f'star {self.total_stars}개 (갱신: {self.updated_at:%Y-%m-%d})'
