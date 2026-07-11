@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.notifications.crawlers import get_crawler
 from apps.notifications.crawlers.base import BaseNoticeItem
+from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -96,4 +97,6 @@ class Command(BaseCommand):
             return item.operation_start.date() if item.operation_start else None
         if isinstance(item, ContestItem):
             return item.application_end
+        if isinstance(item, DaconItem):
+            return None
         return None
