@@ -6,6 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.notifications.crawlers.base import BaseNoticeItem
+from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -43,6 +44,8 @@ class TelegramService:
             return self._format_sejong_do(source, item)
         if isinstance(item, ContestItem):
             return self._format_contest(source, item)
+        if isinstance(item, DaconItem):
+            return self._format_dacon(source, item)
         return f'🔔 새 알림\n[{source.name}]\n📌 {item.title}\n🔗 {item.url}'
 
     def _format_sejong_notice(self, source: NoticeSource, item: SejongNoticeItem) -> str:
@@ -98,6 +101,21 @@ class TelegramService:
         if item.homepage:
             lines.append(f'🌐 홈페이지: {item.homepage}')
         lines.append(f'🔗 링커리어: {item.url}')
+        return '\n'.join(lines)
+
+    def _format_dacon(self, source: NoticeSource, item: DaconItem) -> str:
+        lines = [
+            '🎯 새 데이터 경진대회 알림\n',
+            f'[{source.name}]',
+            f'📌 {item.title}',
+        ]
+        if item.status:
+            lines.append(f'📋 상태: {item.status}')
+        if item.participant_count is not None:
+            lines.append(f'👥 참가자: {item.participant_count}명')
+        if item.tags:
+            lines.append(f'📂 태그: {", ".join(item.tags)}')
+        lines.append(f'🔗 {item.url}')
         return '\n'.join(lines)
 
     def _fmt_period_dt(self, start: datetime | None, end: datetime | None) -> str:

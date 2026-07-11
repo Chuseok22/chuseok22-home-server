@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import TestCase, override_settings
 
+from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -69,6 +70,23 @@ class TestTelegramServiceFormatMessage(TestCase):
         self.assertIn('디자인, IT/개발', result)
         self.assertIn('https://company.com', result)
         self.assertIn('링커리어', result)
+
+    def test_dacon_포맷(self) -> None:
+        item = DaconItem(
+            article_id='236727',
+            title='제3회 풍력발전량 예측 AI 경진대회',
+            url='https://dacon.io/competitions/official/236727/overview/',
+            status='참가신청중',
+            participant_count=1305,
+            tags=['알고리즘', '에너지'],
+        )
+        result = self.service._format_message(self.source, item)
+        self.assertIn('새 데이터 경진대회 알림', result)
+        self.assertIn('제3회 풍력발전량 예측 AI 경진대회', result)
+        self.assertIn('참가신청중', result)
+        self.assertIn('1305명', result)
+        self.assertIn('알고리즘, 에너지', result)
+        self.assertIn('https://dacon.io/competitions/official/236727/overview/', result)
 
     def test_unknown_item_fallback(self) -> None:
         from apps.notifications.crawlers.base import BaseNoticeItem
