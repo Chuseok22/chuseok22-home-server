@@ -221,3 +221,10 @@ class TestDaconCrawlerCrawlRequestFailure(TestCase):
             mock_get.side_effect = requests.RequestException('연결 실패')
             result = crawler.crawl()
         self.assertEqual(result, [])
+
+
+class TestGetCrawlerDacon(TestCase):
+    def test_dacon_크롤러_반환(self) -> None:
+        from apps.notifications.crawlers import get_crawler
+        crawler = get_crawler('dacon', 'https://dacon.io/competitions')
+        self.assertIsInstance(crawler, DaconCrawler)
