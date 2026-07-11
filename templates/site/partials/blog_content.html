@@ -49,9 +49,9 @@
       </a>
       <p class="opacity-70 text-sm">{{ post.summary }}</p>
       {% if post.tags.all %}
-      <div class="not-prose flex gap-2 flex-wrap mt-1">
+      <div class="not-prose flex gap-2 flex-wrap mt-3">
         {% for tag in post.tags.all %}
-        <span class="badge badge-primary badge-outline badge-md">{{ tag.name }}</span>
+        <span class="badge-tag">{{ tag.name }}</span>
         {% endfor %}
       </div>
       {% endif %}

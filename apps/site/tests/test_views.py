@@ -519,3 +519,65 @@ def test_blog_목록은_태그가_없는_포스트에_배지_블록을_렌더링
     body = response.content.decode()
 
     assert 'badge' not in body
+
+
+@pytest.mark.django_db
+def test_블로그_상세는_태그를_파스텔_배지_스타일로_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post, Tag
+
+    post = Post.objects.create(
+        title='파스텔 태그 글', slug='pastel-tag-post', content='# 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+    post.tags.add(Tag.objects.create(name='Django', slug='django'))
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'pastel-tag-post'}))
+    body = response.content.decode()
+
+    assert '<span class="badge-tag">Django</span>' in body
+
+
+@pytest.mark.django_db
+def test_블로그_목록은_태그를_파스텔_배지_스타일로_보여주고_본문과_간격을_둔다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post, Tag
+
+    post = Post.objects.create(
+        title='파스텔 태그 목록 글', slug='pastel-tag-list-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+    post.tags.add(Tag.objects.create(name='Django', slug='django'))
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert '<div class="not-prose flex gap-2 flex-wrap mt-3">' in body
+    assert '<span class="badge-tag">Django</span>' in body
+
+
+@pytest.mark.django_db
+def test_프로젝트_페이지는_태그를_파스텔_배지_스타일로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    Project.objects.create(
+        category=ProjectCategory.SIDE,
+        title='파스텔 태그 프로젝트',
+        description='설명',
+        status=ProjectStatus.IN_PROGRESS,
+        tags=['Django', 'DRF'],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<span class="badge-tag">Django</span>' in body
