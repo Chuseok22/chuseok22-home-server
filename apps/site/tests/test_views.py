@@ -595,3 +595,24 @@ def test_헤더는_데스크톱_네비게이션과_모바일_햄버거_메뉴를
     assert 'aria-label="메뉴 열기"' in body
     assert 'mobileMenuOpen' in body
     assert ':aria-expanded="mobileMenuOpen' in body
+
+
+@pytest.mark.django_db
+def test_블로그_목록은_모바일용_가로_스크롤_카테고리_바와_데스크톱용_사이드바를_모두_렌더링한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    Post.objects.create(
+        title='글', slug='post-1', content='본문', category=category,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert 'flex md:hidden gap-2 overflow-x-auto' in body
+    assert 'hidden md:block w-48' in body

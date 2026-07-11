@@ -1,5 +1,35 @@
-<div id="blog-content" class="flex gap-8">
-  <aside class="w-48 shrink-0">
+<div id="blog-content" class="flex flex-col md:flex-row gap-4 md:gap-8">
+  <div class="flex md:hidden gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+    <a
+      href="{% url 'site:blog-list' %}"
+      hx-get="{% url 'site:blog-list' %}"
+      hx-target="#blog-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm shrink-0 {% if not selected_category_slug %}btn-primary{% else %}btn-ghost{% endif %}"
+    >전체 ({{ total_post_count }})</a>
+    {% for item in sidebar_items %}
+    <a
+      href="{% url 'site:blog-list' %}?category={{ item.slug }}"
+      hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+      hx-target="#blog-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm shrink-0 {% if selected_category_slug == item.slug %}btn-primary{% else %}btn-ghost{% endif %}"
+    >{{ item.name }} ({{ item.post_count }})</a>
+    {% for child in item.children %}
+    <a
+      href="{% url 'site:blog-list' %}?category={{ child.slug }}"
+      hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+      hx-target="#blog-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm shrink-0 {% if selected_category_slug == child.slug %}btn-primary{% else %}btn-ghost{% endif %}"
+    >{{ child.name }} ({{ child.post_count }})</a>
+    {% endfor %}
+    {% endfor %}
+  </div>
+  <aside class="hidden md:block w-48 shrink-0">
     <ul class="menu menu-sm p-0">
       <li>
         <a
