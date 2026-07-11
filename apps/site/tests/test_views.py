@@ -519,3 +519,100 @@ def test_blog_목록은_태그가_없는_포스트에_배지_블록을_렌더링
     body = response.content.decode()
 
     assert 'badge' not in body
+
+
+@pytest.mark.django_db
+def test_블로그_상세는_태그를_파스텔_배지_스타일로_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post, Tag
+
+    post = Post.objects.create(
+        title='파스텔 태그 글', slug='pastel-tag-post', content='# 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+    post.tags.add(Tag.objects.create(name='Django', slug='django'))
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'pastel-tag-post'}))
+    body = response.content.decode()
+
+    assert '<span class="badge-tag">Django</span>' in body
+
+
+@pytest.mark.django_db
+def test_블로그_목록은_태그를_파스텔_배지_스타일로_보여주고_본문과_간격을_둔다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post, Tag
+
+    post = Post.objects.create(
+        title='파스텔 태그 목록 글', slug='pastel-tag-list-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+    post.tags.add(Tag.objects.create(name='Django', slug='django'))
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert '<div class="not-prose flex gap-2 flex-wrap mt-3">' in body
+    assert '<span class="badge-tag">Django</span>' in body
+
+
+@pytest.mark.django_db
+def test_프로젝트_페이지는_태그를_파스텔_배지_스타일로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    Project.objects.create(
+        category=ProjectCategory.SIDE,
+        title='파스텔 태그 프로젝트',
+        description='설명',
+        status=ProjectStatus.IN_PROGRESS,
+        tags=['Django', 'DRF'],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<span class="badge-tag">Django</span>' in body
+
+
+@pytest.mark.django_db
+def test_헤더는_데스크톱_네비게이션과_모바일_햄버거_메뉴를_모두_렌더링한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'hidden md:flex' in body
+    assert 'aria-label="메뉴 열기"' in body
+    assert 'mobileMenuOpen' in body
+    assert ':aria-expanded="mobileMenuOpen' in body
+
+
+@pytest.mark.django_db
+def test_블로그_목록은_모바일용_가로_스크롤_카테고리_바와_데스크톱용_사이드바를_모두_렌더링한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    Post.objects.create(
+        title='글', slug='post-1', content='본문', category=category,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert 'flex md:hidden gap-2 overflow-x-auto' in body
+    assert 'hidden md:block w-48' in body

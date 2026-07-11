@@ -1,3 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* velog 스타일 라벤더/바이올릿 파스텔 태그 배지. 태그별 개별 색상은 사용하지 않고
+     전체 태그가 동일한 톤을 공유한다. 다크모드는 data-theme 속성 기반 토글이므로
+     Tailwind dark: variant 대신 속성 선택자로 오버라이드한다. */
+  .badge-tag {
+    @apply badge badge-lg border-none font-medium;
+    background-color: #EDE9FE;
+    color: #6D28D9;
+  }
+
+  [data-theme='dark'] .badge-tag {
+    background-color: rgba(167, 139, 250, 0.18);
+    color: #C4B5FD;
+  }
+}
+
+/* Alpine.js가 초기화되기 전 모바일 메뉴가 잠깐 노출되는 것을 막는다. */
+[x-cloak] {
+  display: none !important;
+}

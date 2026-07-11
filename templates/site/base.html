@@ -22,11 +22,14 @@
   <!-- hx-headers가 body 전체에 CSRF 토큰을 실어 모든 htmx 요청(폼 안/밖 버튼 포함)에 자동 첨부한다.
        CsrfViewMiddleware가 활성화되어 있어 이게 없으면 모든 htmx POST가 403으로 거부된다. -->
   <header class="border-b border-base-300">
-    <nav class="navbar max-w-4xl mx-auto" x-data="{ theme: localStorage.getItem('theme') || 'light' }">
+    <nav
+      class="navbar max-w-4xl mx-auto flex-wrap"
+      x-data="{ theme: localStorage.getItem('theme') || 'light', mobileMenuOpen: false }"
+    >
       <div class="flex-1">
         <a href="{% url 'site:home' %}" class="font-mono font-bold text-lg">chuseok22</a>
       </div>
-      <div class="flex-none gap-2">
+      <div class="hidden md:flex flex-none items-center gap-2">
         <a href="{% url 'site:projects' %}" class="btn btn-ghost btn-sm">Projects</a>
         <a href="{% url 'site:blog-list' %}" class="btn btn-ghost btn-sm">Blog</a>
         <a href="{% url 'site:lab-index' %}" class="btn btn-ghost btn-sm">Lab</a>
@@ -40,6 +43,34 @@
           class="btn btn-ghost btn-sm"
           @click="theme = theme === 'light' ? 'dark' : 'light'; localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme)"
         >🌓</button>
+      </div>
+      <div class="flex-none md:hidden">
+        <button
+          class="btn btn-ghost btn-sm"
+          aria-label="메뉴 열기"
+          :aria-expanded="mobileMenuOpen.toString()"
+          @click="mobileMenuOpen = !mobileMenuOpen"
+        >☰</button>
+      </div>
+      <div
+        x-show="mobileMenuOpen"
+        x-cloak
+        @click.outside="mobileMenuOpen = false"
+        class="basis-full md:hidden flex flex-col gap-1 pt-2"
+      >
+        <a href="{% url 'site:projects' %}" class="btn btn-ghost btn-sm justify-start">Projects</a>
+        <a href="{% url 'site:blog-list' %}" class="btn btn-ghost btn-sm justify-start">Blog</a>
+        <a href="{% url 'site:lab-index' %}" class="btn btn-ghost btn-sm justify-start">Lab</a>
+        {% if user.is_authenticated %}
+        <span class="text-sm opacity-70 px-3">{{ user.username }}</span>
+        <a href="{% url 'account_logout' %}" class="btn btn-ghost btn-sm justify-start">로그아웃</a>
+        {% else %}
+        <a href="{% url 'github_login' %}" class="btn btn-ghost btn-sm justify-start">GitHub 로그인</a>
+        {% endif %}
+        <button
+          class="btn btn-ghost btn-sm justify-start"
+          @click="theme = theme === 'light' ? 'dark' : 'light'; localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme)"
+        >🌓 테마 변경</button>
       </div>
     </nav>
   </header>
