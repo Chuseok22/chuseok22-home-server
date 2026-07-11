@@ -17,12 +17,6 @@
 3. `.env.local` (개발) / `.env.production` (운영) — 절대 커밋 금지.
 4. 로컬 검증은 `--settings=config.settings.development` 플래그를 사용한다.
 
-## 관련 프로젝트
-
-| 프로젝트 | 경로 | 권한 |
-|---|---|---|
-| 프론트엔드 (chuseok22-home-web) | `/Users/chuseok22/Workspace/playground/chuseok22-home/chuseok22-home-web` | **읽기 전용** — API 연동·타입 참고 시 Read 가능. **쓰기 절대 금지.** |
-
 ## 주요 명령
 
 ```bash
