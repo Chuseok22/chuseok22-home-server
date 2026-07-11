@@ -71,9 +71,9 @@
       {% endfor %}
     </ul>
   </aside>
-  <div class="flex flex-col gap-4 flex-1 divide-y divide-base-300">
+  <div class="flex flex-col flex-1 divide-y divide-base-300">
     {% for post in posts %}
-    <article>
+    <article class="py-4 first:pt-0 last:pb-0">
       <a href="{% url 'site:blog-detail' post.slug %}" class="text-lg font-semibold link link-hover">
         {{ post.title }}
       </a>
