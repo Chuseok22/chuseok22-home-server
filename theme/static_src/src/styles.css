@@ -10,6 +10,7 @@
     @apply badge badge-lg border-none font-medium;
     background-color: #EDE9FE;
     color: #6D28D9;
+    font-size: 0.75rem;
   }
 
   [data-theme='dark'] .badge-tag {
