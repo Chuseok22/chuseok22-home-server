@@ -14,3 +14,10 @@ def test_x_cloak_유틸리티가_정의되어_있다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 
     assert '[x-cloak]' in content
+
+
+def test_badge_tag는_배지_높이는_유지하고_글자_크기만_줄인다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert 'badge-lg' in content
+    assert 'font-size: 0.75rem;' in content
