@@ -85,3 +85,50 @@ def test_GitHub_통계_수집_잡은_기본값이_새벽_3시_5분이다() -> No
     assert config.cron_hour == 3
     assert config.cron_minute == 5
     assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
+def test_schedule_mode_기본값은_fixed_times다() -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0, fixed_hours='8',
+    )
+    assert config.schedule_mode == 'fixed_times'
+
+
+@pytest.mark.django_db
+def test_interval_모드에서_interval_hours가_없으면_full_clean에서_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0, schedule_mode='interval',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
+
+
+@pytest.mark.django_db
+def test_fixed_times_모드에서_fixed_hours가_비어있으면_full_clean에서_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0,
+        schedule_mode='fixed_times', fixed_hours='',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
+
+
+@pytest.mark.django_db
+def test_fixed_hours에_0에서_23_범위를_벗어난_값이_있으면_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0,
+        schedule_mode='fixed_times', fixed_hours='3,24',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
+
+
+@pytest.mark.django_db
+def test_interval_hours는_choices에_없는_값을_거부한다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0,
+        schedule_mode='interval', interval_hours=5,
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
