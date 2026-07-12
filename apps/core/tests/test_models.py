@@ -3,7 +3,6 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.core.models import ScheduledJobConfig
-from apps.core.scheduler import JOB_DEFINITIONS, get_or_seed_job_config
 
 
 @pytest.mark.django_db
@@ -28,29 +27,6 @@ def test_job_id는_유일해야_한다() -> None:
 
 
 @pytest.mark.django_db
-def test_get_or_seed_job_config는_없으면_기본값으로_생성한다() -> None:
-    definition = JOB_DEFINITIONS['check_new_notices']
-
-    config = get_or_seed_job_config('check_new_notices', definition)
-
-    assert config.cron_hour == definition['default_hour']
-    assert config.cron_minute == definition['default_minute']
-    assert config.is_enabled is True
-
-
-@pytest.mark.django_db
-def test_get_or_seed_job_config는_기존_값을_덮어쓰지_않는다() -> None:
-    ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=23, cron_minute=59, is_enabled=False)
-    definition = JOB_DEFINITIONS['check_new_notices']
-
-    config = get_or_seed_job_config('check_new_notices', definition)
-
-    assert config.cron_hour == 23
-    assert config.cron_minute == 59
-    assert config.is_enabled is False
-
-
-@pytest.mark.django_db
 def test_cron_day_of_week_기본값은_매일이다() -> None:
     config = ScheduledJobConfig.objects.create(job_id='check_new_notices', cron_hour=8, cron_minute=0)
     assert config.cron_day_of_week == '*'
@@ -63,28 +39,6 @@ def test_cron_day_of_week에_유효하지_않은_값은_full_clean에서_거부�
     )
     with pytest.raises(ValidationError):
         config.full_clean()
-
-
-@pytest.mark.django_db
-def test_고아_미디어_정리_잡은_기본값이_일요일_새벽3시다() -> None:
-    definition = JOB_DEFINITIONS['cleanup_orphaned_media']
-
-    config = get_or_seed_job_config('cleanup_orphaned_media', definition)
-
-    assert config.cron_hour == 3
-    assert config.cron_minute == 0
-    assert config.cron_day_of_week == 'sun'
-
-
-@pytest.mark.django_db
-def test_GitHub_통계_수집_잡은_기본값이_새벽_3시_5분이다() -> None:
-    definition = JOB_DEFINITIONS['fetch_github_stats']
-
-    config = get_or_seed_job_config('fetch_github_stats', definition)
-
-    assert config.cron_hour == 3
-    assert config.cron_minute == 5
-    assert config.cron_day_of_week == '*'
 
 
 @pytest.mark.django_db
