@@ -52,9 +52,9 @@ class ScheduledJobConfig(models.Model):
     def clean(self) -> None:
         if self.schedule_mode == 'interval' and self.interval_hours is None:
             raise ValidationError({'interval_hours': 'interval 모드에서는 interval_hours가 필수입니다.'})
-        # fixed_hours는 blank=True이므로 비어있어도 허용. 내용이 있을 때만 형식 검증
-        if self.schedule_mode == 'fixed_times' and self.fixed_hours:
-            self._validate_fixed_hours()
+        if self.schedule_mode == 'fixed_times' and not self.fixed_hours:
+            raise ValidationError({'fixed_hours': 'fixed_times 모드에서는 fixed_hours가 필수입니다.'})
+        self._validate_fixed_hours()
 
     def _validate_fixed_hours(self) -> None:
         if not self.fixed_hours:

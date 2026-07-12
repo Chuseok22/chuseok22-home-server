@@ -28,6 +28,7 @@ def test_저장_시_update_job_schedule이_호출된다(admin_client: Client) ->
             'cron_hour': 10,
             'cron_minute': 30,
             'cron_day_of_week': 'mon',
+            'fixed_hours': '8',
             '_save': 'Save',
         })
 
@@ -61,6 +62,7 @@ def test_스케줄러에_job이_없으면_경고_메시지가_노출되고_저�
             'cron_hour': 10,
             'cron_minute': 30,
             'cron_day_of_week': 'mon',
+            'fixed_hours': '8',
             '_save': 'Save',
         }, follow=True)
 
