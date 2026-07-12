@@ -18,12 +18,6 @@ def migrate_cron_hour_minute_forward(apps, schema_editor) -> None:
         config.save(update_fields=['schedule_mode', 'fixed_hours', 'fixed_minute'])
 
 
-def migrate_cron_hour_minute_backward(apps, schema_editor) -> None:
-    # RemoveField의 reverse(재추가)는 컬럼만 복원하고 값은 복원하지 못하므로
-    # 이 마이그레이션은 되돌리기를 지원하지 않는다. 필요 시 DB 백업에서 복원한다.
-    pass
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -31,7 +25,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(migrate_cron_hour_minute_forward, migrate_cron_hour_minute_backward),
+        # reverse_code를 지정하지 않으면(None) Django가 이 RunPython을 되돌릴 수 없는 것으로
+        # 취급해 IrreversibleError를 발생시킨다. RemoveField의 reverse(재추가)는 컬럼만
+        # 복원하고 값은 복원하지 못하므로, 되돌리기는 DB 백업에서 복원하도록 강제한다.
+        migrations.RunPython(migrate_cron_hour_minute_forward),
         migrations.RemoveField(
             model_name='scheduledjobconfig',
             name='cron_hour',

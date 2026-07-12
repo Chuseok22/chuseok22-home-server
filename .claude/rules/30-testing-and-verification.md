@@ -26,7 +26,7 @@
 
 - 테스트 프레임워크: pytest + pytest-django (도입 완료). 루트 `pytest.ini`가 `DJANGO_SETTINGS_MODULE=config.settings.development`, `testpaths=apps`로 고정되어 있어 `pytest` 실행 시 `--settings` 플래그가 불필요하다.
 - 테스트 코드 위치: 각 앱의 `apps/<domain>/tests/test_*.py` (`.claude/rules/00-project-overview.md`의 "Important directories" 참고)
-- 새 기능/버그 수정 시 관련 `tests/test_*.py`에 케이스를 작성하는 것을 기본으로 한다 — 아래 "에이전트 행동 원칙"은 **테스트 코드 작성**이 아니라 **테스트·검증 명령의 실행 주체**에 대한 규칙이다. 즉 에이전트는 `pytest` 등 검증 명령을 직접 실행하지 않고 사용자에게 안내하되, 테스트 코드 자체는 구현의 일부로 작성한다.
+- 새 기능/버그 수정 시 관련 `tests/test_*.py`에 케이스를 작성하는 것을 기본으로 한다 — 아래 "에이전트 행동 원칙"은 **테스트 코드 작성**이 아니라 **테스트·검증 명령의 실행 주체**에 대한 규칙이다. 즉 에이전트는 (TDD RED→GREEN 예외 범위를 벗어나는) `pytest` 등 검증 명령을 직접 실행하지 않고 사용자에게 안내하되, 테스트 코드 자체는 구현의 일부로 작성한다.
 - 검증 방식 우선순위: 단위/통합 테스트(pytest) + 실제 동작 확인(management command 직접 실행, 외부 연동 실제 호출)을 함께 사용한다. 외부 API 연동처럼 pytest로 검증하기 어려운 부분은 management command 실행 결과로 보완한다.
 
 ## 안내할 검증 명령

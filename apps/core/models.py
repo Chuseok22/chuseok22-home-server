@@ -43,10 +43,10 @@ class ScheduledJobConfig(models.Model):
     )
     # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
-    interval_minute = models.PositiveSmallIntegerField(default=0, blank=True, validators=[MaxValueValidator(59)])
+    interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
     # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
-    fixed_minute = models.PositiveSmallIntegerField(default=0, blank=True, validators=[MaxValueValidator(59)])
+    fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
 
     updated_at = models.DateTimeField(auto_now=True)
 
