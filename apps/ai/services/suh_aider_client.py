@@ -27,7 +27,21 @@ class SuhAiderClient:
         headers = {'Content-Type': 'application/json', 'X-API-Key': self._api_key}
         body = {'model': model, 'messages': messages, 'stream': False}
 
-        response = requests.post(url, headers=headers, json=body, timeout=(_CONNECT_TIMEOUT, _READ_TIMEOUT))
-        response.raise_for_status()
-        payload = response.json()
-        return payload['message']['content']
+        # HTTP 상태 코드별 의미 (docs/suh_aider_ai_server_integration_guide.md 4절 참고):
+        # 401 인증 실패 / 403 권한 없음 / 404 모델 없음 / 500,502,503 서버 오류 — 모두 즉시 실패 처리, 재시도 없음
+        try:
+            response = requests.post(
+                url, headers=headers, json=body, timeout=(_CONNECT_TIMEOUT, _READ_TIMEOUT)
+            )
+            response.raise_for_status()
+            payload = response.json()
+            return payload['message']['content']
+        except requests.exceptions.RequestException as exc:
+            body_preview = ''
+            if getattr(exc, 'response', None) is not None:
+                body_preview = exc.response.text[:200]
+            logger.error('SUH-AIder 호출 실패: %s | 응답 바디: %s', exc, body_preview)
+            raise SuhAiderClientError(f'SUH-AIder 호출 실패: {exc}') from exc
+        except (KeyError, TypeError) as exc:
+            logger.error('SUH-AIder 응답 형식 이상: %s', exc)
+            raise SuhAiderClientError(f'SUH-AIder 응답 형식 이상: {exc}') from exc
