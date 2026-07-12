@@ -89,6 +89,28 @@ def test_fixed_times_모드에서_시각을_하나도_선택하지_않으면_검
 
 
 @pytest.mark.django_db
+def test_interval_행을_fixed_times_무선택으로_전환해도_500이_없다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='fetch_github_activities', schedule_mode='interval',
+        interval_hours=3, fixed_hours='',
+    )
+    url = reverse('admin:core_scheduledjobconfig_change', args=[config.pk])
+
+    with patch('apps.core.admin.update_job_schedule') as mock_update:
+        response = admin_client.post(url, {
+            'is_enabled': 'on',
+            'schedule_mode': 'fixed_times',
+            'fixed_minute': 0,
+            'interval_minute': 0,
+            'weekdays': ['mon'],
+            '_save': 'Save',
+        })
+
+    assert response.status_code == 200
+    mock_update.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_요일을_하나도_선택하지_않으면_500_없이_검증_오류가_발생한다(admin_client: Client) -> None:
     # weekdays가 비어도 clean()이 인스턴스의 기존 cron_day_of_week를 덮어쓰지 않아야 한다.
     # 덮어쓰면 _post_clean()의 instance.full_clean()이 폼 필드가 아닌 cron_day_of_week에 대해

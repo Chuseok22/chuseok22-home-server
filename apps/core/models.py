@@ -54,7 +54,15 @@ class ScheduledJobConfig(models.Model):
         if self.schedule_mode == 'interval' and self.interval_hours is None:
             raise ValidationError({'interval_hours': 'interval 모드에서는 interval_hours가 필수입니다.'})
         if self.schedule_mode == 'fixed_times' and not self.fixed_hours:
-            raise ValidationError({'fixed_hours': 'fixed_times 모드에서는 fixed_hours가 필수입니다.'})
+            # 이 메시지는 필드 키가 아니라 NON_FIELD_ERRORS로 발생시킨다 — fixed_hours는
+            # apps/core/admin.py의 ScheduledJobConfigForm에서 항상 Meta.fields 밖으로
+            # 제외되는 필드라서(실제 폼 필드로 존재한 적이 없음), 필드 키로 발생시키면
+            # ModelForm._post_clean()의 instance.full_clean()이 이 에러를 잡은 뒤
+            # Form.add_error(None, ...)로 넘길 때 "이 필드는 폼에 없다"는 이유로
+            # ValueError를 던져 500이 난다(interval 모드에서 fixed_times로 전환하면서
+            # 시각을 하나도 선택하지 않는 경로에서 실제로 재현됨). 필드 키 없이 발생시키면
+            # NON_FIELD_ERRORS로 안전하게 처리된다.
+            raise ValidationError('fixed_times 모드에서는 fixed_hours가 필수입니다.')
         self._validate_fixed_hours()
         self._validate_day_of_week()
 
@@ -63,16 +71,18 @@ class ScheduledJobConfig(models.Model):
             return
         for token in self.fixed_hours.split(','):
             if not token.isdigit() or not (0 <= int(token) <= 23):
-                raise ValidationError({'fixed_hours': f'"{token}"은 0~23 사이 정수가 아닙니다.'})
+                # fixed_hours도 위와 동일하게 항상 폼 필드 밖이므로 필드 키 없이 발생시킨다.
+                raise ValidationError(f'"{token}"은 0~23 사이 정수가 아닙니다.')
 
     def _validate_day_of_week(self) -> None:
         if self.cron_day_of_week == '*':
             return
         tokens = self.cron_day_of_week.split(',')
         if not tokens or any(token not in WEEKDAY_TOKENS for token in tokens):
-            raise ValidationError({
-                'cron_day_of_week': 'cron_day_of_week는 "*" 또는 유효 요일 토큰의 콤마 목록이어야 합니다.',
-            })
+            # cron_day_of_week도 위와 동일하게 항상 폼 필드 밖이므로 필드 키 없이 발생시킨다.
+            raise ValidationError(
+                'cron_day_of_week는 "*" 또는 유효 요일 토큰의 콤마 목록이어야 합니다.',
+            )
 
     def __str__(self) -> str:
         return self.job_id
