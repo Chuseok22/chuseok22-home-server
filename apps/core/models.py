@@ -51,6 +51,11 @@ class ScheduledJobConfig(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self) -> None:
+        # 어드민 폼을 거치지 않고 생성/저장되는 경로(management command, 쉘 등)에 대한
+        # 방어선 — schedule_mode가 두 유효값 밖이면 뒤 분기(interval/fixed_times)가 모두
+        # 스킵되어 필수값 검증이 통째로 우회되므로 여기서 먼저 막는다.
+        if self.schedule_mode not in ('interval', 'fixed_times'):
+            raise ValidationError({'schedule_mode': 'schedule_mode는 interval 또는 fixed_times여야 합니다.'})
         if self.schedule_mode == 'interval' and self.interval_hours is None:
             raise ValidationError({'interval_hours': 'interval 모드에서는 interval_hours가 필수입니다.'})
         if self.schedule_mode == 'fixed_times' and not self.fixed_hours:

@@ -5,7 +5,12 @@ from django import forms
 from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse
 
-from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig, WEEKDAY_TOKENS
+from apps.core.models import (
+    CRON_DAY_OF_WEEK_CHOICES,
+    SCHEDULE_MODE_CHOICES,
+    ScheduledJobConfig,
+    WEEKDAY_TOKENS,
+)
 from apps.core.scheduler import JOB_DEFINITIONS, get_scheduler
 from apps.core.services.scheduler_service import update_job_schedule
 
@@ -21,6 +26,13 @@ _GITHUB_API_RATE_LIMIT_HELP_TEXT = (
 
 
 class ScheduledJobConfigForm(forms.ModelForm):
+    # 모델 필드의 blank=True 때문에 ModelForm이 자동 생성하는 필드는 빈 선택지("---------")를
+    # 포함하게 되므로(Field.formfield()의 include_blank 동작), 명시적으로 선언해 이를 차단한다.
+    schedule_mode = forms.ChoiceField(
+        choices=SCHEDULE_MODE_CHOICES,
+        widget=forms.RadioSelect,
+        label='스케줄 모드',
+    )
     weekdays = forms.MultipleChoiceField(
         choices=WEEKDAY_LABELS,
         widget=forms.CheckboxSelectMultiple,
@@ -39,10 +51,6 @@ class ScheduledJobConfigForm(forms.ModelForm):
         # cron_day_of_week, fixed_hours는 여기서 제외한다 — weekdays/fixed_hour_list 체크박스로만
         # 입력받고, clean()에서 콤마 문자열로 합성해 clean()에서 인스턴스에 직접 반영한다.
         fields = ['is_enabled', 'schedule_mode', 'interval_hours', 'interval_minute', 'fixed_minute']
-        # RadioSelect가 없으면 choices CharField는 기본 <select>로 렌더링되는데,
-        # schedule_mode_toggle.js는 input[name="schedule_mode"]만 찾으므로 라디오가 아니면
-        # 필드셋 토글이 전혀 동작하지 않는다.
-        widgets = {'schedule_mode': forms.RadioSelect}
 
     class Media:
         js = ('core/admin/schedule_mode_toggle.js',)

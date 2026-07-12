@@ -17,6 +17,15 @@ def admin_client(db) -> Client:
     return client
 
 
+def test_schedule_mode_필드에_빈_선택지가_없다() -> None:
+    from apps.core.admin import ScheduledJobConfigForm
+
+    form = ScheduledJobConfigForm()
+    choice_values = [value for value, _label in form.fields['schedule_mode'].choices]
+    assert '' not in choice_values
+    assert form.fields['schedule_mode'].required is True
+
+
 @pytest.mark.django_db
 def test_fixed_times_모드로_저장_시_update_job_schedule이_호출된다(admin_client: Client) -> None:
     config = ScheduledJobConfig.objects.create(
@@ -127,6 +136,28 @@ def test_요일을_하나도_선택하지_않으면_500_없이_검증_오류가_
             'fixed_hour_list': ['8'],
             'fixed_minute': 0,
             'interval_minute': 0,
+            '_save': 'Save',
+        })
+
+    assert response.status_code == 200
+    mock_update.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_schedule_mode를_빈_값으로_제출하면_500_없이_검증_오류가_발생한다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', schedule_mode='fixed_times', fixed_hours='8',
+    )
+    url = reverse('admin:core_scheduledjobconfig_change', args=[config.pk])
+
+    with patch('apps.core.admin.update_job_schedule') as mock_update:
+        response = admin_client.post(url, {
+            'is_enabled': 'on',
+            'schedule_mode': '',
+            'fixed_hour_list': ['8'],
+            'fixed_minute': 0,
+            'interval_minute': 0,
+            'weekdays': ['mon'],
             '_save': 'Save',
         })
 
