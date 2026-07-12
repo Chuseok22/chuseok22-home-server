@@ -1,7 +1,21 @@
 from django import forms
 from django.contrib import admin
 
-from apps.projects.models import Project
+from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+
+@admin.register(ProjectCategory)
+class ProjectCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'order')
+    list_editable = ('order',)
+    ordering = ('order',)
+
+
+@admin.register(ProjectStatus)
+class ProjectStatusAdmin(admin.ModelAdmin):
+    list_display = ('name', 'order')
+    list_editable = ('order',)
+    ordering = ('order',)
 
 
 class ProjectAdminForm(forms.ModelForm):
@@ -28,7 +42,7 @@ class ProjectAdmin(admin.ModelAdmin):
     form = ProjectAdminForm
     list_display = ('title', 'category', 'status', 'order', 'updated_at')
     list_filter = ('category', 'status')
-    ordering = ('category', 'order')
+    ordering = ('category__order', 'order')
     search_fields = ('title', 'description')
     list_editable = ('order',)
 
