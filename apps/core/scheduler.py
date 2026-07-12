@@ -18,29 +18,33 @@ JOB_DEFINITIONS = {
     'check_new_notices': {
         'label': '공지사항 크롤링',
         'command': 'check_new_notices',
-        'default_hour': 8,
-        'default_minute': 0,
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '8',
+        'default_fixed_minute': 0,
         'default_day_of_week': '*',
     },
     'fetch_github_activities': {
         'label': 'GitHub 활동 수집',
         'command': 'fetch_github_activities',
-        'default_hour': 3,
-        'default_minute': 0,
+        'default_schedule_mode': 'interval',
+        'default_interval_hours': 3,
+        'default_interval_minute': 0,
         'default_day_of_week': '*',
     },
     'fetch_github_stats': {
         'label': 'GitHub 통계 수집 (잔디·star)',
         'command': 'fetch_github_stats',
-        'default_hour': 3,
-        'default_minute': 5,
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '3',
+        'default_fixed_minute': 5,
         'default_day_of_week': '*',
     },
     'cleanup_orphaned_media': {
         'label': '고아 이미지 파일 정리',
         'command': 'cleanup_orphaned_media',
-        'default_hour': 3,
-        'default_minute': 0,
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '3',
+        'default_fixed_minute': 0,
         'default_day_of_week': 'sun',
     },
 }
@@ -55,15 +59,44 @@ def get_scheduler() -> BackgroundScheduler | None:
 
 def get_or_seed_job_config(job_id: str, definition: dict) -> ScheduledJobConfig:
     """job_id에 대한 설정을 조회하고, 없으면 정의된 기본값으로 생성한다."""
-    config, _created = ScheduledJobConfig.objects.get_or_create(
-        job_id=job_id,
-        defaults={
-            'cron_hour': definition['default_hour'],
-            'cron_minute': definition['default_minute'],
-            'cron_day_of_week': definition['default_day_of_week'],
-        },
-    )
+    mode = definition['default_schedule_mode']
+    defaults = {
+        'schedule_mode': mode,
+        'cron_day_of_week': definition['default_day_of_week'],
+    }
+    if mode == 'interval':
+        defaults['interval_hours'] = definition['default_interval_hours']
+        defaults['interval_minute'] = definition['default_interval_minute']
+    else:
+        defaults['fixed_hours'] = definition['default_fixed_hours']
+        defaults['fixed_minute'] = definition['default_fixed_minute']
+
+    config, _created = ScheduledJobConfig.objects.get_or_create(job_id=job_id, defaults=defaults)
     return config
+
+
+def build_cron_trigger(config: ScheduledJobConfig) -> CronTrigger:
+    """ScheduledJobConfig의 schedule_mode에 따라 APScheduler CronTrigger를 구성한다.
+
+    interval 모드의 24시간은 cron 필드 문법상 '*/24'로 표현할 수 없다(APScheduler는 스텝 값이
+    필드 범위(hour: 0~23, 즉 23)를 넘으면 ValueError를 던진다) — 하루 1회이므로 '매일 0시'와
+    동일하게 hour='0'으로 변환한다.
+    """
+    if config.schedule_mode == 'interval':
+        if config.interval_hours == 24:
+            hour_expr: str | int = '0'
+        else:
+            hour_expr = f'*/{config.interval_hours}'
+        minute_expr = config.interval_minute
+    else:
+        hour_expr = config.fixed_hours
+        minute_expr = config.fixed_minute
+    return CronTrigger(
+        hour=hour_expr,
+        minute=minute_expr,
+        day_of_week=config.cron_day_of_week,
+        timezone=SCHEDULER_TIMEZONE,
+    )
 
 
 def _run_job(command: str) -> None:
@@ -91,12 +124,7 @@ def start_scheduler() -> None:
         scheduler.add_job(
             _run_job,
             args=[definition['command']],
-            trigger=CronTrigger(
-                hour=config.cron_hour,
-                minute=config.cron_minute,
-                day_of_week=config.cron_day_of_week,
-                timezone=SCHEDULER_TIMEZONE,
-            ),
+            trigger=build_cron_trigger(config),
             id=job_id,
             replace_existing=True,
             coalesce=True,
