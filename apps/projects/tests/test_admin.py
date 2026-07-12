@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
 
-from apps.projects.models import Project, ProjectCategory, ProjectStatus
+from apps.projects.models import Project
 
 
 @pytest.fixture
@@ -18,11 +18,11 @@ def admin_client(db) -> Client:
 def test_태그와_하이라이트가_빈값이어도_저장된다(admin_client: Client) -> None:
     url = reverse('admin:projects_project_add')
     response = admin_client.post(url, {
-        'category': ProjectCategory.SIDE,
+        'category': 'side',
         'title': '테스트 프로젝트',
         'description': '설명',
         'tags': '',
-        'status': ProjectStatus.IN_PROGRESS,
+        'status': 'in_progress',
         'order': 0,
         'period': '',
         'team_size': '',
