@@ -12,7 +12,7 @@ from apps.core.services.scheduler_service import update_job_schedule
 
 @admin.register(ScheduledJobConfig)
 class ScheduledJobConfigAdmin(admin.ModelAdmin):
-    list_display = ('label', 'is_enabled', 'cron_hour', 'cron_minute', 'cron_day_of_week', 'updated_at')
+    list_display = ('label', 'is_enabled', 'cron_day_of_week', 'updated_at')
     readonly_fields = ('job_id', 'updated_at')
 
     @admin.display(description='작업')

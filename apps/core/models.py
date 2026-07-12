@@ -32,23 +32,21 @@ class ScheduledJobConfig(models.Model):
 
     job_id = models.CharField(max_length=100, unique=True)
     is_enabled = models.BooleanField(default=True)
-    # ScheduledJobConfigForm이 폼 레벨에서 0-23/0-59를 이미 검증하지만,
-    # 폼을 거치지 않는 향후 경로(admin 등록, shell 조작 등)에 대비한 모델 레벨 방어선.
-    # default=0: 이 전환 기간 동안 cron_hour 없이(fixed_hours만으로) 새 행을 만들 수 있어야 하므로
-    # (get_or_seed_job_config가 더 이상 cron_hour를 채우지 않음) 임시로 기본값을 둔다. Task 4에서 필드
-    # 자체가 제거되므로 이 기본값은 그 전까지만 유효하다.
-    cron_hour = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(23)])
-    cron_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
     # 콤마 구분 요일 토큰 목록(예: "mon,wed,fri") 또는 전체 요일 시 "*"
     cron_day_of_week = models.CharField(max_length=30, default='*')
 
-    schedule_mode = models.CharField(max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times', blank=True)
+    # blank=True: Django admin의 기본 ModelForm이 이 필드들을 필수로 요구하지 않게 한다 — 실제
+    # 모드별 필수 여부는 이미 clean()이 검증하므로 폼 레벨 필수 표시는 불필요하고, blank=True가
+    # 없으면 기존 admin 테스트(POST 데이터에 이 필드들이 없는 케이스)가 폼 검증 단계에서 깨진다.
+    schedule_mode = models.CharField(
+        max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times', blank=True,
+    )
     # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
-    interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
+    interval_minute = models.PositiveSmallIntegerField(default=0, blank=True, validators=[MaxValueValidator(59)])
     # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
-    fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
+    fixed_minute = models.PositiveSmallIntegerField(default=0, blank=True, validators=[MaxValueValidator(59)])
 
     updated_at = models.DateTimeField(auto_now=True)
 
