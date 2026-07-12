@@ -1,10 +1,6 @@
-import logging
-
 from django.core.management.base import BaseCommand, CommandParser
 
 from apps.ai.services.suh_aider_client import SuhAiderClient, SuhAiderClientError
-
-logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
