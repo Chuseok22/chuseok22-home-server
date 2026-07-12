@@ -7,7 +7,7 @@ class ProjectCategory(models.Model):
 
     class Meta:
         db_table = 'projects_project_category'
-        ordering = ['order']
+        ordering = ['order', 'id']
 
     def __str__(self) -> str:
         return self.name
@@ -19,7 +19,7 @@ class ProjectStatus(models.Model):
 
     class Meta:
         db_table = 'projects_project_status'
-        ordering = ['order']
+        ordering = ['order', 'id']
 
     def __str__(self) -> str:
         return self.name

@@ -80,6 +80,14 @@ def test_참조중인_ProjectCategory는_삭제할_수_없다() -> None:
         category.delete()
 
 
+def test_ProjectCategory의_기본_정렬_기준에_id가_포함된다() -> None:
+    assert ProjectCategory._meta.ordering == ['order', 'id']
+
+
+def test_ProjectStatus의_기본_정렬_기준에_id가_포함된다() -> None:
+    assert ProjectStatus._meta.ordering == ['order', 'id']
+
+
 @pytest.mark.django_db
 def test_참조중인_ProjectStatus는_삭제할_수_없다() -> None:
     category = ProjectCategory.objects.get(name='사이드 프로젝트')
