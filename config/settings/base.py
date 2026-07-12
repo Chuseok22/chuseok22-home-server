@@ -46,6 +46,7 @@ LOCAL_APPS = [
     'apps.accounts',
     'apps.site',
     'apps.engagement',
+    'apps.ai',
 ]
 
 TAILWIND_APP_NAME = 'theme'
@@ -196,3 +197,7 @@ GITHUB_OWNER_ID = env('GITHUB_OWNER_ID', default='')
 
 # 블로그 자동 포스팅(ingest) 전용 API 키 — 기존 JWT 로그인과 분리된 별도 인증
 BLOG_INGEST_API_KEY = env('BLOG_INGEST_API_KEY', default='')
+
+# SUH-AIder AI 서버 연동 설정
+SUH_AIDER_BASE_URL = env('SUH_AIDER_BASE_URL', default='')
+SUH_AIDER_API_KEY = env('SUH_AIDER_API_KEY', default='')
