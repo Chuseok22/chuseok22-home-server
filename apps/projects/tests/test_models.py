@@ -1,10 +1,11 @@
 import pytest
 from django.contrib.auth.models import User
 from django.db import IntegrityError
+from django.db.models import ProtectedError
 from django.test import Client
 from django.urls import reverse
 
-from apps.projects.models import ProjectCategory, ProjectStatus
+from apps.projects.models import Project, ProjectCategory, ProjectStatus
 
 
 @pytest.fixture
@@ -67,3 +68,23 @@ def test_ProjectStatusAdmin에서_새_상태를_추가할_수_있다(admin_clien
 
     assert response.status_code == 302
     assert ProjectStatus.objects.filter(name='보류').exists()
+
+
+@pytest.mark.django_db
+def test_참조중인_ProjectCategory는_삭제할_수_없다() -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=category, status=status, title='제목', description='설명')
+
+    with pytest.raises(ProtectedError):
+        category.delete()
+
+
+@pytest.mark.django_db
+def test_참조중인_ProjectStatus는_삭제할_수_없다() -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=category, status=status, title='제목', description='설명')
+
+    with pytest.raises(ProtectedError):
+        status.delete()

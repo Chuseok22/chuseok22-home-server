@@ -26,18 +26,11 @@ class ProjectStatus(models.Model):
 
 
 class Project(models.Model):
-    category = models.CharField(
-        max_length=20,
-        choices=[('team', '팀 프로젝트'), ('side', '사이드 프로젝트'), ('open_source', '오픈소스')],
-        db_index=True,
-    )
+    category = models.ForeignKey(ProjectCategory, on_delete=models.PROTECT, related_name='projects')
     title = models.CharField(max_length=100)
     description = models.TextField()
     tags = models.JSONField(default=list)
-    status = models.CharField(
-        max_length=20,
-        choices=[('in_progress', '진행중'), ('completed', '완료'), ('archived', '중단')],
-    )
+    status = models.ForeignKey(ProjectStatus, on_delete=models.PROTECT, related_name='projects')
     order = models.PositiveIntegerField(default=0)
 
     period = models.CharField(max_length=50, blank=True)
@@ -53,7 +46,7 @@ class Project(models.Model):
 
     class Meta:
         db_table = 'projects_project'
-        ordering = ['category', 'order', '-created_at']
+        ordering = ['category__order', 'order', '-created_at']
 
     def __str__(self) -> str:
-        return f'[{self.get_category_display()}] {self.title}'
+        return f'[{self.category.name}] {self.title}'

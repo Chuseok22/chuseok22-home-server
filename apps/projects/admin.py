@@ -42,7 +42,7 @@ class ProjectAdmin(admin.ModelAdmin):
     form = ProjectAdminForm
     list_display = ('title', 'category', 'status', 'order', 'updated_at')
     list_filter = ('category', 'status')
-    ordering = ('category', 'order')
+    ordering = ('category__order', 'order')
     search_fields = ('title', 'description')
     list_editable = ('order',)
 
