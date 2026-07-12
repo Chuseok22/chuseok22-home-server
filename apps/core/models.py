@@ -43,8 +43,10 @@ class ScheduledJobConfig(models.Model):
     cron_day_of_week = models.CharField(max_length=30, default='*')
 
     schedule_mode = models.CharField(max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times', blank=True)
+    # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
     interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
+    # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
     fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
 
