@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='scheduledjobconfig',
             name='fixed_minute',
-            field=models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MaxValueValidator(59)]),
+            field=models.PositiveSmallIntegerField(blank=True, default=0, validators=[django.core.validators.MaxValueValidator(59)]),
         ),
         migrations.AddField(
             model_name='scheduledjobconfig',
@@ -29,12 +29,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='scheduledjobconfig',
             name='interval_minute',
-            field=models.PositiveSmallIntegerField(default=0, validators=[django.core.validators.MaxValueValidator(59)]),
+            field=models.PositiveSmallIntegerField(blank=True, default=0, validators=[django.core.validators.MaxValueValidator(59)]),
         ),
         migrations.AddField(
             model_name='scheduledjobconfig',
             name='schedule_mode',
-            field=models.CharField(choices=[('interval', 'N시간마다'), ('fixed_times', '특정 시각')], default='fixed_times', max_length=20),
+            field=models.CharField(blank=True, choices=[('interval', 'N시간마다'), ('fixed_times', '특정 시각')], default='fixed_times', max_length=20),
         ),
         migrations.AlterField(
             model_name='scheduledjobconfig',

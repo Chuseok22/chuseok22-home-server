@@ -39,22 +39,22 @@ class ScheduledJobConfig(models.Model):
     cron_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
     cron_day_of_week = models.CharField(max_length=3, choices=CRON_DAY_OF_WEEK_CHOICES, default='*')
 
-    schedule_mode = models.CharField(max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times')
+    schedule_mode = models.CharField(max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times', blank=True)
     # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
-    interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
+    interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
     # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
-    fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
+    fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
 
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self) -> None:
         if self.schedule_mode == 'interval' and self.interval_hours is None:
             raise ValidationError({'interval_hours': 'interval 모드에서는 interval_hours가 필수입니다.'})
-        if self.schedule_mode == 'fixed_times' and not self.fixed_hours:
-            raise ValidationError({'fixed_hours': 'fixed_times 모드에서는 fixed_hours가 필수입니다.'})
-        self._validate_fixed_hours()
+        # fixed_hours는 blank=True이므로 비어있어도 허용. 내용이 있을 때만 형식 검증
+        if self.schedule_mode == 'fixed_times' and self.fixed_hours:
+            self._validate_fixed_hours()
 
     def _validate_fixed_hours(self) -> None:
         if not self.fixed_hours:
