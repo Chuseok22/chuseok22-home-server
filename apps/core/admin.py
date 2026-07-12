@@ -49,7 +49,7 @@ class ScheduledJobConfigForm(forms.ModelForm):
     class Meta:
         model = ScheduledJobConfig
         # cron_day_of_week, fixed_hours는 여기서 제외한다 — weekdays/fixed_hour_list 체크박스로만
-        # 입력받고, clean()에서 콤마 문자열로 합성해 clean()에서 인스턴스에 직접 반영한다.
+        # 입력받고, clean()에서 콤마 문자열로 합성해 인스턴스에 직접 반영한다.
         fields = ['is_enabled', 'schedule_mode', 'interval_hours', 'interval_minute', 'fixed_minute']
 
     class Media:
@@ -77,15 +77,21 @@ class ScheduledJobConfigForm(forms.ModelForm):
         #
         # 중요: weekdays/fixed_hour_list가 비어 제출되면(체크박스를 전부 해제) 절대로
         # self.instance.cron_day_of_week/fixed_hours를 빈 문자열로 덮어써서는 안 된다.
-        # 이 두 필드는 Meta.fields에 없는 "폼 필드가 아닌 모델 필드"라서, 만약 인스턴스에
-        # 빈 값을 넣은 채로 _post_clean()의 instance.full_clean()이 돌면 ScheduledJobConfig.clean()이
-        # {'fixed_hours': ...}/{'cron_day_of_week': ...} 형태로 ValidationError를 던지는데,
-        # Django의 BaseModelForm._update_errors()는 이를 폼 필드 이름이 아닌 키로 add_error(None, ...)에
-        # 넘기고, Form.add_error()는 self.fields에 없는 키를 보면 ValueError를 던져 500으로 이어진다
-        # (django/forms/forms.py의 add_error 구현 참고). 아래처럼 값이 있을 때만 인스턴스를 갱신하고,
-        # 비어있으면 self.add_error()로 폼 에러만 남기고 인스턴스의 기존(저장된) 값은 그대로 둔다 —
-        # 이 폼은 add 뷰가 막혀 있어(has_add_permission=False) 인스턴스가 항상 기존 값을 갖고 있으므로
-        # 안전하다.
+        # 이 두 필드는 ModelForm의 필드가 아니므로, 만약 인스턴스에 빈 값을 넣은 채로
+        # _post_clean()의 instance.full_clean()이 돌면 이는 모델의 clean()에서 검증 실패로
+        # 이어질 수 있다. 그러나 ScheduledJobConfig.clean()은 이런 fixed_hours/cron_day_of_week
+        # 관련 에러를 필드 키 없이 순수 문자열 ValidationError로 발생시킨다(아래 주석 참고).
+        # 덕분에 Django의 폼 시스템이 이를 NON_FIELD_ERRORS로 안전하게 처리하며, 500 에러
+        # 없이 사용자에게 명확한 메시지를 보여줄 수 있다.
+        #
+        # 한편, 이 폼이 weekdays/fixed_hour_list 체크박스가 비어도 인스턴스를 건드리지 않는
+        # 전략의 또 다른 목적은, interval→fixed_times로 스케줄 모드를 전환할 때다. interval
+        # 모드에서는 fixed_hours가 항상 공백 문자열이므로, 전환 직후 시각을 하나도 선택하지
+        # 않은 채로 저장하면 instance.fixed_hours는 여전히 공백 상태로 남는다. 만약 폼에서
+        # 이를 빈 문자열로 명시적으로 덮어쓴다면, 모델의 전체 필드 검증이 이 불일치를 감지할
+        # 가능성을 높인다. 폼에서는 기존 값을 존중하고, 필드 레벨 에러(self.add_error())로
+        # 사용자에게 "이 체크박스는 필수"라는 명확한 안내를 제공한다. 모델 레벨의 비필드 에러는
+        # 추가 안전망 역할을 한다.
         cleaned = super().clean()
         weekdays = cleaned.get('weekdays') or []
         if weekdays:
