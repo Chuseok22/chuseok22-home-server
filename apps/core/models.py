@@ -2,6 +2,8 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
 from django.db import models
 
+WEEKDAY_TOKENS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
 CRON_DAY_OF_WEEK_CHOICES = [
     ('*', '매일'),
     ('mon', '월요일'),
@@ -37,13 +39,12 @@ class ScheduledJobConfig(models.Model):
     # 자체가 제거되므로 이 기본값은 그 전까지만 유효하다.
     cron_hour = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(23)])
     cron_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
-    cron_day_of_week = models.CharField(max_length=3, choices=CRON_DAY_OF_WEEK_CHOICES, default='*')
+    # 콤마 구분 요일 토큰 목록(예: "mon,wed,fri") 또는 전체 요일 시 "*"
+    cron_day_of_week = models.CharField(max_length=30, default='*')
 
     schedule_mode = models.CharField(max_length=20, choices=SCHEDULE_MODE_CHOICES, default='fixed_times', blank=True)
-    # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
     interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
-    # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
     fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)], blank=True)
 
@@ -55,6 +56,7 @@ class ScheduledJobConfig(models.Model):
         if self.schedule_mode == 'fixed_times' and not self.fixed_hours:
             raise ValidationError({'fixed_hours': 'fixed_times 모드에서는 fixed_hours가 필수입니다.'})
         self._validate_fixed_hours()
+        self._validate_day_of_week()
 
     def _validate_fixed_hours(self) -> None:
         if not self.fixed_hours:
@@ -62,6 +64,15 @@ class ScheduledJobConfig(models.Model):
         for token in self.fixed_hours.split(','):
             if not token.isdigit() or not (0 <= int(token) <= 23):
                 raise ValidationError({'fixed_hours': f'"{token}"은 0~23 사이 정수가 아닙니다.'})
+
+    def _validate_day_of_week(self) -> None:
+        if self.cron_day_of_week == '*':
+            return
+        tokens = self.cron_day_of_week.split(',')
+        if not tokens or any(token not in WEEKDAY_TOKENS for token in tokens):
+            raise ValidationError({
+                'cron_day_of_week': 'cron_day_of_week는 "*" 또는 유효 요일 토큰의 콤마 목록이어야 합니다.',
+            })
 
     def __str__(self) -> str:
         return self.job_id

@@ -132,3 +132,23 @@ def test_interval_hours는_choices에_없는_값을_거부한다() -> None:
     )
     with pytest.raises(ValidationError):
         config.full_clean()
+
+
+@pytest.mark.django_db
+def test_cron_day_of_week에_요일_콤보_저장이_가능하다() -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0,
+        fixed_hours='8', cron_day_of_week='mon,wed,fri',
+    )
+    config.full_clean()
+    assert config.cron_day_of_week == 'mon,wed,fri'
+
+
+@pytest.mark.django_db
+def test_cron_day_of_week에_유효하지_않은_토큰이_섞여있으면_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', cron_hour=8, cron_minute=0,
+        fixed_hours='8', cron_day_of_week='mon,invalid',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
