@@ -2,7 +2,7 @@
 
 ## 에이전트 행동 원칙
 
-- **에이전트는 테스트·검증 명령을 직접 실행하지 않는다.** (단, UI 검증을 위한 Playwright 사용은 예외 — 아래 "UI 검증(Playwright)" 참고)
+- **에이전트는 테스트·검증 명령을 직접 실행하지 않는다.** 예외는 두 가지뿐이다: UI 검증을 위한 Playwright 사용(아래 "UI 검증(Playwright)" 참고), TDD RED→GREEN 자체 검증을 위한 `pytest` 실행(아래 "단위 테스트 직접 실행(TDD RED→GREEN)" 참고).
 - 구현 완료 후 사용자에게 실행해야 할 명령을 안내하는 방식으로 검증을 진행한다.
 - 서버 배포 후 확인이 필요한 작업도 동일하게 안내만 제공한다.
 
@@ -11,6 +11,16 @@
 - `apps.site`(SSR 표현 계층) 등 UI(템플릿·정적 페이지)를 제작·수정할 때는 Playwright를 사용해 실제 렌더링 결과를 직접 확인하는 것을 **허용하고 권장**한다.
 - 개발 서버(`python manage.py runserver --settings=config.settings.development`)를 띄운 상태에서 해당 페이지에 접속해 스크린샷, 콘솔 로그, 레이아웃 등을 직접 확인한다.
 - 이 예외는 브라우저 기반 UI 확인에 한정되며, `pytest` 등 다른 테스트·검증 명령을 에이전트가 직접 실행하지 않는다는 원칙에는 영향을 주지 않는다.
+
+## 단위 테스트 직접 실행(TDD RED→GREEN)
+
+- TDD 방식으로 구현을 진행할 때(예: 계획서의 Task 단위 구현, `superpowers:subagent-driven-development`/`superpowers:test-driven-development` 워크플로), 구현을 담당하는 에이전트(또는 서브에이전트)는 **자신이 작성 중인 범위의 `pytest`를 직접 실행해 RED(실패) → GREEN(통과) 전환을 스스로 검증하는 것을 허용한다.**
+  - 예: `pytest apps/<domain>/tests/test_foo.py -v`처럼 해당 Task가 건드리는 테스트 파일/디렉터리로 범위를 좁혀 실행한다.
+- 이 예외는 **구현 중 좁은 범위의 회귀·RED/GREEN 확인**에 한정된다. 아래는 이 예외로 커버되지 않으며 여전히 사용자에게 안내만 한다:
+  - 프로젝트 전체 `pytest` 스위트 실행(예: 인자 없는 `pytest`)
+  - `python manage.py check`, `migrate --check` 등 배포 전 최종 확인
+  - 서버 배포 후 확인이 필요한 작업
+- 이 예외를 적용하지 않는(원칙대로 안내만 하는) 일반 작업에서는 기존 원칙이 그대로 적용된다.
 
 ## Test strategy
 
