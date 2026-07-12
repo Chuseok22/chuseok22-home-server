@@ -37,7 +37,7 @@ class ScheduledJobConfigForm(forms.ModelForm):
     class Meta:
         model = ScheduledJobConfig
         # cron_day_of_week, fixed_hours는 여기서 제외한다 — weekdays/fixed_hour_list 체크박스로만
-        # 입력받고, clean()에서 콤마 문자열로 합성해 save()에서 인스턴스에 반영한다.
+        # 입력받고, clean()에서 콤마 문자열로 합성해 clean()에서 인스턴스에 직접 반영한다.
         fields = ['is_enabled', 'schedule_mode', 'interval_hours', 'interval_minute', 'fixed_minute']
         # RadioSelect가 없으면 choices CharField는 기본 <select>로 렌더링되는데,
         # schedule_mode_toggle.js는 input[name="schedule_mode"]만 찾으므로 라디오가 아니면
