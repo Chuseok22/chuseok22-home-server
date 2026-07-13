@@ -16,7 +16,8 @@
   {{ content_html|safe }}
 </article>
 
-<section class="mt-6">
+<section class="mt-6 flex items-center gap-4">
+  <span class="opacity-60">👁 {{ post.views_count }}</span>
   {% if user.is_authenticated %}
   {% include "engagement/like_button.html" with target=post %}
   {% else %}
