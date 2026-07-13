@@ -10,17 +10,33 @@ def test_home_페이지_200_응답() -> None:
     response = client.get(reverse('site:home'))
 
     assert response.status_code == 200
-    assert '백지훈' in response.content.decode()
+    assert response.context['profile'] is None
 
 
 @pytest.mark.django_db
-def test_home_은_최근_활동_5건만_context에_담는다() -> None:
+def test_home_은_profile_이름과_bio를_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자', bio='**굵게** 소개')
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '백지훈' in body
+    assert '<strong>굵게</strong>' in body
+
+
+@pytest.mark.django_db
+def test_home_은_최근_활동_10건까지_context에_담는다() -> None:
     from django.test import Client
     from django.utils import timezone
 
     from apps.activity.models import GithubActivity
 
-    for i in range(7):
+    for i in range(12):
         GithubActivity.objects.create(
             event_id=f'evt-{i}',
             event_type='PushEvent',
@@ -33,7 +49,7 @@ def test_home_은_최근_활동_5건만_context에_담는다() -> None:
     client = Client()
     response = client.get(reverse('site:home'))
 
-    assert len(response.context['recent_activities']) == 5
+    assert len(response.context['recent_activities']) == 10
     assert response.context['recent_activities'][0].event_id == 'evt-0'
 
 
@@ -62,48 +78,78 @@ def test_home_은_총_star_수를_context에_담는다() -> None:
 
 
 @pytest.mark.django_db
-def test_home_은_컨트리뷰션_데이터를_주단위로_묶어_context에_담는다() -> None:
-    from datetime import date, timedelta
-
+def test_home_은_호출마다_방문자_수를_증가시킨다() -> None:
     from django.test import Client
 
-    from apps.activity.models import GithubContributionDay
-
-    # 상대 날짜 사용: home()이 date.today() 기준 371일 윈도우로 필터링하므로,
-    # 하드코딩된 절대 날짜는 시간이 지나면 윈도우 밖으로 밀려나 테스트가 깨진다.
-    start = date.today() - timedelta(days=30)
-    for i in range(9):
-        GithubContributionDay.objects.create(date=start + timedelta(days=i), contribution_count=i)
-
     client = Client()
-    response = client.get(reverse('site:home'))
-    weeks = response.context['contribution_weeks']
+    first = client.get(reverse('site:home'))
+    second = client.get(reverse('site:home'))
 
-    assert len(weeks) == 2
-    assert len(weeks[0]) == 7
-    assert len(weeks[1]) == 2
+    assert first.context['visitor_count'] == 1
+    assert second.context['visitor_count'] == 2
 
 
 @pytest.mark.django_db
-def test_home_은_1년보다_오래된_컨트리뷰션은_제외한다() -> None:
-    from datetime import date, timedelta
-
+def test_home_은_카테고리별로_기술스택을_그룹핑한다() -> None:
     from django.test import Client
 
-    from apps.activity.models import GithubContributionDay
+    from apps.profile.models import Skill
 
-    old_date = date.today() - timedelta(days=400)
-    recent_date = date.today() - timedelta(days=10)
-    GithubContributionDay.objects.create(date=old_date, contribution_count=1)
-    GithubContributionDay.objects.create(date=recent_date, contribution_count=2)
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+    Skill.objects.create(category=Skill.Category.BACKEND, name='DRF', order=1)
+    Skill.objects.create(category=Skill.Category.FRONTEND, name='React', order=0)
 
     client = Client()
     response = client.get(reverse('site:home'))
-    all_days = [day for week in response.context['contribution_weeks'] for day in week]
-    all_dates = [day.date for day in all_days]
+    grouped = response.context['skills_by_category']
 
-    assert old_date not in all_dates
-    assert recent_date in all_dates
+    assert [s.name for s in grouped['backend']] == ['Django', 'DRF']
+    assert [s.name for s in grouped['frontend']] == ['React']
+
+
+@pytest.mark.django_db
+def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    for i in range(5):
+        Project.objects.create(
+            category=category, title=f'프로젝트 {i}', description='설명', status=status, order=i,
+        )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    featured = list(response.context['featured_projects'])
+
+    assert len(featured) == 3
+    assert [p.title for p in featured] == ['프로젝트 0', '프로젝트 1', '프로젝트 2']
+
+
+@pytest.mark.django_db
+def test_home_은_발행된_블로그_글_3개까지_전달한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    for i in range(5):
+        Post.objects.create(
+            title=f'글 {i}', slug=f'post-{i}', summary='요약', content='본문',
+            is_published=True, published_at=timezone.now() - timezone.timedelta(days=i),
+        )
+    Post.objects.create(
+        title='비공개 글', slug='draft', summary='요약', content='본문', is_published=False,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    recent_posts = list(response.context['recent_posts'])
+
+    assert len(recent_posts) == 3
+    assert all(p.is_published for p in recent_posts)
 
 
 @pytest.mark.django_db
@@ -438,26 +484,6 @@ def test_home_템플릿은_총_star_수를_보여준다() -> None:
     body = response.content.decode()
 
     assert '⭐ 8' in body
-
-
-@pytest.mark.django_db
-def test_home_템플릿은_컨트리뷰션_데이터가_있으면_그리드를_렌더링한다() -> None:
-    from datetime import date, timedelta
-
-    from django.test import Client
-
-    from apps.activity.models import GithubContributionDay
-
-    # 상대 날짜 사용: home()이 date.today() 기준 371일 윈도우로 필터링하므로,
-    # 하드코딩된 절대 날짜는 시간이 지나면 윈도우 밖으로 밀려나 테스트가 깨진다.
-    # contribution_count=7 -> Task 6의 contribution_level_class 경계값(7~9)에서 'bg-success/80' 반환
-    GithubContributionDay.objects.create(date=date.today() - timedelta(days=30), contribution_count=7)
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert 'bg-success/80' in body
 
 
 @pytest.mark.django_db

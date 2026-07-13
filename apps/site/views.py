@@ -1,4 +1,4 @@
-from datetime import timedelta
+from itertools import groupby
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import F
@@ -6,7 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
-from apps.activity.models import GithubActivity, GithubContributionDay, GithubProfileStats
+from apps.activity.models import GithubActivity, GithubProfileStats
 from apps.blog.models import Post
 from apps.blog.services.category import (
     filter_published_posts_by_category_slug,
@@ -14,6 +14,15 @@ from apps.blog.services.category import (
 )
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.engagement.models import Comment, Like
+from apps.profile.models import (
+    Activity,
+    Career,
+    Certification,
+    Profile,
+    PullRequestHighlight,
+    Skill,
+    VisitorCounter,
+)
 from apps.projects.models import Project
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.study_room import StudyRoomService
@@ -31,21 +40,38 @@ from apps.site.forms import (
     StudentSearchForm,
 )
 from apps.site.models import Tool
-from apps.site.services.contribution_grid import build_contribution_weeks
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    """포트폴리오 랜딩 페이지. 최근 GitHub 활동·컨트리뷰션 그래프·총 star를 함께 보여준다."""
-    recent_activities = GithubActivity.objects.all()[:5]
-    contribution_window_start = timezone.now().date() - timedelta(days=371)
-    contribution_weeks = build_contribution_weeks(
-        GithubContributionDay.objects.filter(date__gte=contribution_window_start).order_by('date')
-    )
+    """포트폴리오 랜딩 페이지. 프로필 소개·기술스택·이력·PR/프로젝트 하이라이트와
+    사이드바(GitHub 최근 활동·최근 글)를 함께 보여준다."""
+    profile = Profile.objects.first()
+    bio_html = render_markdown(profile.bio) if profile and profile.bio else ''
+
+    skills = Skill.objects.all()
+    skills_by_category = {
+        category: list(items) for category, items in groupby(skills, key=lambda s: s.category)
+    }
+
+    VisitorCounter.objects.get_or_create(pk=1)
+    VisitorCounter.objects.filter(pk=1).update(count=F('count') + 1)
+    visitor_count = VisitorCounter.objects.filter(pk=1).values_list('count', flat=True).first() or 0
+
     total_stars = GithubProfileStats.objects.filter(pk=1).values_list('total_stars', flat=True).first() or 0
+
     return render(request, 'site/home.html', {
-        'recent_activities': recent_activities,
-        'contribution_weeks': contribution_weeks,
+        'profile': profile,
+        'bio_html': bio_html,
+        'skills_by_category': skills_by_category,
+        'pr_highlights': PullRequestHighlight.objects.all(),
+        'featured_projects': Project.objects.order_by('order')[:3],
+        'careers': Career.objects.all(),
+        'activities': Activity.objects.all(),
+        'certifications': Certification.objects.all(),
+        'recent_activities': GithubActivity.objects.all()[:10],
+        'recent_posts': Post.objects.filter(is_published=True).order_by('-published_at')[:3],
         'total_stars': total_stars,
+        'visitor_count': visitor_count,
     })
 
 
