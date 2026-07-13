@@ -1,6 +1,7 @@
 {% extends "site/base.html" %}
 {% load humanize %}
 {% load activity_tags %}
+{% load profile_tags %}
 
 {% block title %}{{ profile.name|default:'백지훈' }} — Home{% endblock %}
 
@@ -41,8 +42,8 @@
           <h3 class="text-sm font-semibold opacity-70 mb-2">{{ skills.0.get_category_display }}</h3>
           <div class="flex gap-2 flex-wrap">
             {% for skill in skills %}
-            <span class="badge badge-outline gap-1">
-              {% if skill.icon_slug %}<img src="https://cdn.simpleicons.org/{{ skill.icon_slug }}" alt="" class="w-3.5 h-3.5">{% endif %}
+            <span class="badge badge-lg gap-2 bg-base-200 border-base-300 font-medium">
+              {% if skill.icon_slug %}<img src="{{ skill.icon_slug|skill_icon_url }}" alt="" class="w-4 h-4">{% endif %}
               {{ skill.name }}
             </span>
             {% endfor %}

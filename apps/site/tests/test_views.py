@@ -126,6 +126,37 @@ def test_home_은_카테고리별로_기술스택을_그룹핑한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_템플릿은_기술스택_슬러그를_simple_icons_cdn_url로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', icon_slug='django', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'src="https://cdn.simpleicons.org/django"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_icon_slug가_완전한_url이면_그대로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    icon_url = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg'
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Java', icon_slug=icon_url, order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert f'src="{icon_url}"' in body
+
+
+@pytest.mark.django_db
 def test_home_은_기술스택_카테고리를_정의_순서대로_보여준다() -> None:
     from django.test import Client
 

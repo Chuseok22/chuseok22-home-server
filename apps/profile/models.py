@@ -50,7 +50,9 @@ class Skill(models.Model):
 
     category = models.CharField(max_length=20, choices=Category.choices, verbose_name='분류')
     name = models.CharField(max_length=50, verbose_name='이름')
-    icon_slug = models.CharField(max_length=50, blank=True, verbose_name='Simple Icons 슬러그')
+    # Simple Icons 슬러그(짧은 문자열) 또는 다른 아이콘 CDN의 전체 URL(Simple Icons에 없는
+    # 브랜드용) 둘 다 저장할 수 있어야 해서 URL 길이를 감안해 넉넉히 잡는다.
+    icon_slug = models.CharField(max_length=255, blank=True, verbose_name='Simple Icons 슬러그 또는 아이콘 URL')
     order = models.PositiveIntegerField(default=0, verbose_name='정렬 순서')
 
     class Meta:
