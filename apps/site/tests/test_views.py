@@ -30,6 +30,24 @@ def test_home_은_profile_이름과_bio를_렌더링한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_tagline의_줄바꿈을_br로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(
+        name='백지훈',
+        tagline='A full-stack developer.\n기능 구현을 넘어 서비스를 개선하는 풀스택 개발자',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'A full-stack developer.<br>기능 구현을 넘어 서비스를 개선하는 풀스택 개발자' in body
+
+
+@pytest.mark.django_db
 def test_home_은_최근_활동_10건까지_context에_담는다() -> None:
     from django.test import Client
     from django.utils import timezone

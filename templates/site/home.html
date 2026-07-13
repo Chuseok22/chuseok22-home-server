@@ -15,7 +15,7 @@
       {% endif %}
       <div class="prose max-w-none">
         <h1 class="mb-1">{{ profile.name }}</h1>
-        <p class="mb-2">{{ profile.tagline }}</p>
+        <p class="mb-2">{{ profile.tagline|linebreaksbr }}</p>
         <div class="not-prose flex gap-3 flex-wrap text-sm">
           {% if profile.email %}<a href="mailto:{{ profile.email }}" class="link link-hover">✉️ Email</a>{% endif %}
           {% if profile.github_url %}<a href="{{ profile.github_url }}" class="link link-hover" target="_blank" rel="noopener">GitHub</a>{% endif %}
