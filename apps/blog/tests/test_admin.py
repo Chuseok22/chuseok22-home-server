@@ -237,3 +237,21 @@ def test_TagAdmin에서_대소문자만_다른_이름을_추가하면_폼_에러
 
     assert response.status_code == 200  # redirect(302)가 아니라 폼이 에러와 함께 다시 렌더링됨
     assert Tag.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_포스트_목록에_조회수가_읽기전용으로_노출된다(admin_client: Client, category: Category) -> None:
+    post = Post.objects.create(
+        title='조회수 표시 확인', slug='admin-view-count-test', content='# 본문',
+        category=category, views_count=424242,
+    )
+
+    list_url = reverse('admin:blog_post_changelist')
+    list_response = admin_client.get(list_url)
+    list_content = list_response.content.decode()
+    assert '조회수' in list_content
+    assert '424242' in list_content
+
+    change_url = reverse('admin:blog_post_change', args=[post.pk])
+    change_response = admin_client.get(change_url)
+    assert 'name="views_count"' not in change_response.content.decode()

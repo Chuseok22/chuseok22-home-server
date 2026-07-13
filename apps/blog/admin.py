@@ -47,7 +47,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
-    list_display = ('title', 'is_published', 'published_at', 'updated_at')
+    list_display = ('title', 'is_published', 'published_at', 'updated_at', 'views_count')
     list_filter = ('is_published',)
     search_fields = ('title', 'content')
     prepopulated_fields = {'slug': ('title',)}

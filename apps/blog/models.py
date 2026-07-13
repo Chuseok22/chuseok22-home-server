@@ -89,6 +89,7 @@ class Post(models.Model):
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='발행일시')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    views_count = models.PositiveIntegerField(default=0, verbose_name='조회수')
 
     class Meta:
         db_table = 'blog_post'

@@ -15,6 +15,7 @@ def test_post_생성시_기본값_확인() -> None:
 
     assert post.is_published is False
     assert list(post.tags.all()) == []
+    assert post.views_count == 0
     assert str(post) == '첫 포스트'
 
 
