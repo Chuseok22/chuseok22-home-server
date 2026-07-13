@@ -824,7 +824,7 @@ def test_home_템플릿은_최근_글과_더보기_링크를_사이드바에_보
     body = response.content.decode()
 
     assert '첫 글' in body
-    assert f'href="{reverse("site:blog-list")}"' in body
+    assert body.count(f'href="{reverse("site:blog-list")}"') == 3
 
 
 @pytest.mark.django_db
