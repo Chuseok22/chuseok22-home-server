@@ -48,7 +48,8 @@ def home(request: HttpRequest) -> HttpResponse:
     profile = Profile.objects.first()
     bio_html = render_markdown(profile.bio) if profile and profile.bio else ''
 
-    skills = Skill.objects.all()
+    # Meta.ordering은 알파벳순(database → etc → frontend)이므로, 정의 순서(backend → frontend → database → ... → etc)로 정렬하기 위해 Python에서 재정렬
+    skills = sorted(Skill.objects.all(), key=lambda s: (Skill.Category.values.index(s.category), s.order))
     skills_by_category = {
         category: list(items) for category, items in groupby(skills, key=lambda s: s.category)
     }

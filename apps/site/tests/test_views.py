@@ -108,6 +108,24 @@ def test_home_은_카테고리별로_기술스택을_그룹핑한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_기술스택_카테고리를_정의_순서대로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.ETC, name='기타툴', order=0)
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+    Skill.objects.create(category=Skill.Category.DATABASE, name='PostgreSQL', order=0)
+    Skill.objects.create(category=Skill.Category.FRONTEND, name='React', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    categories = list(response.context['skills_by_category'].keys())
+
+    assert categories == ['backend', 'frontend', 'database', 'etc']
+
+
+@pytest.mark.django_db
 def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한다() -> None:
     from django.test import Client
 
