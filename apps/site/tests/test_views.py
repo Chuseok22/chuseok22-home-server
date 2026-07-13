@@ -749,3 +749,119 @@ def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
     response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
 
     assert '👁 7' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_대표_PR을_링크와_함께_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import PullRequestHighlight
+
+    PullRequestHighlight.objects.create(
+        title='활동 이력 자동 정리 기능', repo_name='chuseok22/chuseok22-home-server',
+        pr_url='https://github.com/Chuseok22/chuseok22-home-server/pull/62', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '활동 이력 자동 정리 기능' in body
+    assert 'href="https://github.com/Chuseok22/chuseok22-home-server/pull/62"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_이력의_종료일이_없으면_현재로_표시한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='추석22', role='백엔드 개발자',
+        period_start='2026-01-01', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '추석22' in body
+    assert '현재' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_자격증_모달_트리거를_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Certification
+
+    Certification.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단', acquired_date='2025-01-01', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '정보처리기사' in body
+    assert 'x-data="{ openId: null }"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_최근_글과_더보기_링크를_사이드바에_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='첫 글', slug='first-post', summary='요약', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '첫 글' in body
+    assert f'href="{reverse("site:blog-list")}"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_활동이_6건_이상이면_더보기_버튼을_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.activity.models import GithubActivity
+
+    for i in range(6):
+        GithubActivity.objects.create(
+            event_id=f'evt-{i}', event_type='PushEvent', repo_name='chuseok22/test-repo',
+            title='커밋', meta=f'메시지 {i}', occurred_at=timezone.now() - timezone.timedelta(hours=i),
+        )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '@click="expanded = !expanded"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_활동이_5건_이하면_더보기_버튼을_숨긴다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.activity.models import GithubActivity
+
+    for i in range(3):
+        GithubActivity.objects.create(
+            event_id=f'evt-{i}', event_type='PushEvent', repo_name='chuseok22/test-repo',
+            title='커밋', meta=f'메시지 {i}', occurred_at=timezone.now() - timezone.timedelta(hours=i),
+        )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '@click="expanded = !expanded"' not in body
