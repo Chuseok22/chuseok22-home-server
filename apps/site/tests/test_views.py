@@ -689,3 +689,37 @@ def test_blog_detail은_조회수를_화면에_표시한다() -> None:
     response = client.get(reverse('site:blog-detail', args=[post.slug]))
 
     assert '👁 1' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_list은_각_포스트의_조회수를_표시한다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='인기 글', slug='popular-post', content='# 본문',
+        is_published=True, views_count=5,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+
+    assert '👁 5' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='인기 글', slug='popular-post-htmx', content='# 본문',
+        is_published=True, views_count=7,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
+
+    assert '👁 7' in response.content.decode()
