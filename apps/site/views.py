@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -76,6 +77,8 @@ def blog_list(request: HttpRequest) -> HttpResponse:
 def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     """블로그 포스트 상세. 비공개 포스트는 404."""
     post = get_object_or_404(Post, slug=slug, is_published=True)
+    Post.objects.filter(pk=post.pk).update(views_count=F('views_count') + 1)
+    post.views_count += 1
     content_html = render_markdown(post.content)
     content_type = ContentType.objects.get_for_model(Post)
     comments = Comment.objects.filter(content_type=content_type, object_id=post.pk).select_related('author')
