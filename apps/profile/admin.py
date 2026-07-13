@@ -8,7 +8,7 @@ class SingletonAdminMixin:
     """이미 레코드가 하나라도 있으면 Admin에서 추가 화면을 차단하는 믹스인 (싱글턴 모델 전용)."""
 
     def has_add_permission(self, request: HttpRequest) -> bool:
-        return not self.model.objects.exists()
+        return super().has_add_permission(request) and not self.model.objects.exists()
 
 
 @admin.register(Profile)
