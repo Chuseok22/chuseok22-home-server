@@ -66,6 +66,17 @@ def test_GitHub_통계_수집_잡은_기본값이_새벽_3시_5분이다() -> No
 
 
 @pytest.mark.django_db
+def test_GitHub_활동_이력_정리_잡은_기본값이_매일_새벽4시다() -> None:
+    definition = JOB_DEFINITIONS['cleanup_old_github_activities']
+
+    config = get_or_seed_job_config('cleanup_old_github_activities', definition)
+
+    assert config.fixed_hours == '4'
+    assert config.fixed_minute == 0
+    assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
 def test_build_cron_trigger는_interval_모드에서_N시간마다_표현식을_만든다() -> None:
     config = ScheduledJobConfig.objects.create(
         job_id='fetch_github_activities',

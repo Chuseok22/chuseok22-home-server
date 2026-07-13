@@ -47,6 +47,14 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 0,
         'default_day_of_week': 'sun',
     },
+    'cleanup_old_github_activities': {
+        'label': 'GitHub 활동 이력 정리',
+        'command': 'cleanup_old_github_activities',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '4',
+        'default_fixed_minute': 0,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None
