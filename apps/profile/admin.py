@@ -1,7 +1,15 @@
 from django.contrib import admin
 from django.http import HttpRequest
 
-from apps.profile.models import Profile, VisitorCounter
+from apps.profile.models import (
+    Activity,
+    Career,
+    Certification,
+    Profile,
+    PullRequestHighlight,
+    Skill,
+    VisitorCounter,
+)
 
 
 class SingletonAdminMixin:
@@ -21,3 +29,40 @@ class ProfileAdmin(SingletonAdminMixin, admin.ModelAdmin):
 class VisitorCounterAdmin(SingletonAdminMixin, admin.ModelAdmin):
     list_display = ('count', 'updated_at')
     readonly_fields = ('updated_at',)
+
+
+@admin.register(Skill)
+class SkillAdmin(admin.ModelAdmin):
+    list_display = ('name', 'category', 'order')
+    list_filter = ('category',)
+    list_editable = ('order',)
+    ordering = ('category', 'order')
+
+
+@admin.register(Career)
+class CareerAdmin(admin.ModelAdmin):
+    list_display = ('organization', 'role', 'category', 'period_start', 'period_end', 'order')
+    list_filter = ('category',)
+    list_editable = ('order',)
+    ordering = ('order',)
+
+
+@admin.register(Activity)
+class ActivityAdmin(admin.ModelAdmin):
+    list_display = ('name', 'period', 'order')
+    list_editable = ('order',)
+    ordering = ('order',)
+
+
+@admin.register(Certification)
+class CertificationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'issuer', 'acquired_date', 'order')
+    list_editable = ('order',)
+    ordering = ('order',)
+
+
+@admin.register(PullRequestHighlight)
+class PullRequestHighlightAdmin(admin.ModelAdmin):
+    list_display = ('title', 'repo_name', 'order')
+    list_editable = ('order',)
+    ordering = ('order',)
