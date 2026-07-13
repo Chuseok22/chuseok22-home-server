@@ -40,6 +40,7 @@ LOCAL_APPS = [
     'apps.sejong.library',
     'apps.activity',
     'apps.projects',
+    'apps.profile',
     'apps.sejong.student',
     'apps.blog',
     'theme',
