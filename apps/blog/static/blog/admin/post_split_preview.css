@@ -3,6 +3,34 @@
   gap: 16px;
   height: 70vh;
   margin-bottom: 8px;
+  position: relative;
+}
+
+@keyframes admin-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.admin-loading-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border: 2px solid #ccc;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: admin-spinner-rotate 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+/* 이 파일의 .blog-preview-pane와 동일하게, Django Admin 5.1의 prefers-color-scheme
+   다크 모드에 맞춰 스피너 색상도 함께 대응한다. */
+@media (prefers-color-scheme: dark) {
+  .admin-loading-spinner {
+    border-color: #555;
+    border-top-color: #ddd;
+  }
 }
 
 .blog-editor-pane,

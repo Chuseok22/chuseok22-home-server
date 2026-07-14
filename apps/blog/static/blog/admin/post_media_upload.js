@@ -49,8 +49,12 @@
       const formData = new FormData();
       formData.append('file', file);
 
+      const spinner = document.createElement('span');
+      spinner.className = 'admin-loading-spinner';
+
       uploadButton.disabled = true;
       uploadButton.textContent = '업로드 중...';
+      uploadButton.appendChild(spinner);
 
       fetch(uploadUrl, {
         method: 'POST',
