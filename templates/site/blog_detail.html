@@ -17,7 +17,7 @@
 </article>
 
 <section class="mt-6 flex items-center gap-4">
-  <span class="opacity-60">👁 {{ post.views_count }}</span>
+  <span class="opacity-60 inline-flex items-center gap-1">{% include 'site/partials/icons/eye.svg.html' %}{{ post.views_count }}</span>
   {% if user.is_authenticated %}
   {% include "engagement/like_button.html" with target=post %}
   {% else %}

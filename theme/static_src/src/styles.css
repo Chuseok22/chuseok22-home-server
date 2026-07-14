@@ -3,19 +3,44 @@
 @tailwind utilities;
 
 @layer components {
+  /* 태그류(기술스택/블로그/프로젝트) 공통 크기 베이스. badge-tag/tag-skill이 상속해
+     패딩·폰트 크기를 통일한다. */
+  .tag-base {
+    @apply badge gap-2 border font-medium rounded-full h-auto;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.8125rem;
+  }
+
   /* velog 스타일 라벤더/바이올릿 파스텔 태그 배지. 태그별 개별 색상은 사용하지 않고
      전체 태그가 동일한 톤을 공유한다. 다크모드는 data-theme 속성 기반 토글이므로
      Tailwind dark: variant 대신 속성 선택자로 오버라이드한다. */
   .badge-tag {
-    @apply badge badge-lg border-none font-medium;
+    @apply tag-base border-none;
     background-color: #EDE9FE;
     color: #6D28D9;
-    font-size: 0.75rem;
   }
 
   [data-theme='dark'] .badge-tag {
     background-color: rgba(167, 139, 250, 0.18);
     color: #C4B5FD;
+  }
+
+  /* 기술스택 태그. 색상은 중립(base-200) 유지, badge-tag와 동일한 패딩/크기 베이스만 공유. */
+  .tag-skill {
+    @apply tag-base bg-base-200 border-base-300;
+  }
+
+  /* 섹션 전체를 감싸는 공용 박스. 홈 화면의 각 섹션(프로필/기술스택/이력 등)과 사이드바 블록이
+     동일한 톤의 박스로 시각적으로 구분되도록 한다. */
+  .section-box {
+    @apply bg-base-200 rounded-2xl p-6 sm:p-8;
+  }
+
+  /* star/view 등 아이콘+숫자 조합 통계 배지. */
+  .stat-chip {
+    @apply badge badge-outline gap-1.5 rounded-full h-auto;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
   }
 }
 
