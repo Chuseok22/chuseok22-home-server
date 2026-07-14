@@ -43,3 +43,17 @@ def test_stat_chip이_정의되어_있다() -> None:
 
     assert '.stat-chip' in content
     assert 'badge-outline' in content
+
+
+def test_htmx_indicator_유틸리티가_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.htmx-indicator' in content
+    assert '.htmx-request .htmx-indicator' in content
+
+
+def test_htmx_indicator_block_유틸리티가_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.htmx-indicator-block' in content
+    assert '.htmx-request .htmx-indicator-block' in content

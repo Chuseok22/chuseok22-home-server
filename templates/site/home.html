@@ -169,8 +169,17 @@
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
-        <div @click.outside="openId = null" class="relative max-w-3xl max-h-[90vh] w-full">
-          <img src="{{ cert.badge_image.url }}" alt="{{ cert.name }}" class="w-full h-full max-h-[90vh] object-contain rounded">
+        <div @click.outside="openId = null" class="relative max-w-3xl max-h-[90vh] w-full min-h-[300px]" x-data="{ loaded: false }">
+          <div x-show="!loaded" aria-hidden="true" class="skeleton w-full h-full max-h-[90vh] absolute inset-0 rounded"></div>
+          <img
+            src="{{ cert.badge_image.url }}"
+            alt="{{ cert.name }}"
+            class="w-full h-full max-h-[90vh] object-contain rounded transition-opacity duration-200"
+            :class="loaded ? 'opacity-100' : 'opacity-0'"
+            x-init="if ($el.complete) loaded = true"
+            @load="loaded = true"
+            @error="loaded = true"
+          >
           <button type="button" aria-label="닫기" @click="openId = null" class="btn btn-sm btn-circle absolute top-2 right-2">✕</button>
         </div>
       </div>

@@ -160,3 +160,20 @@ def test_존재하지_않는_object_id는_404() -> None:
     response = client.post(url, {'body': '댓글입니다'})
 
     assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_좋아요_버튼은_요청_중_비활성화_속성과_스피너를_포함한다() -> None:
+    user = User.objects.create_user(username='reader')
+    post = Post.objects.create(title='글', slug='post', content='...')
+    content_type = ContentType.objects.get_for_model(Post)
+
+    client = Client()
+    client.force_login(user)
+    url = reverse('engagement:like-toggle', kwargs={'app_label': content_type.app_label, 'model': content_type.model, 'object_id': post.pk})
+    response = client.post(url)
+    body = response.content.decode()
+
+    assert 'hx-disabled-elt="this"' in body
+    assert 'id="like-spinner"' in body
+    assert 'loading-spinner' in body

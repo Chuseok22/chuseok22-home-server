@@ -992,7 +992,7 @@ def test_home_템플릿은_배지_이미지가_있는_자격증은_클릭시_이
     body = response.content.decode()
 
     assert f'openId = {cert.id}' in body
-    assert f'<img src="{cert.badge_image.url}"' in body
+    assert f'src="{cert.badge_image.url}"' in body
     assert '@keydown.escape.window="openId = null"' in body
 
 
@@ -1138,3 +1138,98 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     body = response.content.decode()
 
     assert body.count('class="section-box') == 5
+
+
+@pytest.mark.django_db
+def test_home_페이지는_전역_페이지_전환_진행바_마크업을_포함한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'id="page-loading-bar"' in body
+    assert 'site/js/page-loading.js' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록_HTMX_응답은_스켈레톤_인디케이터와_전환_속성을_포함한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
+    body = response.content.decode()
+
+    assert 'data-page-transition' in body
+    assert 'hx-indicator="#blog-list-skeleton"' in body
+    assert 'id="blog-list-skeleton"' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록_전체_페이지는_aria_live_영역이_blog_content_바깥에_있다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    aria_live_index = body.index('<div aria-live="polite">')
+    blog_content_index = body.index('id="blog-content"')
+
+    assert aria_live_index < blog_content_index
+    assert 'aria-live="polite"' not in body[body.index('id="blog-content"'):body.index('id="blog-content"') + 500]
+
+
+@pytest.mark.django_db
+def test_블로그_상세는_댓글_폼에_요청_중_비활성화_속성과_스피너를_포함한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    user = User.objects.create_user(username='reader')
+    Post.objects.create(
+        title='댓글 테스트 글', slug='comment-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(user)
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'comment-post'}))
+    body = response.content.decode()
+
+    assert 'hx-disabled-elt="find button"' in body
+    assert 'id="comments" aria-live="polite"' in body
+
+
+@pytest.mark.django_db
+def test_자격증_라이트박스는_이미지_로딩_전_스켈레톤을_보여준다(settings, tmp_path) -> None:
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    from apps.profile.models import Certification
+
+    settings.MEDIA_ROOT = tmp_path
+    buffer = io.BytesIO()
+    Image.new('RGB', (5, 5), color='blue').save(buffer, format='PNG')
+    buffer.seek(0)
+    badge_image = SimpleUploadedFile('badge.png', buffer.read(), content_type='image/png')
+
+    Certification.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단', acquired_date='2025-01-01', order=0,
+        badge_image=badge_image,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'x-data="{ loaded: false }"' in body
+    assert 'x-init="if ($el.complete) loaded = true"' in body
+    assert '@load="loaded = true"' in body
+    assert 'skeleton' in body

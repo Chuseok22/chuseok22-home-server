@@ -7,12 +7,17 @@
 <form
   hx-get="{% url 'site:lab-library-rooms' %}"
   hx-target="#rooms"
+  hx-indicator="#rooms-skeleton"
+  hx-disabled-elt="find button"
   class="flex gap-2 mb-4"
 >
   <input type="text" name="reserve_date" value="{{ today }}" class="input input-bordered" placeholder="YYYYMMDD">
   <button type="submit" class="btn btn-primary">가용 현황 조회</button>
 </form>
-<div id="rooms"></div>
+<div id="rooms-skeleton" class="htmx-indicator-block" aria-hidden="true">
+  {% include 'site/partials/list_skeleton.html' %}
+</div>
+<div id="rooms" aria-live="polite"></div>
 <div id="reserve-form" class="mt-4"></div>
-<div id="reserve-result" class="mt-4"></div>
+<div id="reserve-result" class="mt-4" aria-live="polite"></div>
 {% endblock %}
