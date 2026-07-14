@@ -968,7 +968,7 @@ def test_home_은_github_링크_옆에_아이콘을_보여준다() -> None:
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert 'src="https://cdn.simpleicons.org/github"' in body
+    assert 'M12 .297c-6.63 0-12 5.373-12 12' in body
 
 
 @pytest.mark.django_db
