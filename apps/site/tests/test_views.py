@@ -1150,3 +1150,17 @@ def test_home_페이지는_전역_페이지_전환_진행바_마크업을_포함
 
     assert 'id="page-loading-bar"' in body
     assert 'site/js/page-loading.js' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록_HTMX_응답은_스켈레톤_인디케이터와_전환_속성을_포함한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
+    body = response.content.decode()
+
+    assert 'data-page-transition' in body
+    assert 'hx-indicator="#blog-list-skeleton"' in body
+    assert 'id="blog-list-skeleton"' in body
+    assert 'aria-live="polite"' in body
