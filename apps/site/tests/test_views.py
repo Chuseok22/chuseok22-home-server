@@ -992,7 +992,7 @@ def test_home_템플릿은_배지_이미지가_있는_자격증은_클릭시_이
     body = response.content.decode()
 
     assert f'openId = {cert.id}' in body
-    assert f'<img src="{cert.badge_image.url}"' in body
+    assert f'src="{cert.badge_image.url}"' in body
     assert '@keydown.escape.window="openId = null"' in body
 
 
@@ -1188,3 +1188,34 @@ def test_블로그_상세는_댓글_폼에_요청_중_비활성화_속성과_스
 
     assert 'hx-disabled-elt="find button"' in body
     assert 'id="comments" aria-live="polite"' in body
+
+
+@pytest.mark.django_db
+def test_자격증_라이트박스는_이미지_로딩_전_스켈레톤을_보여준다(settings, tmp_path) -> None:
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    from apps.profile.models import Certification
+
+    settings.MEDIA_ROOT = tmp_path
+    buffer = io.BytesIO()
+    Image.new('RGB', (5, 5), color='blue').save(buffer, format='PNG')
+    buffer.seek(0)
+    badge_image = SimpleUploadedFile('badge.png', buffer.read(), content_type='image/png')
+
+    Certification.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단', acquired_date='2025-01-01', order=0,
+        badge_image=badge_image,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'x-data="{ loaded: false }"' in body
+    assert 'x-init="if ($el.complete) loaded = true"' in body
+    assert '@load="loaded = true"' in body
+    assert 'skeleton' in body
