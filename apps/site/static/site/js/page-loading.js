@@ -1,9 +1,12 @@
 (function () {
   var BAR_ID = 'page-loading-bar';
   // htmx:afterRequest 시점에는 트리거 요소가 이미 DOM에서 제거됐을 수 있다
-  // (예: hx-swap="outerHTML"로 요소 자신이 교체되는 경우). closest()로 다시 찾지 않고
-  // beforeRequest에서 세운 플래그만으로 종료 여부를 판단해야 진행바가 멈추지 않는 사고를 막는다.
-  var pendingPageTransition = false;
+  // (예: hx-swap="outerHTML"로 요소 자신이 교체되는 경우). event.target.closest()로 다시 찾지 않고,
+  // event.detail.requestConfig(요청 하나의 생명주기 동안 유지되는 JS 객체, DOM 노드가 아니므로
+  // 스왑에 영향받지 않는다)에 마커를 남겨 해당 요청이 종료될 때만 카운트를 줄인다.
+  // 카운터를 쓰는 이유: data-page-transition 요청이 겹쳐 진행 중일 때 하나만 끝나도 진행바가
+  // 끝나버리지 않도록, 마지막 요청까지 모두 끝났을 때만 finishBar()를 호출한다.
+  var pendingPageTransitionCount = 0;
 
   function getBar() {
     return document.getElementById(BAR_ID);
@@ -77,15 +80,18 @@
 
   document.addEventListener('htmx:beforeRequest', function (event) {
     if (event.target.closest('[data-page-transition]')) {
-      pendingPageTransition = true;
+      event.detail.requestConfig.isPageTransition = true;
+      pendingPageTransitionCount += 1;
       startBar();
     }
   });
 
-  document.addEventListener('htmx:afterRequest', function () {
-    if (pendingPageTransition) {
-      pendingPageTransition = false;
-      finishBar();
+  document.addEventListener('htmx:afterRequest', function (event) {
+    if (event.detail.requestConfig && event.detail.requestConfig.isPageTransition) {
+      pendingPageTransitionCount = Math.max(0, pendingPageTransitionCount - 1);
+      if (pendingPageTransitionCount === 0) {
+        finishBar();
+      }
     }
   });
 
