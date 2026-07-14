@@ -178,6 +178,7 @@
             :class="loaded ? 'opacity-100' : 'opacity-0'"
             x-init="if ($el.complete) loaded = true"
             @load="loaded = true"
+            @error="loaded = true"
           >
           <button type="button" aria-label="닫기" @click="openId = null" class="btn btn-sm btn-circle absolute top-2 right-2">✕</button>
         </div>

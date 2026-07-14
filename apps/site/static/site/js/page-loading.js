@@ -97,8 +97,12 @@
 
   // bfcache(뒤로가기/앞으로가기로 캐시된 페이지 복원)로 돌아오면 진행바가
   // 이전 상태(예: 80% 너비)로 그대로 보일 수 있어 복원 시 항상 리셋한다.
+  // bfcache는 JS 상태도 그대로 보존하므로, 카운터도 함께 0으로 되돌리지 않으면
+  // 복원 전에 진행 중이던 요청이 끝내 afterRequest를 못 받은 경우 카운터가
+  // 고착되어 이후 모든 페이지 전환에서 진행바가 끝나지 않게 된다.
   window.addEventListener('pageshow', function (event) {
     if (event.persisted) {
+      pendingPageTransitionCount = 0;
       resetBar();
     }
   });

@@ -56,6 +56,10 @@
     function renderPreview() {
       const content = textarea.value;
       if (!content) {
+        // 진행 중이던 이전 요청의 응답이 나중에 도착해도 무시되도록 토큰을 갱신하고,
+        // 스피너도 즉시 정리한다(그렇지 않으면 비운 미리보기에 stale 응답이 다시 그려질 수 있다).
+        latestRequestToken += 1;
+        previewSpinner.style.display = 'none';
         previewPane.innerHTML = '';
         return;
       }
