@@ -14,11 +14,18 @@
   <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
   <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+  <script src="{% static 'site/js/page-loading.js' %}" defer></script>
 </head>
 <body
   class="min-h-screen bg-base-100 text-base-content"
   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
 >
+  <div
+    id="page-loading-bar"
+    class="fixed top-0 left-0 h-[3px] bg-primary z-[9999] pointer-events-none"
+    style="width: 0%; opacity: 0;"
+    aria-hidden="true"
+  ></div>
   <!-- hx-headers가 body 전체에 CSRF 토큰을 실어 모든 htmx 요청(폼 안/밖 버튼 포함)에 자동 첨부한다.
        CsrfViewMiddleware가 활성화되어 있어 이게 없으면 모든 htmx POST가 403으로 거부된다. -->
   <header class="border-b border-base-300">
