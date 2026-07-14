@@ -54,6 +54,12 @@ def home(request: HttpRequest) -> HttpResponse:
         category: list(items) for category, items in groupby(skills, key=lambda s: s.category)
     }
 
+    # 직장/학력/수상을 구분해 보여주기 위해 Skill과 동일한 방식으로 카테고리별로 그룹핑
+    careers = sorted(Career.objects.all(), key=lambda c: (Career.Category.values.index(c.category), c.order))
+    careers_by_category = {
+        category: list(items) for category, items in groupby(careers, key=lambda c: c.category)
+    }
+
     VisitorCounter.objects.get_or_create(pk=1)
     VisitorCounter.objects.filter(pk=1).update(count=F('count') + 1)
     visitor_count = VisitorCounter.objects.filter(pk=1).values_list('count', flat=True).first() or 0
@@ -66,7 +72,7 @@ def home(request: HttpRequest) -> HttpResponse:
         'skills_by_category': skills_by_category,
         'pr_highlights': PullRequestHighlight.objects.all(),
         'featured_projects': Project.objects.order_by('order')[:3],
-        'careers': Career.objects.all(),
+        'careers_by_category': careers_by_category,
         'activities': Activity.objects.all(),
         'certifications': Certification.objects.all(),
         'recent_activities': GithubActivity.objects.all()[:10],

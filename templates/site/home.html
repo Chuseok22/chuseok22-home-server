@@ -100,21 +100,28 @@
     </section>
     {% endif %}
 
-    {% if careers %}
+    {% if careers_by_category %}
     <section class="section-box">
       <h2 class="text-xl font-bold mb-4">이력</h2>
-      <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
-        {% for career in careers %}
-        <li>
-          <p class="text-xs opacity-60">
-            [{{ career.get_category_display }}] {{ career.period_start|date:'Y.m' }} —
-            {% if career.period_end %}{{ career.period_end|date:'Y.m' }}{% else %}현재{% endif %}
-          </p>
-          <p class="font-medium">{{ career.organization }} · {{ career.role }}</p>
-          {% if career.description %}<p class="text-sm opacity-70">{{ career.description }}</p>{% endif %}
-        </li>
+      <div class="flex flex-col gap-6">
+        {% for category, careers in careers_by_category.items %}
+        <div>
+          <h3 class="text-sm font-semibold opacity-70 mb-2">{{ careers.0.get_category_display }}</h3>
+          <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
+            {% for career in careers %}
+            <li>
+              <p class="text-xs opacity-60">
+                {{ career.period_start|date:'Y.m' }} —
+                {% if career.period_end %}{{ career.period_end|date:'Y.m' }}{% else %}현재{% endif %}
+              </p>
+              <p class="font-medium">{{ career.organization }} · {{ career.role }}</p>
+              {% if career.description %}<p class="text-sm opacity-70">{{ career.description }}</p>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
     </section>
     {% endif %}
 
