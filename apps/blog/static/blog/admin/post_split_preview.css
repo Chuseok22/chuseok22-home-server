@@ -139,3 +139,10 @@
 .blog-preview-pane video {
   max-width: 100%;
 }
+
+.blog-preview-spinner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: none;
+}
