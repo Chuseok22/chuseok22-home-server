@@ -144,39 +144,37 @@
     {% endif %}
 
     {% if certifications %}
-    <section class="section-box" x-data="{ openId: null }">
+    <section class="section-box" x-data="{ openId: null }" @keydown.escape.window="openId = null">
       <h2 class="text-xl font-bold mb-4">자격증</h2>
       <div class="grid gap-4 sm:grid-cols-3">
         {% for cert in certifications %}
+        {% if cert.badge_image %}
         <button type="button" @click="openId = {{ cert.id }}" class="card bg-base-100 border border-base-300 text-left hover:bg-base-300 transition-colors">
+        {% else %}
+        <div class="card bg-base-100 border border-base-300 text-left">
+        {% endif %}
           <div class="card-body items-center text-center">
-            {% if cert.badge_image %}
-            <img src="{{ cert.badge_image.url }}" alt="{{ cert.name }}" class="w-16 h-16 object-contain">
-            {% endif %}
             <h3 class="card-title text-sm">{{ cert.name }}</h3>
+            <p class="text-xs opacity-70">{{ cert.acquired_date|date:'Y.m.d' }}</p>
+            <p class="text-xs opacity-70">{{ cert.issuer }}</p>
           </div>
-        </button>
+        {% if cert.badge_image %}</button>{% else %}</div>{% endif %}
         {% endfor %}
       </div>
 
       {% for cert in certifications %}
+      {% if cert.badge_image %}
       <div
         x-show="openId === {{ cert.id }}"
         x-cloak
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
-        <div @click.outside="openId = null" class="card bg-base-100 max-w-md w-full">
-          <div class="card-body">
-            <h3 class="card-title">{{ cert.name }}</h3>
-            <p class="text-sm opacity-70">{{ cert.issuer }} · {{ cert.acquired_date|date:'Y.m.d' }}</p>
-            {% if cert.credential_number %}<p class="text-sm">번호: {{ cert.credential_number }}</p>{% endif %}
-            {% if cert.credential_url %}<a href="{{ cert.credential_url }}" target="_blank" rel="noopener" class="link link-hover text-sm">검증 링크 →</a>{% endif %}
-            <div class="card-actions justify-end mt-2">
-              <button type="button" @click="openId = null" class="btn btn-sm">닫기</button>
-            </div>
-          </div>
+        <div @click.outside="openId = null" class="relative max-w-3xl max-h-[90vh] w-full">
+          <img src="{{ cert.badge_image.url }}" alt="{{ cert.name }}" class="w-full h-full max-h-[90vh] object-contain rounded">
+          <button type="button" @click="openId = null" class="btn btn-sm btn-circle absolute top-2 right-2">✕</button>
         </div>
       </div>
+      {% endif %}
       {% endfor %}
     </section>
     {% endif %}

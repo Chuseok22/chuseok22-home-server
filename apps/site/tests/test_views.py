@@ -930,7 +930,7 @@ def test_home_템플릿은_직장_그룹을_학력_그룹보다_먼저_보여준
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_자격증_모달_트리거를_렌더링한다() -> None:
+def test_home_템플릿은_자격증_카드에_자격증명_취득일_발급기관을_모두_보여준다() -> None:
     from django.test import Client
 
     from apps.profile.models import Certification
@@ -944,7 +944,56 @@ def test_home_템플릿은_자격증_모달_트리거를_렌더링한다() -> No
     body = response.content.decode()
 
     assert '정보처리기사' in body
-    assert 'x-data="{ openId: null }"' in body
+    assert '2025.01.01' in body
+    assert '한국산업인력공단' in body
+    assert '한국산업인력공단 · 2025.01.01' not in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_배지_이미지가_없는_자격증은_클릭을_비활성화한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Certification
+
+    cert = Certification.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단', acquired_date='2025-01-01', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert f'openId = {cert.id}' not in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_배지_이미지가_있는_자격증은_클릭시_이미지_라이트박스로_확대해서_보여준다(settings, tmp_path) -> None:
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    from apps.profile.models import Certification
+
+    settings.MEDIA_ROOT = tmp_path
+    buffer = io.BytesIO()
+    Image.new('RGB', (5, 5), color='blue').save(buffer, format='PNG')
+    buffer.seek(0)
+    badge_image = SimpleUploadedFile('badge.png', buffer.read(), content_type='image/png')
+
+    cert = Certification.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단', acquired_date='2025-01-01', order=0,
+        badge_image=badge_image,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert f'openId = {cert.id}' in body
+    assert f'<img src="{cert.badge_image.url}"' in body
+    assert '@keydown.escape.window="openId = null"' in body
 
 
 @pytest.mark.django_db
