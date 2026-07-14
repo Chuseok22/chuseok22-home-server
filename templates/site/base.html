@@ -23,7 +23,7 @@
        CsrfViewMiddleware가 활성화되어 있어 이게 없으면 모든 htmx POST가 403으로 거부된다. -->
   <header class="border-b border-base-300">
     <nav
-      class="navbar max-w-4xl mx-auto flex-wrap"
+      class="navbar max-w-6xl mx-auto flex-wrap"
       x-data="{ theme: localStorage.getItem('theme') || 'light', mobileMenuOpen: false }"
     >
       <div class="flex-1">
@@ -74,7 +74,7 @@
       </div>
     </nav>
   </header>
-  <main class="max-w-4xl mx-auto px-4 py-8">
+  <main class="max-w-6xl mx-auto px-4 py-8">
     {% block content %}{% endblock %}
   </main>
   <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
