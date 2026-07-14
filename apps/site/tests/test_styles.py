@@ -29,3 +29,17 @@ def test_tag_skill은_중립_색상_베이스를_공유한다() -> None:
 
     assert '.tag-skill' in content
     assert 'tag-base bg-base-200 border-base-300' in content
+
+
+def test_section_box가_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.section-box' in content
+    assert 'rounded-2xl' in content
+
+
+def test_stat_chip이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.stat-chip' in content
+    assert 'badge-outline' in content
