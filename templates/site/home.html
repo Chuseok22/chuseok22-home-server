@@ -10,7 +10,7 @@
   <div class="flex-1 flex flex-col gap-10 min-w-0">
 
     {% if profile %}
-    <section class="flex items-center gap-4">
+    <section class="section-box flex items-center gap-4">
       {% if profile.avatar %}
       <img src="{{ profile.avatar.url }}" alt="{{ profile.name }}" class="w-20 h-20 rounded-full object-cover">
       {% endif %}
@@ -19,7 +19,12 @@
         <p class="mb-2">{{ profile.tagline|linebreaksbr }}</p>
         <div class="not-prose flex gap-3 flex-wrap text-sm">
           {% if profile.email %}<a href="mailto:{{ profile.email }}" class="link link-hover">✉️ Email</a>{% endif %}
-          {% if profile.github_url %}<a href="{{ profile.github_url }}" class="link link-hover" target="_blank" rel="noopener">GitHub</a>{% endif %}
+          {% if profile.github_url %}
+          <a href="{{ profile.github_url }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
+            <img src="{{ 'github'|skill_icon_url }}" alt="" class="w-4 h-4">
+            GitHub
+          </a>
+          {% endif %}
           {% if profile.blog_url %}<a href="{{ profile.blog_url }}" class="link link-hover" target="_blank" rel="noopener">Blog</a>{% endif %}
           {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" class="link link-hover" target="_blank" rel="noopener">LinkedIn</a>{% endif %}
         </div>
@@ -28,13 +33,13 @@
     {% endif %}
 
     {% if bio_html %}
-    <section class="prose max-w-none">
+    <section class="section-box prose max-w-none">
       {{ bio_html|safe }}
     </section>
     {% endif %}
 
     {% if skills_by_category %}
-    <section>
+    <section class="section-box">
       <h2 class="text-xl font-bold mb-4">기술스택</h2>
       <div class="flex flex-col gap-4">
         {% for category, skills in skills_by_category.items %}
@@ -42,7 +47,7 @@
           <h3 class="text-sm font-semibold opacity-70 mb-2">{{ skills.0.get_category_display }}</h3>
           <div class="flex gap-2 flex-wrap">
             {% for skill in skills %}
-            <span class="badge badge-lg gap-2 bg-base-200 border-base-300 font-medium">
+            <span class="tag-skill">
               {% if skill.icon_slug %}<img src="{{ skill.icon_slug|skill_icon_url }}" alt="" class="w-4 h-4">{% endif %}
               {{ skill.name }}
             </span>
@@ -55,11 +60,11 @@
     {% endif %}
 
     {% if pr_highlights %}
-    <section>
+    <section class="section-box">
       <h2 class="text-xl font-bold mb-4">대표 PR</h2>
       <div class="grid gap-4">
         {% for pr in pr_highlights %}
-        <a href="{{ pr.pr_url }}" target="_blank" rel="noopener" class="card bg-base-200 hover:bg-base-300 transition-colors">
+        <a href="{{ pr.pr_url }}" target="_blank" rel="noopener" class="card bg-base-100 border border-base-300 hover:bg-base-300 transition-colors">
           <div class="card-body">
             <h3 class="card-title text-base">{{ pr.title }}</h3>
             <p class="text-sm opacity-70">{{ pr.repo_name }}</p>
@@ -72,14 +77,14 @@
     {% endif %}
 
     {% if featured_projects %}
-    <section>
+    <section class="section-box">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
       </div>
       <div class="grid gap-4">
         {% for project in featured_projects %}
-        <article class="card bg-base-200">
+        <article class="card bg-base-100 border border-base-300">
           <div class="card-body">
             <h3 class="card-title text-base">{{ project.title }}</h3>
             <p class="text-sm">{{ project.description }}</p>
@@ -96,7 +101,7 @@
     {% endif %}
 
     {% if careers %}
-    <section>
+    <section class="section-box">
       <h2 class="text-xl font-bold mb-4">이력</h2>
       <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
         {% for career in careers %}
@@ -114,11 +119,11 @@
     {% endif %}
 
     {% if activities %}
-    <section>
+    <section class="section-box">
       <h2 class="text-xl font-bold mb-4">활동</h2>
       <div class="grid gap-4 sm:grid-cols-2">
         {% for activity in activities %}
-        <div class="card bg-base-200">
+        <div class="card bg-base-100 border border-base-300">
           <div class="card-body">
             <h3 class="card-title text-base">{{ activity.name }}</h3>
             {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
@@ -132,11 +137,11 @@
     {% endif %}
 
     {% if certifications %}
-    <section x-data="{ openId: null }">
+    <section class="section-box" x-data="{ openId: null }">
       <h2 class="text-xl font-bold mb-4">자격증</h2>
       <div class="grid gap-4 sm:grid-cols-3">
         {% for cert in certifications %}
-        <button type="button" @click="openId = {{ cert.id }}" class="card bg-base-200 text-left hover:bg-base-300 transition-colors">
+        <button type="button" @click="openId = {{ cert.id }}" class="card bg-base-100 border border-base-300 text-left hover:bg-base-300 transition-colors">
           <div class="card-body items-center text-center">
             {% if cert.badge_image %}
             <img src="{{ cert.badge_image.url }}" alt="{{ cert.name }}" class="w-16 h-16 object-contain">
@@ -169,10 +174,13 @@
     </section>
     {% endif %}
 
-    <section>
+    <section class="section-box">
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-bold">GitHub 컨트리뷰션</h2>
-        <span class="badge badge-outline gap-1">⭐ {{ total_stars }} · 👁 {{ visitor_count }}</span>
+        <div class="flex gap-2">
+          <span class="stat-chip">{% include 'site/partials/icons/star.svg.html' %}{{ total_stars }}</span>
+          <span class="stat-chip">{% include 'site/partials/icons/eye.svg.html' %}{{ visitor_count }}</span>
+        </div>
       </div>
       {% if profile.contribution_graph_url %}
       <img src="{{ profile.contribution_graph_url }}" alt="GitHub 3D 컨트리뷰션 그래프" class="w-full" loading="lazy">
@@ -181,14 +189,14 @@
 
   </div>
 
-  <aside class="md:w-72 shrink-0 md:sticky md:top-8 md:self-start flex flex-col gap-8">
-    <div x-data="{ expanded: false }">
+  <aside class="md:w-80 shrink-0 md:sticky md:top-8 md:self-start flex flex-col gap-8">
+    <div class="section-box" x-data="{ expanded: false }">
       <h2 class="text-lg font-bold mb-4">최근 활동</h2>
       {% if recent_activities %}
       <ul class="flex flex-col gap-3">
         {% for activity in recent_activities %}
         <li
-          class="flex items-start gap-3 p-3 rounded-lg bg-base-200"
+          class="flex items-start gap-3 p-3 rounded-lg bg-base-100 border border-base-300"
           {% if forloop.counter > 5 %}x-show="expanded" x-cloak{% endif %}
         >
           <span class="text-xl">{{ activity.event_type|activity_icon }}</span>
@@ -208,7 +216,7 @@
       {% endif %}
     </div>
 
-    <div>
+    <div class="section-box">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold">최근 글</h2>
         <a href="{% url 'site:blog-list' %}" class="link link-hover text-sm">더보기 →</a>

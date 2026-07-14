@@ -539,7 +539,9 @@ def test_home_템플릿은_활동이_없으면_안내_문구를_보여준다() -
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_총_star_수를_보여준다() -> None:
+def test_home_템플릿은_총_star_수를_stat_chip으로_보여준다() -> None:
+    import re
+
     from django.test import Client
 
     from apps.activity.models import GithubProfileStats
@@ -550,7 +552,7 @@ def test_home_템플릿은_총_star_수를_보여준다() -> None:
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert '⭐ 8' in body
+    assert re.search(r'<span class="stat-chip">.*?8</span>', body, re.DOTALL)
 
 
 @pytest.mark.django_db
@@ -944,3 +946,75 @@ def test_홈페이지는_넓어진_컨테이너_폭을_사용한다() -> None:
 
     assert 'max-w-4xl' not in body
     assert body.count('max-w-6xl') == 2
+
+
+@pytest.mark.django_db
+def test_home_은_github_링크_옆에_아이콘을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(
+        name='백지훈', tagline='백엔드 개발자', github_url='https://github.com/Chuseok22',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'src="https://cdn.simpleicons.org/github"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_기술스택을_tag_skill_클래스로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'class="tag-skill"' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_방문자_수를_stat_chip으로_보여준다() -> None:
+    import re
+
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert re.search(r'<span class="stat-chip">.*?1</span>', body, re.DOTALL)
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_3개를_보여준다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert body.count('class="section-box') == 3
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile, Skill
+
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert body.count('class="section-box') == 5
