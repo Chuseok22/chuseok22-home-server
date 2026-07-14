@@ -7,9 +7,20 @@
   // 카운터를 쓰는 이유: data-page-transition 요청이 겹쳐 진행 중일 때 하나만 끝나도 진행바가
   // 끝나버리지 않도록, 마지막 요청까지 모두 끝났을 때만 finishBar()를 호출한다.
   var pendingPageTransitionCount = 0;
+  // finishBar()가 예약한 opacity fade-out 타임아웃 ID. 이 타임아웃이 실행되기 전에
+  // 새 요청이 startBar()를 호출하면 취소해야 한다. 그렇지 않으면 이전 요청의
+  // fade-out이 새로 시작된(진행 중인) 진행바를 중간에 사라지게 만든다.
+  var hideBarTimeoutId = null;
 
   function getBar() {
     return document.getElementById(BAR_ID);
+  }
+
+  function clearHideBarTimeout() {
+    if (hideBarTimeoutId) {
+      clearTimeout(hideBarTimeoutId);
+      hideBarTimeoutId = null;
+    }
   }
 
   function resetBar() {
@@ -17,6 +28,7 @@
     if (!bar) {
       return;
     }
+    clearHideBarTimeout();
     bar.style.transition = 'none';
     bar.style.width = '0%';
     bar.style.opacity = '0';
@@ -27,6 +39,7 @@
     if (!bar) {
       return;
     }
+    clearHideBarTimeout();
     bar.style.transition = 'none';
     bar.style.width = '0%';
     bar.style.opacity = '1';
@@ -42,8 +55,9 @@
       return;
     }
     bar.style.width = '100%';
-    window.setTimeout(function () {
+    hideBarTimeoutId = window.setTimeout(function () {
       bar.style.opacity = '0';
+      hideBarTimeoutId = null;
     }, 200);
   }
 
