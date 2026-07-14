@@ -86,6 +86,14 @@ def test_certification_str_representation은_이름과_발급기관을_보여준
 
 
 @pytest.mark.django_db
+def test_certification은_credential_number와_credential_url_필드를_갖지_않는다() -> None:
+    field_names = {field.name for field in Certification._meta.get_fields()}
+
+    assert 'credential_number' not in field_names
+    assert 'credential_url' not in field_names
+
+
+@pytest.mark.django_db
 def test_pull_request_highlight_str_representation은_저장소와_제목을_보여준다() -> None:
     pr = PullRequestHighlight.objects.create(
         title='GitHub 활동 이력 자동 정리 기능 추가', repo_name='chuseok22/chuseok22-home-server',

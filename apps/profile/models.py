@@ -108,13 +108,11 @@ class Activity(models.Model):
 
 
 class Certification(models.Model):
-    """자격증. 카드에는 이름/배지만, 클릭 시 상세 정보를 모달로 보여준다."""
+    """자격증. 카드에는 자격증명·취득일·발급기관을, 클릭 시 배지 이미지를 확대해 보여준다."""
 
     name = models.CharField(max_length=100, verbose_name='자격증명')
     issuer = models.CharField(max_length=100, verbose_name='발급기관')
     acquired_date = models.DateField(verbose_name='취득일')
-    credential_number = models.CharField(max_length=100, blank=True, verbose_name='자격증 번호')
-    credential_url = models.URLField(blank=True, verbose_name='커리큘럼/검증 링크')
     badge_image = models.ImageField(upload_to='profile/certification/', blank=True, verbose_name='배지 이미지')
     order = models.PositiveIntegerField(default=0, verbose_name='정렬 순서')
 
