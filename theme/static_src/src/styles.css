@@ -48,3 +48,26 @@
 [x-cloak] {
   display: none !important;
 }
+
+/* HTMX 요청 진행 중에만 인라인 스피너를 보여준다(폭이 작아 숨김 상태의 공간 차지는 무해하다).
+   htmx가 요청 시작 시 대상 요소에 htmx-request 클래스를 붙였다 뗀다. */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* 목록 전체를 덮는 스켈레톤처럼 레이아웃 공간을 차지하거나 클릭을 막으면 안 되는
+   블록형 인디케이터는 opacity 대신 display를 토글해 숨김 상태를 완전히 제거한다. */
+.htmx-indicator-block {
+  display: none;
+}
+
+.htmx-request .htmx-indicator-block,
+.htmx-request.htmx-indicator-block {
+  display: block;
+}
