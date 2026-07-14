@@ -62,3 +62,18 @@ def test_외부_서비스_장애시_200으로_에러메시지_반환() -> None:
 
     assert response.status_code == 200  # htmx가 swap하려면 2xx여야 함
     assert '연결할 수 없습니다' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_학생_검색_페이지는_스켈레톤_인디케이터와_비활성화_속성을_포함한다() -> None:
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(reverse('site:lab-student'))
+    body = response.content.decode()
+
+    assert 'hx-indicator="#student-search-skeleton"' in body
+    assert 'id="student-search-skeleton"' in body
+    assert 'hx-disabled-elt="find button"' in body
+    assert 'id="results" aria-live="polite"' in body
