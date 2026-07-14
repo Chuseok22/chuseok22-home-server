@@ -5,6 +5,9 @@
   hx-post="{% url 'engagement:like-toggle' target|content_type_app_label target|content_type_model target.pk %}"
   hx-target="#like-button"
   hx-swap="outerHTML"
+  hx-indicator="#like-spinner"
+  hx-disabled-elt="this"
 >
   ❤️ {{ like_count }}
+  <span id="like-spinner" class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
 </button>
