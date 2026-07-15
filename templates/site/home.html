@@ -43,6 +43,7 @@
 
     {% if skills_by_category %}
     <section class="section-box">
+      <span class="eyebrow">Stack</span>
       <h2 class="text-xl font-bold mb-4">기술스택</h2>
       <div class="flex flex-col gap-4">
         {% for category, skills in skills_by_category.items %}
@@ -64,6 +65,7 @@
 
     {% if pr_highlights %}
     <section class="section-box">
+      <span class="eyebrow">Highlights</span>
       <h2 class="text-xl font-bold mb-4">대표 PR</h2>
       <div class="grid gap-4">
         {% for pr in pr_highlights %}
@@ -81,6 +83,7 @@
 
     {% if featured_projects %}
     <section class="section-box">
+      <span class="eyebrow">Projects</span>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
@@ -105,6 +108,7 @@
 
     {% if careers_by_category %}
     <section class="section-box">
+      <span class="eyebrow">History</span>
       <h2 class="text-xl font-bold mb-4">이력</h2>
       <div class="flex flex-col gap-6">
         {% for category, careers in careers_by_category.items %}
@@ -130,6 +134,7 @@
 
     {% if activities %}
     <section class="section-box">
+      <span class="eyebrow">Activities</span>
       <h2 class="text-xl font-bold mb-4">활동</h2>
       <div class="grid gap-4 sm:grid-cols-2">
         {% for activity in activities %}
@@ -148,6 +153,7 @@
 
     {% if certifications %}
     <section class="section-box" x-data="{ openId: null }" @keydown.escape.window="openId = null">
+      <span class="eyebrow">Certifications</span>
       <h2 class="text-xl font-bold mb-4">자격증</h2>
       <div class="grid gap-4 sm:grid-cols-3">
         {% for cert in certifications %}

@@ -164,6 +164,40 @@ def test_home_은_카테고리별로_기술스택을_그룹핑한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_템플릿은_기술스택_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Stack</span>' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_이력_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='회사', role='개발자',
+        period_start=timezone.localdate(), order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">History</span>' in body
+
+
+@pytest.mark.django_db
 def test_home_템플릿은_기술스택_슬러그를_simple_icons_cdn_url로_렌더링한다() -> None:
     from django.test import Client
 
