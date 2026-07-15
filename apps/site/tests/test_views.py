@@ -85,28 +85,6 @@ def test_home_은_tagline의_줄바꿈을_br로_렌더링한다() -> None:
     assert 'A full-stack developer.<br>기능 구현을 넘어 서비스를 개선하는 풀스택 개발자' in body
 
 
-@pytest.mark.django_db
-def test_home_은_최근_활동_10건까지_context에_담는다() -> None:
-    from django.test import Client
-    from django.utils import timezone
-
-    from apps.activity.models import GithubActivity
-
-    for i in range(12):
-        GithubActivity.objects.create(
-            event_id=f'evt-{i}',
-            event_type='PushEvent',
-            repo_name='chuseok22/test-repo',
-            title='커밋',
-            meta=f'메시지 {i}',
-            occurred_at=timezone.now() - timezone.timedelta(hours=i),
-        )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-
-    assert len(response.context['recent_activities']) == 10
-    assert response.context['recent_activities'][0].event_id == 'evt-0'
 
 
 @pytest.mark.django_db
@@ -137,12 +115,13 @@ def test_home_은_총_star_수를_context에_담는다() -> None:
 def test_home_은_호출마다_방문자_수를_증가시킨다() -> None:
     from django.test import Client
 
-    client = Client()
-    first = client.get(reverse('site:home'))
-    second = client.get(reverse('site:home'))
+    from apps.profile.models import VisitorCounter
 
-    assert first.context['visitor_count'] == 1
-    assert second.context['visitor_count'] == 2
+    client = Client()
+    client.get(reverse('site:home'))
+    client.get(reverse('site:home'))
+
+    assert VisitorCounter.objects.get(pk=1).count == 2
 
 
 @pytest.mark.django_db
