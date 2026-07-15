@@ -25,22 +25,50 @@
     color: #C4B5FD;
   }
 
-  /* 기술스택 태그. 색상은 중립(base-200) 유지, badge-tag와 동일한 패딩/크기 베이스만 공유. */
+  /* 기술스택 태그. 모양·패딩·크기는 badge-tag와 동일한 베이스를 공유하되, 테두리만
+     기존보다 두껍고(1px→2px) 대비가 강한 색으로 바꿔 가시성을 높인다. 채움은 투명 —
+     section-box가 더 이상 회색 채움이 아니므로 태그도 자연스럽게 투명 배경이 어울린다. */
   .tag-skill {
-    @apply tag-base bg-base-200 border-base-300;
+    @apply tag-base;
+    background: transparent;
+    border-width: 2px;
+    border-color: var(--home-tag-border, theme('colors.base-300'));
+    color: var(--home-ink, inherit);
   }
 
-  /* 섹션 전체를 감싸는 공용 박스. 홈 화면의 각 섹션(프로필/기술스택/이력 등)과 사이드바 블록이
-     동일한 톤의 박스로 시각적으로 구분되도록 한다. */
+  /* 섹션 전체를 감싸는 공용 박스. 회색 채움 대신 테두리 + 좌측 accent 레일로 구분한다.
+     home-page 스코프 밖에서 쓰일 경우를 대비해 --home-* 미정의 시 base-300으로 폴백한다. */
   .section-box {
-    @apply bg-base-200 rounded-2xl p-6 sm:p-8;
+    @apply p-6 sm:p-8;
+    background: var(--home-panel-fill, transparent);
+    border: 1px solid var(--home-panel-border, theme('colors.base-300'));
+    border-left: 3px solid var(--home-accent, theme('colors.base-300'));
+    border-radius: 0.65rem;
   }
 
-  /* star/view 등 아이콘+숫자 조합 통계 배지. */
-  .stat-chip {
-    @apply badge badge-outline gap-1.5 rounded-full h-auto;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.8125rem;
+  /* 섹션 제목 위에 붙는 모노스페이스 대문자 라벨 + accent 점. */
+  .section-box .eyebrow {
+    @apply flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-wider mb-2;
+    color: var(--home-ink-muted, inherit);
+  }
+
+  .section-box .eyebrow::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: var(--home-accent, currentColor);
+    flex-shrink: 0;
+  }
+
+  /* GitHub star 표시. 배지/테두리 없이 아이콘+숫자만 인라인으로 보여준다. */
+  .gh-star {
+    @apply inline-flex items-center gap-1 font-bold text-sm;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gh-star .icon {
+    color: var(--home-star, #f2b705);
   }
 }
 
@@ -70,4 +98,63 @@
 .htmx-request .htmx-indicator-block,
 .htmx-request.htmx-indicator-block {
   display: block;
+}
+
+/* 홈 화면 전용(=body.home-page 스코프) 컬러 토큰. 다른 페이지는 bg-base-100 등 기존 daisyUI
+   시맨틱 색상을 그대로 쓰므로 영향받지 않는다. Tailwind utilities 레이어와 우선순위를 다투지
+   않도록 @layer 밖(다른 커스텀 셀렉터 규칙과 동일한 위치)에 둔다. */
+body.home-page {
+  --home-paper: #fafafa;
+  --home-panel-fill: transparent;
+  --home-ink: #101113;
+  --home-ink-muted: #6b6f76;
+  --home-panel-border: #dcdde0;
+  --home-tag-border: #9a9ea5;
+  --home-accent: #0f9aa3;
+  --home-highlight: #a6f0e8;
+  --home-star: #f2b705;
+  background: var(--home-paper);
+  color: var(--home-ink);
+}
+
+[data-theme='dark'] body.home-page {
+  --home-paper: #0a0a0b;
+  --home-panel-fill: #1d1f23;
+  --home-ink: #d3d4d7;
+  --home-ink-muted: #a7abb3;
+  --home-panel-border: #52565f;
+  --home-tag-border: #757982;
+  --home-accent: #35d6cf;
+  --home-highlight: #103634;
+  --home-star: #fbc02d;
+}
+
+/* @tailwindcss/typography가 .prose 내부에 --tw-prose-* 커스텀 프로퍼티로 자체 색을 설정해
+   body.home-page의 color 상속을 가로막는다. 히어로/bio(.prose)에도 홈 전용 토큰이 적용되도록
+   별도로 오버라이드한다. 라이트/다크 각각 값이 다른 --home-ink/--home-accent/--home-ink-muted를
+   그대로 참조하므로 이 규칙 자체는 테마 분기가 필요 없다. */
+body.home-page .prose {
+  --tw-prose-body: var(--home-ink);
+  --tw-prose-headings: var(--home-ink);
+  --tw-prose-bold: var(--home-ink);
+  --tw-prose-links: var(--home-accent);
+  --tw-prose-bullets: var(--home-ink-muted);
+  --tw-prose-counters: var(--home-ink-muted);
+}
+
+/* 히어로 이름 강조용 형광펜 마커. 텍스트 색이 아니라 텍스트 아래쪽 58%에만 배경을 깔아
+   "밑줄 형광펜"처럼 보이게 한다. */
+.home-hl {
+  background: linear-gradient(to bottom, transparent 58%, var(--home-highlight) 58%);
+  color: inherit;
+}
+
+/* 히어로 이름 아래의 짧은 accent 룰. */
+.home-rule {
+  width: 2.6rem;
+  height: 3px;
+  background: var(--home-accent);
+  border-radius: 2px;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
 }

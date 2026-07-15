@@ -3,6 +3,28 @@ from django.urls import reverse
 
 
 @pytest.mark.django_db
+def test_home_페이지는_home_page_바디_클래스를_사용한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'class="min-h-screen home-page"' in body
+
+
+@pytest.mark.django_db
+def test_프로젝트_페이지는_기본_바디_클래스를_유지한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="min-h-screen bg-base-100 text-base-content"' in body
+
+
+@pytest.mark.django_db
 def test_home_페이지_200_응답() -> None:
     from django.test import Client
 
@@ -30,6 +52,22 @@ def test_home_은_profile_이름과_bio를_렌더링한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_프로필_이름에_하이라이트_마커를_적용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<mark class="home-hl">백지훈</mark>' in body
+    assert 'class="home-rule"' in body
+
+
+@pytest.mark.django_db
 def test_home_은_tagline의_줄바꿈을_br로_렌더링한다() -> None:
     from django.test import Client
 
@@ -47,28 +85,6 @@ def test_home_은_tagline의_줄바꿈을_br로_렌더링한다() -> None:
     assert 'A full-stack developer.<br>기능 구현을 넘어 서비스를 개선하는 풀스택 개발자' in body
 
 
-@pytest.mark.django_db
-def test_home_은_최근_활동_10건까지_context에_담는다() -> None:
-    from django.test import Client
-    from django.utils import timezone
-
-    from apps.activity.models import GithubActivity
-
-    for i in range(12):
-        GithubActivity.objects.create(
-            event_id=f'evt-{i}',
-            event_type='PushEvent',
-            repo_name='chuseok22/test-repo',
-            title='커밋',
-            meta=f'메시지 {i}',
-            occurred_at=timezone.now() - timezone.timedelta(hours=i),
-        )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-
-    assert len(response.context['recent_activities']) == 10
-    assert response.context['recent_activities'][0].event_id == 'evt-0'
 
 
 @pytest.mark.django_db
@@ -99,12 +115,13 @@ def test_home_은_총_star_수를_context에_담는다() -> None:
 def test_home_은_호출마다_방문자_수를_증가시킨다() -> None:
     from django.test import Client
 
-    client = Client()
-    first = client.get(reverse('site:home'))
-    second = client.get(reverse('site:home'))
+    from apps.profile.models import VisitorCounter
 
-    assert first.context['visitor_count'] == 1
-    assert second.context['visitor_count'] == 2
+    client = Client()
+    client.get(reverse('site:home'))
+    client.get(reverse('site:home'))
+
+    assert VisitorCounter.objects.get(pk=1).count == 2
 
 
 @pytest.mark.django_db
@@ -123,6 +140,40 @@ def test_home_은_카테고리별로_기술스택을_그룹핑한다() -> None:
 
     assert [s.name for s in grouped['backend']] == ['Django', 'DRF']
     assert [s.name for s in grouped['frontend']] == ['React']
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_기술스택_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Stack</span>' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_이력_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='회사', role='개발자',
+        period_start=timezone.localdate(), order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">History</span>' in body
 
 
 @pytest.mark.django_db
@@ -506,42 +557,10 @@ def test_시드된_Tool은_소유자에게_두_링크_모두_보여준다() -> N
     assert 'href="/lab/student/"' in body
 
 
-@pytest.mark.django_db
-def test_home_템플릿은_활동_아이콘과_제목을_보여준다() -> None:
-    from django.test import Client
-    from django.utils import timezone
-
-    from apps.activity.models import GithubActivity
-
-    GithubActivity.objects.create(
-        event_id='evt-1', event_type='PushEvent', repo_name='chuseok22/test-repo',
-        title='chuseok22/test-repo', meta='커밋 메시지', occurred_at=timezone.now(),
-    )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '📝' in body
-    assert 'chuseok22/test-repo' in body
-    assert '커밋 메시지' in body
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_활동이_없으면_안내_문구를_보여준다() -> None:
-    from django.test import Client
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '아직 기록된 활동이 없습니다.' in body
-
-
-@pytest.mark.django_db
-def test_home_템플릿은_총_star_수를_stat_chip으로_보여준다() -> None:
-    import re
-
+def test_home_템플릿은_총_star_수를_gh_star로_보여준다() -> None:
     from django.test import Client
 
     from apps.activity.models import GithubProfileStats
@@ -552,7 +571,23 @@ def test_home_템플릿은_총_star_수를_stat_chip으로_보여준다() -> Non
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert re.search(r'<span class="stat-chip">.*?8</span>', body, re.DOTALL)
+    assert '<span class="gh-star">' in body
+    assert '<span class="icon">★</span>8' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_더_이상_방문자_수를_보여주지_않는다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'stat-chip' not in body
+    # eye.svg.html은 include된 SVG 내용이 그대로 인라인되므로 파일명이 아니라
+    # 아이콘 고유 path 데이터(M2.036 12.322...)로 부재를 검증해야 실제로 의미 있는 검증이 된다.
+    # ('eye.svg' not in body'는 애초에 파일명이 출력에 등장하지 않으므로 항상 통과하는 무의미한 assert였다.)
+    assert 'M2.036 12.322' not in body
 
 
 @pytest.mark.django_db
@@ -1016,44 +1051,6 @@ def test_home_템플릿은_최근_글과_더보기_링크를_사이드바에_보
     assert body.count(f'href="{reverse("site:blog-list")}"') == 3
 
 
-@pytest.mark.django_db
-def test_home_템플릿은_활동이_6건_이상이면_더보기_버튼을_보여준다() -> None:
-    from django.test import Client
-    from django.utils import timezone
-
-    from apps.activity.models import GithubActivity
-
-    for i in range(6):
-        GithubActivity.objects.create(
-            event_id=f'evt-{i}', event_type='PushEvent', repo_name='chuseok22/test-repo',
-            title='커밋', meta=f'메시지 {i}', occurred_at=timezone.now() - timezone.timedelta(hours=i),
-        )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '@click="expanded = !expanded"' in body
-
-
-@pytest.mark.django_db
-def test_home_템플릿은_활동이_5건_이하면_더보기_버튼을_숨긴다() -> None:
-    from django.test import Client
-    from django.utils import timezone
-
-    from apps.activity.models import GithubActivity
-
-    for i in range(3):
-        GithubActivity.objects.create(
-            event_id=f'evt-{i}', event_type='PushEvent', repo_name='chuseok22/test-repo',
-            title='커밋', meta=f'메시지 {i}', occurred_at=timezone.now() - timezone.timedelta(hours=i),
-        )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '@click="expanded = !expanded"' not in body
 
 
 @pytest.mark.django_db
@@ -1101,27 +1098,14 @@ def test_home_템플릿은_기술스택을_tag_skill_클래스로_보여준다()
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_방문자_수를_stat_chip으로_보여준다() -> None:
-    import re
-
+def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_2개를_보여준다() -> None:
     from django.test import Client
 
     client = Client()
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert re.search(r'<span class="stat-chip">.*?1</span>', body, re.DOTALL)
-
-
-@pytest.mark.django_db
-def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_3개를_보여준다() -> None:
-    from django.test import Client
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert body.count('class="section-box') == 3
+    assert body.count('class="section-box') == 2
 
 
 @pytest.mark.django_db
@@ -1137,7 +1121,7 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 5
+    assert body.count('class="section-box') == 4
 
 
 @pytest.mark.django_db

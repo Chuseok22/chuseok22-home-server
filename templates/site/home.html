@@ -1,7 +1,8 @@
 {% extends "site/base.html" %}
 {% load humanize %}
-{% load activity_tags %}
 {% load profile_tags %}
+
+{% block body_class %} home-page{% endblock %}
 
 {% block title %}{{ profile.name|default:'백지훈' }} — Home{% endblock %}
 
@@ -15,7 +16,8 @@
       <img src="{{ profile.avatar.url }}" alt="{{ profile.name }}" class="w-20 h-20 rounded-full object-cover">
       {% endif %}
       <div class="prose max-w-none">
-        <h1 class="mb-1">{{ profile.name }}</h1>
+        <h1 class="mb-1"><mark class="home-hl">{{ profile.name }}</mark></h1>
+        <div class="home-rule"></div>
         <p class="mb-2">{{ profile.tagline|linebreaksbr }}</p>
         <div class="not-prose flex gap-3 flex-wrap text-sm">
           {% if profile.email %}<a href="mailto:{{ profile.email }}" class="link link-hover">✉️ Email</a>{% endif %}
@@ -40,6 +42,7 @@
 
     {% if skills_by_category %}
     <section class="section-box">
+      <span class="eyebrow">Stack</span>
       <h2 class="text-xl font-bold mb-4">기술스택</h2>
       <div class="flex flex-col gap-4">
         {% for category, skills in skills_by_category.items %}
@@ -61,6 +64,7 @@
 
     {% if pr_highlights %}
     <section class="section-box">
+      <span class="eyebrow">Highlights</span>
       <h2 class="text-xl font-bold mb-4">대표 PR</h2>
       <div class="grid gap-4">
         {% for pr in pr_highlights %}
@@ -78,6 +82,7 @@
 
     {% if featured_projects %}
     <section class="section-box">
+      <span class="eyebrow">Projects</span>
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
@@ -102,6 +107,7 @@
 
     {% if careers_by_category %}
     <section class="section-box">
+      <span class="eyebrow">History</span>
       <h2 class="text-xl font-bold mb-4">이력</h2>
       <div class="flex flex-col gap-6">
         {% for category, careers in careers_by_category.items %}
@@ -127,6 +133,7 @@
 
     {% if activities %}
     <section class="section-box">
+      <span class="eyebrow">Activities</span>
       <h2 class="text-xl font-bold mb-4">활동</h2>
       <div class="grid gap-4 sm:grid-cols-2">
         {% for activity in activities %}
@@ -145,6 +152,7 @@
 
     {% if certifications %}
     <section class="section-box" x-data="{ openId: null }" @keydown.escape.window="openId = null">
+      <span class="eyebrow">Certifications</span>
       <h2 class="text-xl font-bold mb-4">자격증</h2>
       <div class="grid gap-4 sm:grid-cols-3">
         {% for cert in certifications %}
@@ -189,12 +197,10 @@
     {% endif %}
 
     <section class="section-box">
+      <span class="eyebrow">Activity</span>
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-bold">GitHub 컨트리뷰션</h2>
-        <div class="flex gap-2">
-          <span class="stat-chip">{% include 'site/partials/icons/star.svg.html' %}{{ total_stars }}</span>
-          <span class="stat-chip">{% include 'site/partials/icons/eye.svg.html' %}{{ visitor_count }}</span>
-        </div>
+        <span class="gh-star"><span class="icon">★</span>{{ total_stars }}</span>
       </div>
       {% if profile.contribution_graph_url %}
       <img src="{{ profile.contribution_graph_url }}" alt="GitHub 3D 컨트리뷰션 그래프" class="w-full" loading="lazy">
@@ -204,32 +210,6 @@
   </div>
 
   <aside class="md:w-80 shrink-0 md:sticky md:top-8 md:self-start flex flex-col gap-8">
-    <div class="section-box" x-data="{ expanded: false }">
-      <h2 class="text-lg font-bold mb-4">최근 활동</h2>
-      {% if recent_activities %}
-      <ul class="flex flex-col gap-3">
-        {% for activity in recent_activities %}
-        <li
-          class="flex items-start gap-3 p-3 rounded-lg bg-base-100 border border-base-300"
-          {% if forloop.counter > 5 %}x-show="expanded" x-cloak{% endif %}
-        >
-          <span class="text-xl">{{ activity.event_type|activity_icon }}</span>
-          <div class="flex-1 min-w-0">
-            <p class="font-medium truncate text-sm">{{ activity.title }}</p>
-            <p class="text-xs opacity-70 truncate">{{ activity.meta }}</p>
-          </div>
-          <span class="text-xs opacity-50 whitespace-nowrap">{{ activity.occurred_at|naturaltime }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% if recent_activities|length > 5 %}
-      <button type="button" @click="expanded = !expanded" class="btn btn-ghost btn-sm mt-2" x-text="expanded ? '접기' : '더보기'"></button>
-      {% endif %}
-      {% else %}
-      <p class="text-sm opacity-60">아직 기록된 활동이 없습니다.</p>
-      {% endif %}
-    </div>
-
     <div class="section-box">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold">최근 글</h2>
