@@ -3,6 +3,28 @@ from django.urls import reverse
 
 
 @pytest.mark.django_db
+def test_home_페이지는_home_page_바디_클래스를_사용한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'class="min-h-screen home-page"' in body
+
+
+@pytest.mark.django_db
+def test_프로젝트_페이지는_기본_바디_클래스를_유지한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="min-h-screen bg-base-100 text-base-content"' in body
+
+
+@pytest.mark.django_db
 def test_home_페이지_200_응답() -> None:
     from django.test import Client
 

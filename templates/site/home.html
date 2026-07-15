@@ -3,6 +3,8 @@
 {% load activity_tags %}
 {% load profile_tags %}
 
+{% block body_class %} home-page{% endblock %}
+
 {% block title %}{{ profile.name|default:'백지훈' }} — Home{% endblock %}
 
 {% block content %}

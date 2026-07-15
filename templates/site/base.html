@@ -17,7 +17,7 @@
   <script src="{% static 'site/js/page-loading.js' %}" defer></script>
 </head>
 <body
-  class="min-h-screen bg-base-100 text-base-content"
+  class="min-h-screen{% block body_class %} bg-base-100 text-base-content{% endblock %}"
   hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
 >
   <div
