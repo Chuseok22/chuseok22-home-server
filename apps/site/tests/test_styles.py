@@ -46,11 +46,18 @@ def test_section_box_eyebrow가_정의되어_있다() -> None:
     assert '.section-box .eyebrow::before' in content
 
 
-def test_stat_chip이_정의되어_있다() -> None:
+def test_stat_chip은_더_이상_정의되어_있지_않다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 
-    assert '.stat-chip' in content
-    assert 'badge-outline' in content
+    assert '.stat-chip' not in content
+
+
+def test_gh_star와_하이라이트_마커가_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.gh-star' in content
+    assert '.home-hl' in content
+    assert '.home-rule' in content
 
 
 def test_htmx_indicator_유틸리티가_정의되어_있다() -> None:

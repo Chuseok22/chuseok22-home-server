@@ -61,11 +61,14 @@
     flex-shrink: 0;
   }
 
-  /* star/view 등 아이콘+숫자 조합 통계 배지. */
-  .stat-chip {
-    @apply badge badge-outline gap-1.5 rounded-full h-auto;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.8125rem;
+  /* GitHub star 표시. 배지/테두리 없이 아이콘+숫자만 인라인으로 보여준다. */
+  .gh-star {
+    @apply inline-flex items-center gap-1 font-bold text-sm;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gh-star .icon {
+    color: var(--home-star, #f2b705);
   }
 }
 
@@ -137,4 +140,21 @@ body.home-page .prose {
   --tw-prose-links: var(--home-accent);
   --tw-prose-bullets: var(--home-ink-muted);
   --tw-prose-counters: var(--home-ink-muted);
+}
+
+/* 히어로 이름 강조용 형광펜 마커. 텍스트 색이 아니라 텍스트 아래쪽 58%에만 배경을 깔아
+   "밑줄 형광펜"처럼 보이게 한다. */
+.home-hl {
+  background: linear-gradient(to bottom, transparent 58%, var(--home-highlight) 58%);
+  color: inherit;
+}
+
+/* 히어로 이름 아래의 짧은 accent 룰. */
+.home-rule {
+  width: 2.6rem;
+  height: 3px;
+  background: var(--home-accent);
+  border-radius: 2px;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
 }
