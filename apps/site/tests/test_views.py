@@ -52,6 +52,22 @@ def test_home_은_profile_이름과_bio를_렌더링한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_프로필_이름에_하이라이트_마커를_적용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<mark class="home-hl">백지훈</mark>' in body
+    assert 'class="home-rule"' in body
+
+
+@pytest.mark.django_db
 def test_home_은_tagline의_줄바꿈을_br로_렌더링한다() -> None:
     from django.test import Client
 
