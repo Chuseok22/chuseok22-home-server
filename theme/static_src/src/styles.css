@@ -25,9 +25,15 @@
     color: #C4B5FD;
   }
 
-  /* 기술스택 태그. 색상은 중립(base-200) 유지, badge-tag와 동일한 패딩/크기 베이스만 공유. */
+  /* 기술스택 태그. 모양·패딩·크기는 badge-tag와 동일한 베이스를 공유하되, 테두리만
+     기존보다 두껍고(1px→2px) 대비가 강한 색으로 바꿔 가시성을 높인다. 채움은 투명 —
+     section-box가 더 이상 회색 채움이 아니므로 태그도 자연스럽게 투명 배경이 어울린다. */
   .tag-skill {
-    @apply tag-base bg-base-200 border-base-300;
+    @apply tag-base;
+    background: transparent;
+    border-width: 2px;
+    border-color: var(--home-tag-border, theme('colors.base-300'));
+    color: var(--home-ink, inherit);
   }
 
   /* 섹션 전체를 감싸는 공용 박스. 회색 채움 대신 테두리 + 좌측 accent 레일로 구분한다.

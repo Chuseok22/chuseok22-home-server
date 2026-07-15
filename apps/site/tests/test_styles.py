@@ -24,11 +24,12 @@ def test_tag_base는_태그류_공통_패딩과_폰트_크기를_정의한다() 
     assert 'font-size: 0.8125rem;' in content
 
 
-def test_tag_skill은_중립_색상_베이스를_공유한다() -> None:
+def test_tag_skill은_강화된_테두리를_사용한다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 
     assert '.tag-skill' in content
-    assert 'tag-base bg-base-200 border-base-300' in content
+    assert 'border-width: 2px;' in content
+    assert 'var(--home-tag-border' in content
 
 
 def test_section_box가_정의되어_있다() -> None:
