@@ -71,3 +71,45 @@
 .htmx-request.htmx-indicator-block {
   display: block;
 }
+
+/* 홈 화면 전용(=body.home-page 스코프) 컬러 토큰. 다른 페이지는 bg-base-100 등 기존 daisyUI
+   시맨틱 색상을 그대로 쓰므로 영향받지 않는다. Tailwind utilities 레이어와 우선순위를 다투지
+   않도록 @layer 밖(다른 커스텀 셀렉터 규칙과 동일한 위치)에 둔다. */
+body.home-page {
+  --home-paper: #fafafa;
+  --home-panel-fill: transparent;
+  --home-ink: #101113;
+  --home-ink-muted: #6b6f76;
+  --home-panel-border: #dcdde0;
+  --home-tag-border: #9a9ea5;
+  --home-accent: #0f9aa3;
+  --home-highlight: #a6f0e8;
+  --home-star: #f2b705;
+  background: var(--home-paper);
+  color: var(--home-ink);
+}
+
+[data-theme='dark'] body.home-page {
+  --home-paper: #0a0a0b;
+  --home-panel-fill: #1d1f23;
+  --home-ink: #d3d4d7;
+  --home-ink-muted: #a7abb3;
+  --home-panel-border: #52565f;
+  --home-tag-border: #757982;
+  --home-accent: #35d6cf;
+  --home-highlight: #103634;
+  --home-star: #fbc02d;
+}
+
+/* @tailwindcss/typography가 .prose 내부에 --tw-prose-* 커스텀 프로퍼티로 자체 색을 설정해
+   body.home-page의 color 상속을 가로막는다. 히어로/bio(.prose)에도 홈 전용 토큰이 적용되도록
+   별도로 오버라이드한다. 라이트/다크 각각 값이 다른 --home-ink/--home-accent/--home-ink-muted를
+   그대로 참조하므로 이 규칙 자체는 테마 분기가 필요 없다. */
+body.home-page .prose {
+  --tw-prose-body: var(--home-ink);
+  --tw-prose-headings: var(--home-ink);
+  --tw-prose-bold: var(--home-ink);
+  --tw-prose-links: var(--home-accent);
+  --tw-prose-bullets: var(--home-ink-muted);
+  --tw-prose-counters: var(--home-ink-muted);
+}
