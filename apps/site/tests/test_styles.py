@@ -35,7 +35,14 @@ def test_section_box가_정의되어_있다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 
     assert '.section-box' in content
-    assert 'rounded-2xl' in content
+    assert 'border-left: 3px solid var(--home-accent' in content
+
+
+def test_section_box_eyebrow가_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.section-box .eyebrow' in content
+    assert '.section-box .eyebrow::before' in content
 
 
 def test_stat_chip이_정의되어_있다() -> None:

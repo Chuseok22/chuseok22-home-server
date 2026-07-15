@@ -30,10 +30,29 @@
     @apply tag-base bg-base-200 border-base-300;
   }
 
-  /* 섹션 전체를 감싸는 공용 박스. 홈 화면의 각 섹션(프로필/기술스택/이력 등)과 사이드바 블록이
-     동일한 톤의 박스로 시각적으로 구분되도록 한다. */
+  /* 섹션 전체를 감싸는 공용 박스. 회색 채움 대신 테두리 + 좌측 accent 레일로 구분한다.
+     home-page 스코프 밖에서 쓰일 경우를 대비해 --home-* 미정의 시 base-300으로 폴백한다. */
   .section-box {
-    @apply bg-base-200 rounded-2xl p-6 sm:p-8;
+    @apply p-6 sm:p-8;
+    background: var(--home-panel-fill, transparent);
+    border: 1px solid var(--home-panel-border, theme('colors.base-300'));
+    border-left: 3px solid var(--home-accent, theme('colors.base-300'));
+    border-radius: 0.65rem;
+  }
+
+  /* 섹션 제목 위에 붙는 모노스페이스 대문자 라벨 + accent 점. */
+  .section-box .eyebrow {
+    @apply flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-wider mb-2;
+    color: var(--home-ink-muted, inherit);
+  }
+
+  .section-box .eyebrow::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 9999px;
+    background: var(--home-accent, currentColor);
+    flex-shrink: 0;
   }
 
   /* star/view 등 아이콘+숫자 조합 통계 배지. */
