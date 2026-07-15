@@ -611,9 +611,7 @@ def test_home_템플릿은_활동이_없으면_안내_문구를_보여준다() -
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_총_star_수를_stat_chip으로_보여준다() -> None:
-    import re
-
+def test_home_템플릿은_총_star_수를_gh_star로_보여준다() -> None:
     from django.test import Client
 
     from apps.activity.models import GithubProfileStats
@@ -624,7 +622,23 @@ def test_home_템플릿은_총_star_수를_stat_chip으로_보여준다() -> Non
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert re.search(r'<span class="stat-chip">.*?8</span>', body, re.DOTALL)
+    assert '<span class="gh-star">' in body
+    assert '<span class="icon">★</span>8' in body
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_더_이상_방문자_수를_보여주지_않는다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'stat-chip' not in body
+    # eye.svg.html은 include된 SVG 내용이 그대로 인라인되므로 파일명이 아니라
+    # 아이콘 고유 path 데이터(M2.036 12.322...)로 부재를 검증해야 실제로 의미 있는 검증이 된다.
+    # ('eye.svg' not in body'는 애초에 파일명이 출력에 등장하지 않으므로 항상 통과하는 무의미한 assert였다.)
+    assert 'M2.036 12.322' not in body
 
 
 @pytest.mark.django_db
@@ -1170,19 +1184,6 @@ def test_home_템플릿은_기술스택을_tag_skill_클래스로_보여준다()
     body = response.content.decode()
 
     assert 'class="tag-skill"' in body
-
-
-@pytest.mark.django_db
-def test_home_템플릿은_방문자_수를_stat_chip으로_보여준다() -> None:
-    import re
-
-    from django.test import Client
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert re.search(r'<span class="stat-chip">.*?1</span>', body, re.DOTALL)
 
 
 @pytest.mark.django_db

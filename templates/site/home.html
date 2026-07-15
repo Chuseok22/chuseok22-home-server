@@ -198,12 +198,10 @@
     {% endif %}
 
     <section class="section-box">
+      <span class="eyebrow">Activity</span>
       <div class="flex items-center justify-between mb-2">
         <h2 class="text-xl font-bold">GitHub 컨트리뷰션</h2>
-        <div class="flex gap-2">
-          <span class="stat-chip">{% include 'site/partials/icons/star.svg.html' %}{{ total_stars }}</span>
-          <span class="stat-chip">{% include 'site/partials/icons/eye.svg.html' %}{{ visitor_count }}</span>
-        </div>
+        <span class="gh-star"><span class="icon">★</span>{{ total_stars }}</span>
       </div>
       {% if profile.contribution_graph_url %}
       <img src="{{ profile.contribution_graph_url }}" alt="GitHub 3D 컨트리뷰션 그래프" class="w-full" loading="lazy">
