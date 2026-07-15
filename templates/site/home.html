@@ -1,6 +1,5 @@
 {% extends "site/base.html" %}
 {% load humanize %}
-{% load activity_tags %}
 {% load profile_tags %}
 
 {% block body_class %} home-page{% endblock %}
@@ -211,32 +210,6 @@
   </div>
 
   <aside class="md:w-80 shrink-0 md:sticky md:top-8 md:self-start flex flex-col gap-8">
-    <div class="section-box" x-data="{ expanded: false }">
-      <h2 class="text-lg font-bold mb-4">최근 활동</h2>
-      {% if recent_activities %}
-      <ul class="flex flex-col gap-3">
-        {% for activity in recent_activities %}
-        <li
-          class="flex items-start gap-3 p-3 rounded-lg bg-base-100 border border-base-300"
-          {% if forloop.counter > 5 %}x-show="expanded" x-cloak{% endif %}
-        >
-          <span class="text-xl">{{ activity.event_type|activity_icon }}</span>
-          <div class="flex-1 min-w-0">
-            <p class="font-medium truncate text-sm">{{ activity.title }}</p>
-            <p class="text-xs opacity-70 truncate">{{ activity.meta }}</p>
-          </div>
-          <span class="text-xs opacity-50 whitespace-nowrap">{{ activity.occurred_at|naturaltime }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-      {% if recent_activities|length > 5 %}
-      <button type="button" @click="expanded = !expanded" class="btn btn-ghost btn-sm mt-2" x-text="expanded ? '접기' : '더보기'"></button>
-      {% endif %}
-      {% else %}
-      <p class="text-sm opacity-60">아직 기록된 활동이 없습니다.</p>
-      {% endif %}
-    </div>
-
     <div class="section-box">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold">최근 글</h2>
