@@ -9,7 +9,7 @@ from io import BytesIO
 import pillow_heif
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 pillow_heif.register_heif_opener()
 
@@ -32,9 +32,18 @@ def crop_avatar(image_file: UploadedFile, crop_box: CropBox | None) -> ContentFi
     """업로드된 아바타 이미지를 crop_box 영역으로 잘라 반환한다.
 
     crop_box가 없거나 이미지 범위를 벗어나면 원본 중앙 기준 정사각형으로 대체한다.
+    Django ImageField.clean()의 verify()는 통과했지만 실제 픽셀 디코드는 실패하는 손상된
+    이미지의 경우, 크롭을 포기하고 원본 업로드 파일을 그대로 반환한다.
     """
-    image = Image.open(image_file)
-    image.load()
+    try:
+        image = Image.open(image_file)
+        image.load()
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
+        # DecompressionBombError는 OSError의 하위 클래스가 아니라서 별도로 잡아야 한다.
+        logger.error('아바타 이미지 디코드 실패, 크롭 없이 원본을 저장합니다: %s', e)
+        image_file.seek(0)
+        return ContentFile(image_file.read(), name=image_file.name)
+
     image = ImageOps.exif_transpose(image)
 
     box = _resolve_box(image.width, image.height, crop_box)

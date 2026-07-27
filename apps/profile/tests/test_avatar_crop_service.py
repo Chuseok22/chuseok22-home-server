@@ -93,6 +93,18 @@ def test_512px보다_큰_크롭_결과는_512로_축소된다() -> None:
     assert cropped.size == (512, 512)
 
 
+def test_디코드에_실패한_이미지는_크롭_없이_원본_그대로_반환된다() -> None:
+    # 헤더는 유효해 Django ImageField.clean()의 verify()는 통과하지만, 실제 픽셀 디코드(load())는
+    # 실패하는 손상된(잘린) 이미지 상황을 흉내낸다. crop_avatar()를 서비스 레이어에서 직접 호출하는
+    # 단위 테스트이므로 완전히 깨진 바이트를 바로 넘겨 예외 가드 자체를 검증할 수 있다.
+    original_bytes = b'not-a-real-image-content'
+    upload = SimpleUploadedFile('broken.png', original_bytes, content_type='image/png')
+
+    result = crop_avatar(upload, CropBox(x=0, y=0, width=50, height=50))
+
+    assert result.read() == original_bytes
+
+
 def test_heic_이미지도_크롭된다() -> None:
     import pillow_heif
 
