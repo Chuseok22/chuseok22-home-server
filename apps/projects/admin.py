@@ -61,22 +61,23 @@ class ProjectStatusAdmin(admin.ModelAdmin):
 
 
 class ProjectAdminForm(forms.ModelForm):
-    # Project.tags는 blank=True가 없어 기본 폼이 필수 필드로 만드는데,
-    # JSONField는 빈 리스트([])도 필수 검증에 걸리므로 required=False로 완화한다.
-    tags = forms.JSONField(required=False)
+    # tags/highlights는 JSONField(문자열 리스트)지만, Admin 기본 JSONField 위젯은
+    # 순수 JSON 문법을 요구해 입력이 번거롭다. NewlineSeparatedListField로 교체해
+    # 한 줄에 항목 하나씩 입력할 수 있게 한다.
+    # Project.tags는 모델에 blank=True가 없어 기본 폼이 필수 필드로 만들지만,
+    # 빈 리스트([])도 저장 가능해야 하므로 required=False로 완화한다.
+    tags = NewlineSeparatedListField(
+        required=False,
+        help_text='한 줄에 태그 하나씩 입력하세요. 예: Java',
+    )
+    highlights = NewlineSeparatedListField(
+        required=False,
+        help_text='한 줄에 항목 하나씩 입력하세요. 앞의 불릿 기호(•, -, *)는 자동으로 제거됩니다.',
+    )
 
     class Meta:
         model = Project
         fields = '__all__'
-
-    def clean_tags(self) -> list:
-        return self.cleaned_data.get('tags') or []
-
-    # Project.highlights는 blank=True라 필드 자체는 이미 required=False지만,
-    # 빈 값 제출 시 JSONField.to_python('')이 None을 반환해 NOT NULL 컬럼에서
-    # IntegrityError가 발생한다. None을 빈 리스트로 정규화한다.
-    def clean_highlights(self) -> list:
-        return self.cleaned_data.get('highlights') or []
 
 
 @admin.register(Project)
