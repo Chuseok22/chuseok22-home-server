@@ -21,6 +21,15 @@
     let currentObjectUrl = null; // 파일을 다시 선택할 때 이전 objectURL을 해제하기 위해 보관한다.
 
     fileInput.addEventListener('change', function () {
+      // 미리보기 성공 여부와 무관하게 즉시 이전 크롭 상태를 비운다. HEIC 등 브라우저가
+      // <img>로 렌더링하지 못하는 형식을 선택하면 onload가 호출되지 않아, 정리하지 않으면
+      // 화면에 이전 파일의 미리보기·좌표가 남은 채 새 파일과 함께 제출될 수 있다.
+      cropXInput.value = '';
+      cropYInput.value = '';
+      cropWidthInput.value = '';
+      cropHeightInput.value = '';
+      removeExistingUi();
+
       const file = fileInput.files[0];
       if (!file) {
         return;
@@ -29,6 +38,10 @@
       const image = new Image();
       image.onload = function () {
         initCropUi(image, objectUrl);
+      };
+      image.onerror = function () {
+        console.warn('아바타 미리보기를 렌더링할 수 없습니다. 좌표 없이 원본이 업로드되며, 서버에서 중앙 정사각형으로 크롭됩니다.');
+        URL.revokeObjectURL(objectUrl);
       };
       image.src = objectUrl;
     });
@@ -156,7 +169,11 @@
         const left = parseFloat(box.style.left);
         const top = parseFloat(box.style.top);
         const maxSize = Math.min(wrapper.clientWidth - left, wrapper.clientHeight - top);
-        const nextSize = clamp(startSize + (event.clientX - startX), MIN_BOX_SIZE, maxSize);
+        // maxSize가 MIN_BOX_SIZE보다 작아지는 경우(매우 가로/세로로 긴 이미지) clamp(min, max)의
+        // min이 max보다 커지면 항상 min을 반환해 박스가 이미지 경계 밖으로 나갈 수 있다.
+        // 하한을 maxSize를 넘지 않게 미리 보정해 결과가 항상 maxSize 이하가 되도록 한다.
+        const lowerBound = Math.min(MIN_BOX_SIZE, maxSize);
+        const nextSize = clamp(startSize + (event.clientX - startX), lowerBound, maxSize);
         box.style.width = nextSize + 'px';
         box.style.height = nextSize + 'px';
         writeCropInputs(box);
