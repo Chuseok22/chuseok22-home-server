@@ -62,6 +62,9 @@ class ProfileAdmin(SingletonAdminMixin, admin.ModelAdmin):
     list_display = ('name', 'tagline', 'updated_at')
     readonly_fields = ('updated_at',)
 
+    class Media:
+        js = ('profile/admin/avatar_crop.js',)
+
 
 @admin.register(VisitorCounter)
 class VisitorCounterAdmin(SingletonAdminMixin, admin.ModelAdmin):
