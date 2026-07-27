@@ -13,7 +13,7 @@
     {% if profile %}
     <section class="section-box flex items-center gap-4">
       {% if profile.avatar %}
-      <img src="{{ profile.avatar.url }}" alt="{{ profile.name }}" class="w-20 h-20 rounded-full object-cover">
+      <img src="{{ profile.avatar.url }}" alt="{{ profile.name }}" class="w-28 h-28 rounded-xl object-cover">
       {% endif %}
       <div class="prose max-w-none">
         <h1 class="mb-1"><mark class="home-hl">{{ profile.name }}</mark></h1>

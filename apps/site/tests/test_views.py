@@ -1217,3 +1217,27 @@ def test_자격증_라이트박스는_이미지_로딩_전_스켈레톤을_보�
     assert 'x-init="if ($el.complete) loaded = true"' in body
     assert '@load="loaded = true"' in body
     assert 'skeleton' in body
+
+
+@pytest.mark.django_db
+def test_home_은_아바타를_112px_둥근_정사각형으로_렌더링한다(settings, tmp_path) -> None:
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    from apps.profile.models import Profile
+
+    settings.MEDIA_ROOT = tmp_path
+    buffer = io.BytesIO()
+    Image.new('RGB', (10, 10), color='red').save(buffer, format='PNG')
+    buffer.seek(0)
+    avatar = SimpleUploadedFile('avatar.png', buffer.read(), content_type='image/png')
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자', avatar=avatar)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'w-28 h-28 rounded-xl object-cover' in body

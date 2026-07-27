@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin
+from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpRequest
 
 from apps.profile.models import (
@@ -11,6 +12,7 @@ from apps.profile.models import (
     Skill,
     VisitorCounter,
 )
+from apps.profile.services.avatar_crop import CropBox, crop_avatar
 
 
 class SingletonAdminMixin:
@@ -23,6 +25,14 @@ class SingletonAdminMixin:
 class ProfileAdminForm(forms.ModelForm):
     # tagline은 홈 화면 헤어로에서 줄바꿈을 지원(linebreaksbr)하므로,
     # 기본 한 줄 입력창(TextInput)이 아닌 여러 줄 입력이 가능한 Textarea로 노출한다.
+
+    # 아바타 크롭 UI(avatar_crop.js)가 기록하는 원본 이미지 픽셀 좌표. 모델 필드가 아니라
+    # 폼에서만 쓰고 save()에서 소비한 뒤 버린다.
+    avatar_crop_x = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    avatar_crop_y = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    avatar_crop_width = forms.IntegerField(required=False, widget=forms.HiddenInput)
+    avatar_crop_height = forms.IntegerField(required=False, widget=forms.HiddenInput)
+
     class Meta:
         model = Profile
         fields = '__all__'
@@ -30,12 +40,30 @@ class ProfileAdminForm(forms.ModelForm):
             'tagline': forms.Textarea(attrs={'rows': 3}),
         }
 
+    def save(self, commit: bool = True) -> Profile:
+        new_avatar = self.cleaned_data.get('avatar')
+        if isinstance(new_avatar, UploadedFile):
+            self.instance.avatar = crop_avatar(new_avatar, self._build_crop_box())
+        return super().save(commit=commit)
+
+    def _build_crop_box(self) -> CropBox | None:
+        x = self.cleaned_data.get('avatar_crop_x')
+        y = self.cleaned_data.get('avatar_crop_y')
+        width = self.cleaned_data.get('avatar_crop_width')
+        height = self.cleaned_data.get('avatar_crop_height')
+        if None in (x, y, width, height):
+            return None
+        return CropBox(x=x, y=y, width=width, height=height)
+
 
 @admin.register(Profile)
 class ProfileAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = ProfileAdminForm
     list_display = ('name', 'tagline', 'updated_at')
     readonly_fields = ('updated_at',)
+
+    class Media:
+        js = ('profile/admin/avatar_crop.js',)
 
 
 @admin.register(VisitorCounter)
