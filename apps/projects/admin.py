@@ -1,7 +1,49 @@
+import re
+from typing import Any
+
 from django import forms
 from django.contrib import admin
 
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+
+# '•'는 뒤에 공백이 없어도 불릿으로 간주하지만, '-'/'*'는 뒤에 공백이 있을 때만
+# 불릿으로 취급한다. 공백 없이 붙으면 '-Xmx512m', '*args'처럼 값 자체의 일부일
+# 수 있어 내용을 훼손하지 않기 위함이다.
+_BULLET_PREFIX_PATTERN = re.compile(r'^(?:•\s*|[-*]\s+)')
+
+
+class NewlineSeparatedListField(forms.Field):
+    """줄바꿈으로 구분된 일반 텍스트를 문자열 리스트로 변환하는 폼 필드.
+
+    tags/highlights처럼 JSONField에 문자열 리스트를 저장하는 필드에서, Admin 기본
+    JSONField 위젯이 요구하는 JSON 문법(대괄호·따옴표·쉼표) 없이 한 줄에 항목
+    하나씩 입력할 수 있도록 한다. 각 줄 앞의 흔한 불릿 기호(•, -, *)와 공백은
+    자동으로 제거한다.
+    """
+
+    widget = forms.Textarea
+
+    def prepare_value(self, value: Any) -> Any:
+        # 과거 raw JSON 위젯으로 문자열이 아닌 값(숫자 등)이 저장돼 있을 수 있으므로
+        # str()로 변환해 join 중 TypeError가 나지 않도록 한다.
+        if isinstance(value, list):
+            return '\n'.join(str(item) for item in value)
+        return value
+
+    def to_python(self, value: str | None) -> list[str]:
+        if not value:
+            return []
+
+        items: list[str] = []
+        for line in value.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            stripped = _BULLET_PREFIX_PATTERN.sub('', stripped).strip()
+            if stripped:
+                items.append(stripped)
+        return items
 
 
 @admin.register(ProjectCategory)
