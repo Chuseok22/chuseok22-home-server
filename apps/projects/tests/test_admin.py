@@ -1,10 +1,11 @@
 import pytest
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
-from apps.projects.admin import NewlineSeparatedListField
+from apps.projects.admin import ExtraLinksField, NewlineSeparatedListField
 
 
 def test_NewlineSeparatedListField_줄바꿈_텍스트를_리스트로_변환한다() -> None:
@@ -46,6 +47,47 @@ def test_NewlineSeparatedListField_리스트에_문자열이_아닌_값이_있�
     # prepare_value가 이런 값에서도 예외 없이 텍스트로 변환되는지 확인한다.
     field = NewlineSeparatedListField(required=False)
     assert field.prepare_value([2024, 'Java']) == '2024\nJava'
+
+
+def test_ExtraLinksField_라벨과_URL을_파이프로_구분해_리스트로_변환한다() -> None:
+    field = ExtraLinksField(required=False)
+    assert field.clean('Notion|https://notion.so/example') == [
+        {'label': 'Notion', 'url': 'https://notion.so/example'},
+    ]
+
+
+def test_ExtraLinksField_여러_줄을_각각_변환한다() -> None:
+    field = ExtraLinksField(required=False)
+    assert field.clean('Notion|https://notion.so/a\n발표자료|https://speakerdeck.com/b') == [
+        {'label': 'Notion', 'url': 'https://notion.so/a'},
+        {'label': '발표자료', 'url': 'https://speakerdeck.com/b'},
+    ]
+
+
+def test_ExtraLinksField_빈_입력은_빈_리스트를_반환한다() -> None:
+    field = ExtraLinksField(required=False)
+    assert field.clean('') == []
+    assert field.clean(None) == []
+
+
+def test_ExtraLinksField_구분자가_없으면_ValidationError를_발생시킨다() -> None:
+    field = ExtraLinksField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('Notion https://notion.so/example')
+
+
+def test_ExtraLinksField_URL_형식이_잘못되면_ValidationError를_발생시킨다() -> None:
+    field = ExtraLinksField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('Notion|not-a-valid-url')
+
+
+def test_ExtraLinksField_저장된_리스트를_라벨_URL_텍스트로_되돌린다() -> None:
+    field = ExtraLinksField(required=False)
+    assert field.prepare_value([{'label': 'Notion', 'url': 'https://notion.so/example'}]) == (
+        'Notion|https://notion.so/example'
+    )
+    assert field.prepare_value([]) == ''
 
 
 @pytest.fixture
