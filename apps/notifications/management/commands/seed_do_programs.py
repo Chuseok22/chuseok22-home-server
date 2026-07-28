@@ -11,6 +11,7 @@ _SOURCE = {
     'name': '세종 비교과 프로그램',
     'url': 'https://do.sejong.ac.kr/ko/program/all/list/0/1?sort=date',
     'crawler_type': 'sejong_do',
+    'icon': '🗓️',
 }
 
 
@@ -29,6 +30,7 @@ class Command(BaseCommand):
             defaults={
                 'url': _SOURCE['url'],
                 'crawler_type': _SOURCE['crawler_type'],
+                'icon': _SOURCE['icon'],
                 'is_active': True,
             },
         )

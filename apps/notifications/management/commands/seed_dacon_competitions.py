@@ -11,6 +11,7 @@ _SOURCE = {
     'name': '데이콘 경진대회',
     'url': 'https://dacon.io/competitions',
     'crawler_type': 'dacon',
+    'icon': '🏆',
 }
 
 
@@ -37,6 +38,7 @@ class Command(BaseCommand):
             defaults={
                 'url': _SOURCE['url'],
                 'crawler_type': _SOURCE['crawler_type'],
+                'icon': _SOURCE['icon'],
                 'discord_webhook_url': webhook_url,
                 'is_active': True,
             },
