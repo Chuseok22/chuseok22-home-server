@@ -470,6 +470,7 @@ def test_project_card는_highlights가_있으면_더보기_버튼을_보여준�
 
     assert '더보기' in body
     assert '첫 번째 성과' in body
+    assert 'aria-expanded' in body
 
 
 @pytest.mark.django_db

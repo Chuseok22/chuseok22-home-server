@@ -17,7 +17,7 @@
     </div>
 
     {% if project.highlights %}
-    <button type="button" @click="open = !open" class="link link-hover text-sm font-semibold self-start mt-2">
+    <button type="button" @click="open = !open" :aria-expanded="open.toString()" class="link link-hover text-sm font-semibold self-start mt-2">
       <span x-text="open ? '접기' : '더보기'">더보기</span>
     </button>
     <ul x-cloak x-show="open" x-transition class="list-disc list-inside text-sm mt-2 space-y-1">
