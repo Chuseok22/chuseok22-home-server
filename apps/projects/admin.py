@@ -79,8 +79,8 @@ class ExtraLinksField(forms.Field):
                 raise forms.ValidationError(f'{line_number}번째 줄: 라벨이 비어 있습니다.')
             try:
                 url_validator(url)
-            except forms.ValidationError:
-                raise forms.ValidationError(f'{line_number}번째 줄: 유효한 URL이 아닙니다.')
+            except forms.ValidationError as err:
+                raise forms.ValidationError(f'{line_number}번째 줄: 유효한 URL이 아닙니다.') from err
             links.append({'label': label, 'url': url})
         return links
 
