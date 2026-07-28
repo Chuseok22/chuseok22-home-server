@@ -4,18 +4,24 @@
 
 {% block content %}
 <h1 class="text-2xl font-bold mb-6">Lab</h1>
-<div class="grid gap-4">
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for tool in tools %}
   <article class="card bg-base-200">
-    <div class="card-body">
+    <div class="card-body p-4">
       {% if tool.is_owner_only and not is_owner %}
-      <h2 class="card-title opacity-50">🔒 {{ tool.title }}</h2>
-      <p class="opacity-50">{{ tool.description }} (소유자 전용 도구입니다)</p>
+      <div class="flex items-center gap-2 opacity-50">
+        <span class="text-xl" aria-hidden="true">🔒</span>
+        <h2 class="card-title text-base">{{ tool.title }}</h2>
+      </div>
+      <p class="text-sm opacity-50 line-clamp-2">{{ tool.description }} (소유자 전용 도구입니다)</p>
       {% else %}
-      <h2 class="card-title">
-        <a href="{% url tool.url_name %}" class="link link-hover">{{ tool.title }}</a>
-      </h2>
-      <p>{{ tool.description }}</p>
+      <div class="flex items-center gap-2">
+        {% if tool.icon %}<span class="text-xl" aria-hidden="true">{{ tool.icon }}</span>{% endif %}
+        <h2 class="card-title text-base">
+          <a href="{% url tool.url_name %}" class="link link-hover">{{ tool.title }}</a>
+        </h2>
+      </div>
+      <p class="text-sm line-clamp-2">{{ tool.description }}</p>
       {% endif %}
     </div>
   </article>
@@ -30,23 +36,24 @@
   Discord 참여 신청
 </a>
 {% endif %}
-<div class="grid gap-4">
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for source in notice_sources %}
   <article class="card bg-base-200">
-    <div class="card-body">
-      <h3 class="card-title">
-        {{ source.name }}
+    <div class="card-body p-4">
+      <div class="flex items-center gap-2 flex-wrap">
+        {% if source.icon %}<span class="text-xl" aria-hidden="true">{{ source.icon }}</span>{% endif %}
+        <h3 class="card-title text-base">{{ source.name }}</h3>
         {% if source.is_active %}
         <span class="badge badge-success">운영 중</span>
         {% else %}
         <span class="badge badge-ghost">중단됨</span>
         {% endif %}
-      </h3>
+      </div>
       {% if source.description %}
-      <p>{{ source.description }}</p>
+      <p class="text-sm line-clamp-2">{{ source.description }}</p>
       {% endif %}
       {% if source.is_active %}
-      <p class="text-sm opacity-70">{{ notice_schedule_text }}</p>
+      <p class="text-xs opacity-70">{{ notice_schedule_text }}</p>
       {% endif %}
       <a href="{{ source.url }}" target="_blank" rel="noopener"
          aria-label="{{ source.name }} 출처 사이트 바로가기 (새 탭)" class="link link-hover text-sm">

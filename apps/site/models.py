@@ -9,6 +9,7 @@ class Tool(models.Model):
     title = models.CharField(max_length=100, verbose_name='이름')
     slug = models.SlugField(unique=True)
     description = models.CharField(max_length=300, verbose_name='설명')
+    icon = models.CharField(max_length=8, blank=True, default='', verbose_name='아이콘(이모지)')
     is_owner_only = models.BooleanField(default=False, verbose_name='소유자 전용')
     url_name = models.CharField(max_length=100, verbose_name='연결할 URL name')
     order = models.PositiveIntegerField(default=0)

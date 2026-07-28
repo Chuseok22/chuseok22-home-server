@@ -28,6 +28,7 @@ class TestSeedDaconCompetitions(TestCase):
         self.assertEqual(source.url, 'https://dacon.io/competitions')
         self.assertEqual(source.discord_webhook_url, 'https://discord.com/api/webhooks/1/new')
         self.assertTrue(source.is_active)
+        self.assertEqual(source.icon, '🏆')
 
     def test_기존_소스_webhook_url_미전달시_보존(self) -> None:
         NoticeSource.objects.create(

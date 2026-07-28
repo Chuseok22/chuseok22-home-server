@@ -10,13 +10,15 @@ logger = logging.getLogger(__name__)
 _BASE = 'https://www.sejong.ac.kr/kor/intro'
 _QUERY = '?mode=list&article.offset=0&articleLimit=10'
 
+# icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
+# _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
 _SOURCES = [
-    {'name': '일반공지', 'url': f'{_BASE}/notice1.do{_QUERY}'},
-    {'name': '학사공지', 'url': f'{_BASE}/notice3.do{_QUERY}'},
-    {'name': '국제교류', 'url': f'{_BASE}/notice4.do{_QUERY}'},
-    {'name': '취업',    'url': f'{_BASE}/notice6.do{_QUERY}'},
-    {'name': '장학',    'url': f'{_BASE}/notice7.do{_QUERY}'},
-    {'name': '채용모집', 'url': f'{_BASE}/notice8.do{_QUERY}'},
+    {'name': '일반공지', 'url': f'{_BASE}/notice1.do{_QUERY}', 'icon': '📌'},
+    {'name': '학사공지', 'url': f'{_BASE}/notice3.do{_QUERY}', 'icon': '🎓'},
+    {'name': '국제교류', 'url': f'{_BASE}/notice4.do{_QUERY}', 'icon': '🌐'},
+    {'name': '취업',    'url': f'{_BASE}/notice6.do{_QUERY}', 'icon': '💼'},
+    {'name': '장학',    'url': f'{_BASE}/notice7.do{_QUERY}', 'icon': '💰'},
+    {'name': '채용모집', 'url': f'{_BASE}/notice8.do{_QUERY}', 'icon': '📋'},
 ]
 
 
@@ -44,6 +46,7 @@ class Command(BaseCommand):
                 defaults={
                     'url': data['url'],
                     'crawler_type': 'sejong',
+                    'icon': data['icon'],
                     'is_active': True,
                 },
             )

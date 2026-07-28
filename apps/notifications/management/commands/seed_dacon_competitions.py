@@ -7,10 +7,13 @@ from apps.notifications.models import Notice, NoticeSource
 
 logger = logging.getLogger(__name__)
 
+# icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
+# _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
 _SOURCE = {
     'name': '데이콘 경진대회',
     'url': 'https://dacon.io/competitions',
     'crawler_type': 'dacon',
+    'icon': '🏆',
 }
 
 
@@ -37,6 +40,7 @@ class Command(BaseCommand):
             defaults={
                 'url': _SOURCE['url'],
                 'crawler_type': _SOURCE['crawler_type'],
+                'icon': _SOURCE['icon'],
                 'discord_webhook_url': webhook_url,
                 'is_active': True,
             },
