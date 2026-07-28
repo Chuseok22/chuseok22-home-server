@@ -1,6 +1,11 @@
 from django.template import Context, Template
 from pathlib import Path
 
+import pytest
+
+from apps.core.icons import is_valid_icon_slug
+from apps.profile.models import Skill
+
 
 def test_heroicons_패키지는_outline_아이콘을_inline_svg로_렌더링한다() -> None:
     template = Template('{% load heroicons %}{% heroicon_outline "eye" size=16 class="w-4 h-4" %}')
@@ -77,3 +82,31 @@ def test_brand_icon은_path가_여러_개인_비표준_svg면_빈_문자열을_�
         assert rendered == ''
     finally:
         fixture_path.unlink()
+
+
+@pytest.mark.django_db
+def test_db의_모든_skill_icon_slug는_벤더링된_아이콘_세트에_존재한다() -> None:
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Django', icon_slug='django', order=0)
+    Skill.objects.create(category=Skill.Category.ETC, name='아이콘없음', icon_slug='', order=1)
+
+    invalid = [
+        (skill.name, skill.icon_slug)
+        for skill in Skill.objects.exclude(icon_slug='')
+        if not is_valid_icon_slug(skill.icon_slug)
+    ]
+
+    assert invalid == []
+
+
+@pytest.mark.parametrize('slug', ['github', 'apple', 'googleplay'])
+def test_project_card가_참조하는_고정_브랜드_아이콘은_벤더링_세트에_존재한다(slug: str) -> None:
+    assert is_valid_icon_slug(slug) is True
+
+
+@pytest.mark.parametrize('icon_name', ['eye', 'globe-alt', 'arrow-top-right-on-square'])
+def test_project_card와_블로그가_참조하는_heroicons_아이콘은_실제로_렌더링된다(icon_name: str) -> None:
+    template = Template('{% load heroicons %}{% heroicon_outline "' + icon_name + '" %}')
+
+    rendered = template.render(Context({}))
+
+    assert '<svg' in rendered
