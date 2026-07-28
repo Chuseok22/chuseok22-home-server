@@ -38,7 +38,7 @@
       </div>
       <div class="flex gap-2">
         {% if project.github_href %}
-        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
+        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener" aria-label="GitHub 저장소">
           {% include 'site/partials/icons/github.svg.html' %}
         </a>
         {% endif %}

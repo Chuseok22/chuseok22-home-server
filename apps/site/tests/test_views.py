@@ -511,6 +511,53 @@ def test_project_card는_title_href가_없으면_제목이_일반_텍스트다()
 
 
 @pytest.mark.django_db
+def test_project_card는_기간_역할_인원_링크를_모두_노출한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='상세 정보 전체 노출', description='설명', status=status,
+        period='2026.01 ~ 2026.03', role='백엔드', team_size=3,
+        github_href='https://github.com/example/repo', demo_href='https://example.com/demo',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '2026.01 ~ 2026.03' in body
+    assert '백엔드 · 3명' in body
+    assert 'https://github.com/example/repo' in body
+    assert 'Demo' in body
+    assert 'https://example.com/demo' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_상세_정보가_모두_비면_푸터를_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='상세 정보 없음', description='설명', status=status,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'divider' not in body
+    assert 'Demo' not in body
+
+
+@pytest.mark.django_db
 def test_projects_사이드바는_프로젝트가_없는_카테고리를_제외한다() -> None:
     from django.test import Client
 
