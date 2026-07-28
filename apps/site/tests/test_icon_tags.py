@@ -86,6 +86,15 @@ def test_brand_icon은_path가_여러_개인_비표준_svg면_빈_문자열을_�
 
 @pytest.mark.django_db
 def test_db의_모든_skill_icon_slug는_벤더링된_아이콘_세트에_존재한다() -> None:
+    """테스트 DB의 Skill.icon_slug가 벤더링된 아이콘 세트에 존재하는지 확인한다.
+
+    테스트 DB는 매번 비어서 시작하고 Skill.save()의 강제 검증(icon_slug 변경 시) 덕분에 여기서
+    생성하는 데이터는 항상 유효하므로, 이 테스트는 정상 경로에서는 구조적으로 항상 통과한다 —
+    운영 DB의 실제 데이터가 벤더링 세트와 어긋나는지는 검증하지 못한다(그건 audit_icon_slugs
+    management command의 몫이다). 이 테스트가 실제로 잡아낼 수 있는 것은 fixtures/loaddata/
+    bulk_update()처럼 save()를 거치지 않는 경로로 들어온 데이터, 그리고 벤더링된 정적 파일이
+    실수로 삭제되는 회귀뿐이다 — 그 좁은 범위의 이중 안전장치다.
+    """
     Skill.objects.create(category=Skill.Category.BACKEND, name='Django', icon_slug='django', order=0)
     Skill.objects.create(category=Skill.Category.ETC, name='아이콘없음', icon_slug='', order=1)
 
