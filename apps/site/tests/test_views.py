@@ -1839,3 +1839,44 @@ def test_lab_목록은_도구_아이콘이_없으면_아이콘_영역을_렌더�
     assert response.status_code == 200
     assert '아이콘 없는 도구' in body
     assert '<span class="text-xl" aria-hidden="true"></span>' not in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_알리미_아이콘이_있으면_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='아이콘 소스', url='https://example.com', crawler_type='sejong',
+        icon='📌', discord_webhook_url='https://discord.com/api/webhooks/9/a',
+        is_active=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '<span class="text-xl" aria-hidden="true">📌</span>' in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_알리미_아이콘이_없으면_아이콘_영역을_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='아이콘 없는 소스', url='https://example.com', crawler_type='sejong',
+        icon='', discord_webhook_url='https://discord.com/api/webhooks/9/b',
+        is_active=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '아이콘 없는 소스' in body
+    assert '<span class="text-xl" aria-hidden="true"></span>' not in body

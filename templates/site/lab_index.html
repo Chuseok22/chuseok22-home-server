@@ -36,23 +36,24 @@
   Discord 참여 신청
 </a>
 {% endif %}
-<div class="grid gap-4">
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for source in notice_sources %}
   <article class="card bg-base-200">
-    <div class="card-body">
-      <h3 class="card-title">
-        {{ source.name }}
+    <div class="card-body p-4">
+      <div class="flex items-center gap-2 flex-wrap">
+        {% if source.icon %}<span class="text-xl" aria-hidden="true">{{ source.icon }}</span>{% endif %}
+        <h3 class="card-title text-base">{{ source.name }}</h3>
         {% if source.is_active %}
         <span class="badge badge-success">운영 중</span>
         {% else %}
         <span class="badge badge-ghost">중단됨</span>
         {% endif %}
-      </h3>
+      </div>
       {% if source.description %}
-      <p>{{ source.description }}</p>
+      <p class="text-sm line-clamp-2">{{ source.description }}</p>
       {% endif %}
       {% if source.is_active %}
-      <p class="text-sm opacity-70">{{ notice_schedule_text }}</p>
+      <p class="text-xs opacity-70">{{ notice_schedule_text }}</p>
       {% endif %}
       <a href="{{ source.url }}" target="_blank" rel="noopener"
          aria-label="{{ source.name }} 출처 사이트 바로가기 (새 탭)" class="link link-hover text-sm">
