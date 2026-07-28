@@ -21,3 +21,12 @@ def test_reverse_불가능한_url_name은_ValidationError() -> None:
 
     with pytest.raises(ValidationError):
         tool.clean()
+
+
+def test_icon_기본값은_빈_문자열이다() -> None:
+    tool = Tool(
+        title='아이콘 기본값 테스트', slug='icon-default-test', description='설명',
+        url_name='site:lab-library',
+    )
+
+    assert tool.icon == ''
