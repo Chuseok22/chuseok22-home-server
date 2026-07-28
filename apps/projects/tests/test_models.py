@@ -96,3 +96,26 @@ def test_참조중인_ProjectStatus는_삭제할_수_없다() -> None:
 
     with pytest.raises(ProtectedError):
         status.delete()
+
+
+@pytest.mark.django_db
+def test_Project는_web_site_href_ios_href_android_href_extra_links_필드를_저장한다() -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    project = Project.objects.create(
+        category=category, title='링크 필드 테스트', description='설명', status=status,
+        web_site_href='https://example.com',
+        ios_href='https://apps.apple.com/app/id123456789',
+        android_href='https://play.google.com/store/apps/details?id=com.example.app',
+        extra_links=[{'label': 'Notion', 'url': 'https://notion.so/example'}],
+    )
+
+    project.refresh_from_db()
+    assert project.web_site_href == 'https://example.com'
+    assert project.ios_href == 'https://apps.apple.com/app/id123456789'
+    assert project.android_href == 'https://play.google.com/store/apps/details?id=com.example.app'
+    assert project.extra_links == [{'label': 'Notion', 'url': 'https://notion.so/example'}]
+
+
+def test_Project의_extra_links_기본값은_빈_리스트다() -> None:
+    assert Project._meta.get_field('extra_links').default() == []
