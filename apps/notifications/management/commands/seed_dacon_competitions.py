@@ -19,31 +19,31 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
-            '--chat-id',
+            '--webhook-url',
             type=str,
             default='',
-            help='알림을 발송할 텔레그램 채팅방 ID (미입력 시 기존 값 유지, 신규 생성 시 빈 값)',
+            help='알림을 발송할 Discord 웹훅 URL (미입력 시 기존 값 유지, 신규 생성 시 빈 값)',
         )
 
     def handle(self, *args, **options) -> None:
-        source = self._ensure_source(options['chat_id'])
+        source = self._ensure_source(options['webhook_url'])
         count = self._seed_source(source)
         self.stdout.write(f'씨딩 완료: {count}건 저장')
         self.stdout.write('이제 check_new_notices 실행 시 새 대회만 알림이 발송됩니다.')
 
-    def _ensure_source(self, chat_id: str) -> NoticeSource:
+    def _ensure_source(self, webhook_url: str) -> NoticeSource:
         source, created = NoticeSource.objects.get_or_create(
             name=_SOURCE['name'],
             defaults={
                 'url': _SOURCE['url'],
                 'crawler_type': _SOURCE['crawler_type'],
-                'telegram_chat_id': chat_id,
+                'discord_webhook_url': webhook_url,
                 'is_active': True,
             },
         )
-        if not created and chat_id and source.telegram_chat_id != chat_id:
-            source.telegram_chat_id = chat_id
-            source.save(update_fields=['telegram_chat_id'])
+        if not created and webhook_url and source.discord_webhook_url != webhook_url:
+            source.discord_webhook_url = webhook_url
+            source.save(update_fields=['discord_webhook_url'])
         status = '생성' if created else '이미 존재'
         self.stdout.write(f'[{status}] {source.name}')
         return source
