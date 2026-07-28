@@ -1,0 +1,52 @@
+<article class="card bg-base-200" x-data="{ open: false }">
+  <div class="card-body">
+    <div class="flex items-center justify-between gap-2">
+      <span class="font-mono text-xs uppercase tracking-wide opacity-60">{{ project.category.name }}</span>
+      <span class="badge badge-sm">{{ project.status.name }}</span>
+    </div>
+    {% if project.title_href %}
+    <h2 class="card-title"><a href="{{ project.title_href }}" class="link link-hover" target="_blank" rel="noopener">{{ project.title }}</a></h2>
+    {% else %}
+    <h2 class="card-title">{{ project.title }}</h2>
+    {% endif %}
+    <p>{{ project.description }}</p>
+    <div class="flex gap-2 flex-wrap">
+      {% for tag in project.tags %}
+      <span class="badge-tag">{{ tag }}</span>
+      {% endfor %}
+    </div>
+
+    {% if project.highlights %}
+    <button type="button" @click="open = !open" class="link link-hover text-sm font-semibold self-start mt-2">
+      <span x-text="open ? '접기' : '더보기'">더보기</span>
+    </button>
+    <ul x-cloak x-show="open" x-transition class="list-disc list-inside text-sm mt-2 space-y-1">
+      {% for highlight in project.highlights %}
+      <li>{{ highlight }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if project.period or project.role or project.team_size or project.github_href or project.demo_href %}
+    <div class="divider my-2"></div>
+    <div class="flex items-center justify-between gap-2 flex-wrap text-sm opacity-70">
+      <div class="flex gap-3 flex-wrap">
+        {% if project.period %}<span>{{ project.period }}</span>{% endif %}
+        {% if project.role or project.team_size %}
+        <span>{{ project.role }}{% if project.role and project.team_size %} · {% endif %}{% if project.team_size %}{{ project.team_size }}명{% endif %}</span>
+        {% endif %}
+      </div>
+      <div class="flex gap-2">
+        {% if project.github_href %}
+        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
+          {% include 'site/partials/icons/github.svg.html' %}
+        </a>
+        {% endif %}
+        {% if project.demo_href %}
+        <a href="{{ project.demo_href }}" class="link link-hover" target="_blank" rel="noopener">Demo</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</article>

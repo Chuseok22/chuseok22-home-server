@@ -291,6 +291,245 @@ def test_projects_페이지는_카테고리별_프로젝트를_보여준다() ->
 
 
 @pytest.mark.django_db
+def test_projects_페이지는_카테고리_미선택_시_카테고리별로_그룹핑되어_보인다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    team = ProjectCategory.objects.get(name='팀 프로젝트')
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=team, title='팀 프로젝트 A', description='설명', status=status)
+    Project.objects.create(category=side, title='사이드 프로젝트 A', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '팀 프로젝트 A' in body
+    assert '사이드 프로젝트 A' in body
+    # 카테고리명 자체는 사이드바에도 나타나 순서 검증에 부적합하므로, 사이드바에는 없는
+    # 프로젝트 제목으로 본문 그룹핑 순서(팀 프로젝트 섹션이 사이드 프로젝트 섹션보다 먼저)를 검증한다.
+    assert body.index('팀 프로젝트 A') < body.index('사이드 프로젝트 A')
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_category_파라미터로_해당_카테고리만_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    team = ProjectCategory.objects.get(name='팀 프로젝트')
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=team, title='팀 프로젝트 전용', description='설명', status=status)
+    Project.objects.create(category=side, title='사이드 프로젝트 전용', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'), {'category': side.id})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '사이드 프로젝트 전용' in body
+    assert '팀 프로젝트 전용' not in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_존재하지_않는_category_id면_빈_결과를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=side, title='사이드 프로젝트 전용', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'), {'category': 999999})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '사이드 프로젝트 전용' not in body
+    assert '등록된 프로젝트가 없습니다' in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_비정수_category_값이면_전체를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=side, title='사이드 프로젝트 전용', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'), {'category': 'abc'})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '사이드 프로젝트 전용' in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_비십진_유니코드_숫자_category_값이면_500_없이_전체를_보여준다() -> None:
+    # '²'.isdigit()은 True지만 int('²')는 ValueError를 던진다. isdecimal()만
+    # 순수 10진 문자열을 걸러내므로, isdigit()을 썼다면 이 요청이 500 에러가 난다.
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=side, title='사이드 프로젝트 전용', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'), {'category': '²'})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '사이드 프로젝트 전용' in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_HX_Request_헤더가_있으면_프래그먼트만_반환한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:projects'), HTTP_HX_REQUEST='true')
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '<header' not in body
+    assert 'id="projects-content"' in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_HX_Request_헤더가_없으면_전체_페이지를_반환한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<header' in body
+    assert 'id="projects-content"' in body
+
+
+@pytest.mark.django_db
+def test_projects_페이지는_HX_History_Restore_Request면_전체_페이지를_반환한다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(
+        reverse('site:projects'),
+        HTTP_HX_REQUEST='true',
+        HTTP_HX_HISTORY_RESTORE_REQUEST='true',
+    )
+    body = response.content.decode()
+
+    assert '<header' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_highlights가_없으면_더보기_버튼을_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='하이라이트 없음', description='설명', status=status, highlights=[],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '더보기' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_highlights가_있으면_더보기_버튼을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='하이라이트 있음', description='설명', status=status,
+        highlights=['첫 번째 성과'],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '더보기' in body
+    assert '첫 번째 성과' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_title_href가_있으면_제목을_링크로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='링크형 제목', description='설명', status=status,
+        title_href='https://example.com/project',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<a href="https://example.com/project"' in body
+    assert '링크형 제목' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_title_href가_없으면_제목이_일반_텍스트다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=side, title='일반 제목', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<h2 class="card-title">일반 제목</h2>' in body
+
+
+@pytest.mark.django_db
+def test_projects_사이드바는_프로젝트가_없는_카테고리를_제외한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(category=side, title='사이드 프로젝트 전용', description='설명', status=status)
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '사이드 프로젝트 (1)' in body
+    assert '팀 프로젝트 (' not in body
+    assert '오픈소스 (' not in body
+
+
+@pytest.mark.django_db
 def test_blog_목록은_공개된_포스트만_보여준다() -> None:
     from django.test import Client
     from django.utils import timezone

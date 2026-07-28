@@ -24,6 +24,10 @@ from apps.profile.models import (
     VisitorCounter,
 )
 from apps.projects.models import Project
+from apps.projects.services.category import (
+    filter_projects_by_category_id,
+    get_project_category_sidebar_items,
+)
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
@@ -79,9 +83,23 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 def projects(request: HttpRequest) -> HttpResponse:
-    """프로젝트 목록 페이지. 카테고리별로 그룹화해 보여준다."""
-    project_list = Project.objects.all()
-    return render(request, 'site/projects.html', {'projects': project_list})
+    """프로젝트 목록 페이지. ?category=<id>로 카테고리 필터링,
+    HX-Request 헤더가 있으면(히스토리 복원 요청 제외) 사이드바+목록 프래그먼트만 반환한다."""
+    raw_category_id = request.GET.get('category')
+    # str.isdigit()은 '²' 같은 비-십진 유니코드 숫자에도 True를 반환해 int() 호출이
+    # ValueError로 500 에러를 낼 수 있다. isdecimal()만 순수 10진 문자열에 True를 반환한다.
+    category_id = int(raw_category_id) if raw_category_id and raw_category_id.isdecimal() else None
+    context = {
+        'projects': filter_projects_by_category_id(category_id),
+        'sidebar_items': get_project_category_sidebar_items(),
+        'selected_category_id': category_id,
+        'total_project_count': Project.objects.count(),
+    }
+    is_htmx_fragment_request = (
+        request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request')
+    )
+    template_name = 'site/partials/projects_content.html' if is_htmx_fragment_request else 'site/projects.html'
+    return render(request, template_name, context)
 
 
 def blog_list(request: HttpRequest) -> HttpResponse:
