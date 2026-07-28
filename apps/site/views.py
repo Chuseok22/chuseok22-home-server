@@ -194,12 +194,14 @@ def _format_notice_schedule_text(config: ScheduledJobConfig | None) -> str:
 def lab_index(request: HttpRequest) -> HttpResponse:
     """Lab 유틸 목록. 소유자 전용 도구는 소유자에게만 링크를 노출한다.
 
-    자동 알리미 섹션은 NoticeSource 전체(비활성 포함)를 노출하고, check_new_notices 잡의
-    ScheduledJobConfig를 조회해 수집 주기 문구를 함께 보여준다.
+    자동 알리미 섹션은 discord_webhook_url이 설정된(즉 한 번이라도 Discord에 연동된)
+    NoticeSource만 노출한다(비활성 포함). 웹훅이 없는 소스는 check_new_notices가 발송
+    자체를 건너뛰므로, 애초에 노출하지 않아야 "운영 중"처럼 보이는 오해를 막을 수 있다.
+    check_new_notices 잡의 ScheduledJobConfig를 조회해 수집 주기 문구를 함께 보여준다.
     """
     is_owner = request.user.is_authenticated and request.user.is_staff
     tools = Tool.objects.all()
-    notice_sources = NoticeSource.objects.all().order_by('id')
+    notice_sources = NoticeSource.objects.exclude(discord_webhook_url='').order_by('id')
     schedule_config = ScheduledJobConfig.objects.filter(job_id='check_new_notices').first()
     return render(request, 'site/lab_index.html', {
         'tools': tools,

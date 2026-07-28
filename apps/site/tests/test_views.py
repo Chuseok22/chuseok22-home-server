@@ -1550,7 +1550,9 @@ def test_lab_index는_알리미_카드와_discord_cta를_렌더링한다() -> No
         url='https://example.com',
         crawler_type='dacon',
         description='',
-        discord_webhook_url='',
+        # 한때 Discord에 연동됐다가 지금은 비활성화된 소스를 나타낸다(웹훅 없는 소스는
+        # lab_index 쿼리셋에서 애초에 제외되므로, "중단됨" 배지를 검증하려면 웹훅이 있어야 한다).
+        discord_webhook_url='https://discord.com/api/webhooks/2/inactive',
         is_active=False,
     )
     ScheduledJobConfig.objects.create(
@@ -1588,7 +1590,9 @@ def test_lab_index는_discord_invite_url_미설정시_cta만_숨긴다() -> None
         url='https://www.sejong.ac.kr/kor/intro/notice3.do',
         crawler_type='sejong',
         description='',
-        discord_webhook_url='',
+        # lab_index가 discord_webhook_url이 설정된 소스만 노출하므로, 이 소스가
+        # 본문에 나타나려면 웹훅이 있어야 한다(CTA 숨김 여부와는 별개 검증 대상).
+        discord_webhook_url='https://discord.com/api/webhooks/3/active',
         is_active=True,
     )
 
@@ -1600,6 +1604,32 @@ def test_lab_index는_discord_invite_url_미설정시_cta만_숨긴다() -> None
     assert response.status_code == 200
     assert '세종대 학사공지' in body
     assert 'Discord 참여 신청' not in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_discord_webhook_미설정_소스를_노출하지_않는다() -> None:
+    """discord_webhook_url이 빈 소스는 is_active=True여도 check_new_notices가 발송을
+    건너뛰므로 실제로는 운영 중이 아니다. lab 페이지가 이런 소스를 "운영 중"으로 잘못
+    노출하지 않는지 검증한다(Finding 1 회귀 테스트)."""
+    from django.test import Client
+
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='웹훅_미설정_소스',
+        url='https://example.com',
+        crawler_type='dacon',
+        description='',
+        discord_webhook_url='',
+        is_active=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '웹훅_미설정_소스' not in body
 
 
 class TestFormatNoticeScheduleText:
