@@ -7,6 +7,8 @@ from apps.notifications.models import Notice, NoticeSource
 
 logger = logging.getLogger(__name__)
 
+# icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
+# _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
 _SOURCE = {
     'name': '세종 비교과 프로그램',
     'url': 'https://do.sejong.ac.kr/ko/program/all/list/0/1?sort=date',
@@ -28,6 +30,12 @@ class Command(BaseCommand):
         source, created = NoticeSource.objects.update_or_create(
             name=_SOURCE['name'],
             defaults={
+                'url': _SOURCE['url'],
+                'crawler_type': _SOURCE['crawler_type'],
+                'is_active': True,
+            },
+            # icon은 Admin에서 직접 관리하는 값이라 재실행 시 덮어쓰지 않고 최초 생성 시에만 채운다.
+            create_defaults={
                 'url': _SOURCE['url'],
                 'crawler_type': _SOURCE['crawler_type'],
                 'icon': _SOURCE['icon'],

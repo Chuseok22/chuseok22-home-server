@@ -7,6 +7,8 @@ from apps.notifications.models import Notice, NoticeSource
 
 logger = logging.getLogger(__name__)
 
+# icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
+# _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
 _SOURCE = {
     'name': '데이콘 경진대회',
     'url': 'https://dacon.io/competitions',

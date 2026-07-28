@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 _BASE = 'https://www.sejong.ac.kr/kor/intro'
 _QUERY = '?mode=list&article.offset=0&articleLimit=10'
 
+# icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
+# _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
 _SOURCES = [
     {'name': '일반공지', 'url': f'{_BASE}/notice1.do{_QUERY}', 'icon': '📌'},
     {'name': '학사공지', 'url': f'{_BASE}/notice3.do{_QUERY}', 'icon': '🎓'},
