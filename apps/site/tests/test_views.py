@@ -177,7 +177,7 @@ def test_home_템플릿은_이력_섹션에_eyebrow_라벨을_보여준다() -> 
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_기술스택_슬러그를_brand_icon으로_렌더링한다() -> None:
+def test_home_템플릿은_기술스택_슬러그를_simple_icons_cdn_url로_렌더링한다() -> None:
     from django.test import Client
 
     from apps.profile.models import Skill
@@ -188,22 +188,23 @@ def test_home_템플릿은_기술스택_슬러그를_brand_icon으로_렌더링�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert '<svg' in body
-    assert 'fill="currentColor"' in body
-    assert 'aria-hidden="true"' in body  # brand_icon이 생성하는 마크업 고유 표식 — 페이지의 다른 임의 svg와 혼동되지 않게 함
+    assert 'src="https://cdn.simpleicons.org/django"' in body
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_icon_slug가_완전한_url이면_저장_자체가_막힌다() -> None:
-    import pytest
-    from django.core.exceptions import ValidationError
+def test_home_템플릿은_icon_slug가_완전한_url이면_그대로_렌더링한다() -> None:
+    from django.test import Client
 
     from apps.profile.models import Skill
 
     icon_url = 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg'
+    Skill.objects.create(category=Skill.Category.BACKEND, name='Java', icon_slug=icon_url, order=0)
 
-    with pytest.raises(ValidationError):
-        Skill.objects.create(category=Skill.Category.BACKEND, name='Java', icon_slug=icon_url, order=0)
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert f'src="{icon_url}"' in body
 
 
 @pytest.mark.django_db
