@@ -157,3 +157,38 @@ def test_skill은_icon_slug를_바꾸지_않고_다른_필드만_수정하면_�
     skill.refresh_from_db()
     assert skill.order == 9
     assert skill.icon_slug == '존재하지-않는-레거시-슬러그'
+
+
+@pytest.mark.django_db
+def test_skill은_admin_list_editable_폼으로_레거시_레코드의_order만_수정해도_크래시하지_않는다() -> None:
+    # Django Admin의 list_editable=('order',) changelist 편집은 icon_slug 없이 order만
+    # fields로 갖는 ModelForm을 만들고, BaseModelForm._post_clean()이 instance.full_clean()을
+    # save()를 거치지 않고 직접 호출한다. 검증 게이트가 save()에만 있으면 이 경로에서 우회되지
+    # 않고 그대로 Skill.clean()이 레거시 잘못된 슬러그에 대해 ValidationError를 던지는데, order가
+    # 없는 필드(icon_slug)에 에러를 붙이려다 SkillForm에 icon_slug 필드가 없어 ValueError로
+    # 크래시한다. clean() 자체가 dirty-tracking으로 게이트되어야 이 경로에서도 안전하다.
+    from django import forms
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            'INSERT INTO profile_skill (category, name, icon_slug, "order") VALUES (%s, %s, %s, %s) RETURNING id',
+            [Skill.Category.INFRA, '레거시', '존재하지-않는-레거시-슬러그', 5],
+        )
+        legacy_id = cursor.fetchone()[0]
+
+    class OrderOnlyForm(forms.ModelForm):
+        class Meta:
+            model = Skill
+            fields = ['order']
+
+    instance = Skill.objects.get(pk=legacy_id)
+    form = OrderOnlyForm(data={'order': 9}, instance=instance)
+
+    assert form.is_valid() is True
+
+    form.save()
+
+    instance.refresh_from_db()
+    assert instance.order == 9
+    assert instance.icon_slug == '존재하지-않는-레거시-슬러그'

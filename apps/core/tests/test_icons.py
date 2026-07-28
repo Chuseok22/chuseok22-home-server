@@ -46,3 +46,17 @@ def test_is_valid_icon_slug는_존재하는_슬러그면_true다() -> None:
 
 def test_is_valid_icon_slug는_존재하지_않는_슬러그면_false다() -> None:
     assert is_valid_icon_slug('zzz-nonexistent-brand-slug') is False
+
+
+def test_other_brands_디렉터리의_모든_svg는_단일_path_형식을_따른다() -> None:
+    # other-brands/README.md가 문서화한 형식 규칙(단일 <path>)을 실제 파일에 대해 검증한다.
+    # 현재 디렉터리가 README.md 외에는 비어 있어 이 테스트는 오늘은 자명하게 통과하지만,
+    # 향후 형식에 맞지 않는 파일이 추가되는 즉시(브랜드 아이콘 렌더링 시점이 아니라) 잡아낸다.
+    import re
+
+    path_tag_re = re.compile(r'<path\b')
+
+    for svg_file in _OTHER_BRANDS_DIR.glob('*.svg'):
+        content = svg_file.read_text(encoding='utf-8')
+        path_count = len(path_tag_re.findall(content))
+        assert path_count == 1, f'{svg_file.name}: expected exactly one <path>, found {path_count}'

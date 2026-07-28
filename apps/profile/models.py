@@ -65,10 +65,15 @@ class Skill(models.Model):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # save()에서 icon_slug가 "실제로 바뀌었는지"를 판단하기 위한 스냅샷. 이 값이 없으면
+        # clean()에서 icon_slug가 "실제로 바뀌었는지"를 판단하기 위한 스냅샷. 이 값이 없으면
         # icon_slug를 건드리지 않는 수정(예: Admin list_editable의 order 일괄 편집)까지
         # full_clean()이 검증해버려서, 검증 도입 이전에 저장된 레거시 데이터가 있는 레코드는
-        # 그 어떤 필드도 수정할 수 없게 막혀버린다.
+        # 그 어떤 필드도 수정할 수 없게 막혀버린다. 이 게이트는 save()가 아니라 clean()에
+        # 둔다 — Django Admin의 list_editable ModelForm은 save()를 거치지 않고
+        # BaseModelForm._post_clean()에서 instance.full_clean()을 직접 호출하므로,
+        # save()에서만 게이트하면 그 경로에서는 여전히 clean()이 무조건 실행돼 레거시
+        # 잘못된 슬러그에 대해 ValidationError가 발생하고, order만 있는 폼에는 icon_slug
+        # 필드가 없어 ValueError로 이어진다.
         self._original_icon_slug = self.icon_slug
 
     def __str__(self) -> str:
@@ -76,7 +81,8 @@ class Skill(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        if self.icon_slug and not is_valid_icon_slug(self.icon_slug):
+        icon_slug_changed = self.pk is None or self.icon_slug != self._original_icon_slug
+        if icon_slug_changed and self.icon_slug and not is_valid_icon_slug(self.icon_slug):
             raise ValidationError({
                 'icon_slug': (
                     '벤더링된 아이콘 세트(Simple Icons 또는 other-brands)에 없는 슬러그입니다. '
@@ -92,8 +98,7 @@ class Skill(models.Model):
         # (2) QuerySet.update()/bulk_update()는 save()를 거치지 않아 이 검증이 아예 걸리지 않는다
         # — 이 프로젝트는 Skill에 대해 이 두 메서드를 쓰지 않는다. 둘 다 쓰게 되면 이 시점에
         # 검증 전략을 다시 검토해야 한다.
-        if self.pk is None or self.icon_slug != self._original_icon_slug:
-            self.full_clean()
+        self.full_clean()
         super().save(*args, **kwargs)
         self._original_icon_slug = self.icon_slug
 
