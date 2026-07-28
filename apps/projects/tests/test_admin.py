@@ -115,8 +115,11 @@ def test_태그와_하이라이트가_빈값이어도_저장된다(admin_client:
         'role': '',
         'highlights': '',
         'github_href': '',
-        'demo_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
         'title_href': '',
+        'extra_links': '',
         '_save': 'Save',
     })
 
@@ -143,8 +146,11 @@ def test_tags를_줄바꿈으로_입력하면_리스트로_저장된다(admin_cl
         'role': '',
         'highlights': '',
         'github_href': '',
-        'demo_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
         'title_href': '',
+        'extra_links': '',
         '_save': 'Save',
     })
 
@@ -170,8 +176,11 @@ def test_highlights에_불릿_기호를_붙여도_제거되어_저장된다(admi
         'role': '',
         'highlights': '• 항목1\n• 항목2',
         'github_href': '',
-        'demo_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
         'title_href': '',
+        'extra_links': '',
         '_save': 'Save',
     })
 
@@ -196,3 +205,69 @@ def test_기존_저장된_tags가_수정_화면에_줄바꿈_텍스트로_표시
 
     assert response.status_code == 200
     assert 'Java\nSpring Boot' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_ios_android_web_site_href와_extra_links가_저장된다(admin_client: Client) -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    url = reverse('admin:projects_project_add')
+    response = admin_client.post(url, {
+        'category': category.pk,
+        'title': '링크 통합 테스트',
+        'description': '설명',
+        'tags': '',
+        'status': status.pk,
+        'order': 0,
+        'period': '',
+        'team_size': '',
+        'role': '',
+        'highlights': '',
+        'github_href': 'https://github.com/example/repo',
+        'web_site_href': 'https://example.com',
+        'ios_href': 'https://apps.apple.com/app/id123456789',
+        'android_href': 'https://play.google.com/store/apps/details?id=com.example.app',
+        'title_href': '',
+        'extra_links': 'Notion|https://notion.so/example\n발표자료|https://speakerdeck.com/example',
+        '_save': 'Save',
+    })
+
+    assert response.status_code == 302
+    project = Project.objects.get(title='링크 통합 테스트')
+    assert project.web_site_href == 'https://example.com'
+    assert project.ios_href == 'https://apps.apple.com/app/id123456789'
+    assert project.android_href == 'https://play.google.com/store/apps/details?id=com.example.app'
+    assert project.extra_links == [
+        {'label': 'Notion', 'url': 'https://notion.so/example'},
+        {'label': '발표자료', 'url': 'https://speakerdeck.com/example'},
+    ]
+
+
+@pytest.mark.django_db
+def test_extra_links에_형식이_잘못된_줄이_있으면_저장되지_않는다(admin_client: Client) -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    url = reverse('admin:projects_project_add')
+    response = admin_client.post(url, {
+        'category': category.pk,
+        'title': '잘못된 링크 테스트',
+        'description': '설명',
+        'tags': '',
+        'status': status.pk,
+        'order': 0,
+        'period': '',
+        'team_size': '',
+        'role': '',
+        'highlights': '',
+        'github_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
+        'title_href': '',
+        'extra_links': 'Notion https://notion.so/example',
+        '_save': 'Save',
+    })
+
+    assert response.status_code == 200
+    assert '형식이 아닙니다' in response.content.decode()
+    assert not Project.objects.filter(title='잘못된 링크 테스트').exists()

@@ -111,6 +111,10 @@ class ProjectAdminForm(forms.ModelForm):
         required=False,
         help_text='한 줄에 항목 하나씩 입력하세요. 앞의 불릿 기호(•, -, *)는 자동으로 제거됩니다.',
     )
+    extra_links = ExtraLinksField(
+        required=False,
+        help_text='한 줄에 "라벨|URL" 형식으로 입력하세요. 예: Notion|https://notion.so/xxx',
+    )
 
     class Meta:
         model = Project
@@ -135,6 +139,6 @@ class ProjectAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('링크', {
-            'fields': ('github_href', 'demo_href', 'title_href'),
+            'fields': ('github_href', 'web_site_href', 'ios_href', 'android_href', 'title_href', 'extra_links'),
         }),
     )
