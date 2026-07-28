@@ -1800,3 +1800,42 @@ class TestFormatNoticeScheduleText:
             cron_day_of_week='*',
         )
         assert _format_notice_schedule_text(config) == '매일 08:00 자동 수집'
+
+
+@pytest.mark.django_db
+def test_lab_목록은_도구_아이콘이_있으면_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.site.models import Tool
+
+    Tool.objects.create(
+        title='아이콘 도구', slug='icon-tool-present', description='설명',
+        icon='🧪', url_name='site:lab-library',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '<span class="text-xl" aria-hidden="true">🧪</span>' in body
+
+
+@pytest.mark.django_db
+def test_lab_목록은_도구_아이콘이_없으면_아이콘_영역을_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.site.models import Tool
+
+    Tool.objects.create(
+        title='아이콘 없는 도구', slug='icon-tool-absent', description='설명',
+        icon='', url_name='site:lab-library',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '아이콘 없는 도구' in body
+    assert '<span class="text-xl" aria-hidden="true"></span>' not in body
