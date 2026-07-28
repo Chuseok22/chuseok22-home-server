@@ -38,8 +38,11 @@ class Project(models.Model):
     role = models.CharField(max_length=100, blank=True)
     highlights = models.JSONField(default=list, blank=True)
     github_href = models.URLField(blank=True)
-    demo_href = models.URLField(blank=True)
+    web_site_href = models.URLField(blank=True)
+    ios_href = models.URLField(blank=True)
+    android_href = models.URLField(blank=True)
     title_href = models.URLField(blank=True)
+    extra_links = models.JSONField(default=list, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

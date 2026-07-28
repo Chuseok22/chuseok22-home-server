@@ -3,6 +3,7 @@ from typing import Any
 
 from django import forms
 from django.contrib import admin
+from django.core.validators import URLValidator
 
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
 
@@ -46,6 +47,44 @@ class NewlineSeparatedListField(forms.Field):
         return items
 
 
+class ExtraLinksField(forms.Field):
+    """"라벨|URL" 형식의 줄바꿈 텍스트를 [{"label": str, "url": str}, ...] 리스트로 변환하는 폼 필드.
+
+    GitHub/iOS/Android/웹사이트처럼 고정 아이콘이 있는 링크와 달리, 노션·발표자료 등 라벨이
+    프로젝트마다 제각각인 부가 링크를 라벨과 함께 임의 개수 저장하기 위해 사용한다.
+    """
+
+    widget = forms.Textarea
+
+    def prepare_value(self, value: Any) -> Any:
+        if isinstance(value, list):
+            return '\n'.join(f'{item["label"]}|{item["url"]}' for item in value)
+        return value
+
+    def to_python(self, value: str | None) -> list[dict[str, str]]:
+        if not value:
+            return []
+
+        url_validator = URLValidator()
+        links: list[dict[str, str]] = []
+        for line_number, line in enumerate(value.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if '|' not in stripped:
+                raise forms.ValidationError(f'{line_number}번째 줄: "라벨|URL" 형식이 아닙니다.')
+            label, url = stripped.split('|', 1)
+            label, url = label.strip(), url.strip()
+            if not label:
+                raise forms.ValidationError(f'{line_number}번째 줄: 라벨이 비어 있습니다.')
+            try:
+                url_validator(url)
+            except forms.ValidationError as err:
+                raise forms.ValidationError(f'{line_number}번째 줄: 유효한 URL이 아닙니다.') from err
+            links.append({'label': label, 'url': url})
+        return links
+
+
 @admin.register(ProjectCategory)
 class ProjectCategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'order')
@@ -74,6 +113,10 @@ class ProjectAdminForm(forms.ModelForm):
         required=False,
         help_text='한 줄에 항목 하나씩 입력하세요. 앞의 불릿 기호(•, -, *)는 자동으로 제거됩니다.',
     )
+    extra_links = ExtraLinksField(
+        required=False,
+        help_text='한 줄에 "라벨|URL" 형식으로 입력하세요. 예: Notion|https://notion.so/xxx',
+    )
 
     class Meta:
         model = Project
@@ -98,6 +141,6 @@ class ProjectAdmin(admin.ModelAdmin):
             'classes': ('collapse',),
         }),
         ('링크', {
-            'fields': ('github_href', 'demo_href', 'title_href'),
+            'fields': ('github_href', 'web_site_href', 'ios_href', 'android_href', 'title_href', 'extra_links'),
         }),
     )

@@ -522,7 +522,10 @@ def test_project_card는_기간_역할_인원_링크를_모두_노출한다() ->
     Project.objects.create(
         category=side, title='상세 정보 전체 노출', description='설명', status=status,
         period='2026.01 ~ 2026.03', role='백엔드', team_size=3,
-        github_href='https://github.com/example/repo', demo_href='https://example.com/demo',
+        github_href='https://github.com/example/repo',
+        web_site_href='https://example.com',
+        ios_href='https://apps.apple.com/app/id123456789',
+        android_href='https://play.google.com/store/apps/details?id=com.example.app',
     )
 
     client = Client()
@@ -533,8 +536,13 @@ def test_project_card는_기간_역할_인원_링크를_모두_노출한다() ->
     assert '2026.01 ~ 2026.03' in body
     assert '백엔드 · 3명' in body
     assert 'https://github.com/example/repo' in body
-    assert 'Demo' in body
-    assert 'https://example.com/demo' in body
+    assert 'aria-label="GitHub 저장소"' in body
+    assert 'https://example.com' in body
+    assert 'aria-label="웹사이트"' in body
+    assert 'https://apps.apple.com/app/id123456789' in body
+    assert 'aria-label="App Store"' in body
+    assert 'https://play.google.com/store/apps/details?id=com.example.app' in body
+    assert 'aria-label="Google Play"' in body
 
 
 @pytest.mark.django_db
@@ -555,7 +563,75 @@ def test_project_card는_상세_정보가_모두_비면_푸터를_렌더링하�
 
     assert response.status_code == 200
     assert 'divider' not in body
-    assert 'Demo' not in body
+    assert 'aria-label="웹사이트"' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_ios_href가_없으면_App_Store_아이콘을_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='iOS 링크 없음', description='설명', status=status,
+        android_href='https://play.google.com/store/apps/details?id=com.example.app',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'aria-label="Google Play"' in body
+    assert 'aria-label="App Store"' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_android_href가_없으면_Google_Play_아이콘을_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='Android 링크 없음', description='설명', status=status,
+        ios_href='https://apps.apple.com/app/id123456789',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'aria-label="App Store"' in body
+    assert 'aria-label="Google Play"' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_extra_links를_모두_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='기타 링크 노출', description='설명', status=status,
+        extra_links=[
+            {'label': 'Notion', 'url': 'https://notion.so/example'},
+            {'label': '발표자료', 'url': 'https://speakerdeck.com/example'},
+        ],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '<a href="https://notion.so/example"' in body
+    assert 'Notion' in body
+    assert '<a href="https://speakerdeck.com/example"' in body
+    assert '발표자료' in body
 
 
 @pytest.mark.django_db
