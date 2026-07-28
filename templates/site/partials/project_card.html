@@ -27,7 +27,7 @@
     </ul>
     {% endif %}
 
-    {% if project.period or project.role or project.team_size or project.github_href or project.demo_href %}
+    {% if project.period or project.role or project.team_size or project.github_href or project.web_site_href or project.ios_href or project.android_href or project.extra_links %}
     <div class="divider my-2"></div>
     <div class="flex items-center justify-between gap-2 flex-wrap text-sm opacity-70">
       <div class="flex gap-3 flex-wrap">
@@ -36,15 +36,30 @@
         <span>{{ project.role }}{% if project.role and project.team_size %} · {% endif %}{% if project.team_size %}{{ project.team_size }}명{% endif %}</span>
         {% endif %}
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center flex-wrap">
         {% if project.github_href %}
-        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener" aria-label="GitHub 저장소">
+        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub 저장소">
           {% include 'site/partials/icons/github.svg.html' %}
         </a>
         {% endif %}
-        {% if project.demo_href %}
-        <a href="{{ project.demo_href }}" class="link link-hover" target="_blank" rel="noopener">Demo</a>
+        {% if project.ios_href %}
+        <a href="{{ project.ios_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="App Store">
+          {% include 'site/partials/icons/apple.svg.html' %}
+        </a>
         {% endif %}
+        {% if project.android_href %}
+        <a href="{{ project.android_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="Google Play">
+          {% include 'site/partials/icons/google-play.svg.html' %}
+        </a>
+        {% endif %}
+        {% if project.web_site_href %}
+        <a href="{{ project.web_site_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="웹사이트">
+          {% include 'site/partials/icons/globe.svg.html' %}
+        </a>
+        {% endif %}
+        {% for link in project.extra_links %}
+        <a href="{{ link.url }}" class="link link-hover" target="_blank" rel="noopener">{{ link.label }}</a>
+        {% endfor %}
       </div>
     </div>
     {% endif %}
