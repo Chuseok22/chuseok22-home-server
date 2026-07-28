@@ -1,6 +1,6 @@
 {% extends "site/base.html" %}
 {% load humanize %}
-{% load profile_tags %}
+{% load icon_tags %}
 
 {% block body_class %} home-page{% endblock %}
 
@@ -23,7 +23,7 @@
           {% if profile.email %}<a href="mailto:{{ profile.email }}" class="link link-hover">✉️ Email</a>{% endif %}
           {% if profile.github_url %}
           <a href="{{ profile.github_url }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
-            {% include 'site/partials/icons/github.svg.html' %}
+            {% brand_icon "github" %}
             GitHub
           </a>
           {% endif %}
@@ -51,7 +51,7 @@
           <div class="flex gap-2 flex-wrap">
             {% for skill in skills %}
             <span class="tag-skill">
-              {% if skill.icon_slug %}<img src="{{ skill.icon_slug|skill_icon_url }}" alt="" class="w-4 h-4">{% endif %}
+              {% if skill.icon_slug %}{% brand_icon skill.icon_slug css_class="w-4 h-4" %}{% endif %}
               {{ skill.name }}
             </span>
             {% endfor %}

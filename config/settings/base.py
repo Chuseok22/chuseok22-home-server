@@ -27,6 +27,7 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
     'corsheaders',
     'django_apscheduler',
+    'heroicons',
     'tailwind',
     'allauth',
     'allauth.account',
