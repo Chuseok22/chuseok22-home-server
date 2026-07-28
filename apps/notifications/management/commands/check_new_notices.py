@@ -12,13 +12,13 @@ from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
 from apps.notifications.models import Notice, NoticeSource
-from apps.notifications.services.telegram import TelegramService
+from apps.notifications.services.discord import DiscordService
 
 logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = '공지사항을 크롤링하고 새 글이 있으면 텔레그램 알림을 발송한다'
+    help = '공지사항을 크롤링하고 새 글이 있으면 Discord 알림을 발송한다'
 
     def handle(self, *args, **options) -> None:
         sources = NoticeSource.objects.filter(is_active=True)
@@ -26,17 +26,17 @@ class Command(BaseCommand):
             self.stdout.write('활성화된 공지 출처가 없습니다.')
             return
 
-        telegram = TelegramService()
+        discord = DiscordService()
 
         for source in sources:
             self.stdout.write(f'[{source.name}] 크롤링 시작')
-            self._process_source(source, telegram)
+            self._process_source(source, discord)
 
-    def _process_source(self, source: NoticeSource, telegram: TelegramService) -> None:
-        chat_id = source.telegram_chat_id.strip()
-        if not chat_id:
-            logger.warning('[%s] telegram_chat_id 미설정 — 알림 발송 건너뜀', source.name)
-            self.stderr.write(f'[{source.name}] telegram_chat_id 미설정, 알림 건너뜀')
+    def _process_source(self, source: NoticeSource, discord: DiscordService) -> None:
+        webhook_url = source.discord_webhook_url.strip()
+        if not webhook_url:
+            logger.warning('[%s] discord_webhook_url 미설정 — 알림 발송 건너뜀', source.name)
+            self.stderr.write(f'[{source.name}] discord_webhook_url 미설정, 알림 건너뜀')
             return
 
         try:
@@ -67,7 +67,6 @@ class Command(BaseCommand):
             if not created and notice.is_notified:
                 continue
 
-            # 상세 크롤링 지원 시 신규 항목만 추가 요청 — 실패 시 원본 아이템으로 계속 진행
             try:
                 detail = crawler.crawl_detail(item.url)
             except Exception as e:
@@ -76,14 +75,14 @@ class Command(BaseCommand):
             final_item = detail if detail is not None else item
 
             new_count += 1
-            success = telegram.send_notice(chat_id, source, final_item)
+            success = discord.send_notice(webhook_url, source, final_item)
             if success:
                 notice.is_notified = True
                 notice.notified_at = timezone.now()
                 notice.save(update_fields=['is_notified', 'notified_at'])
                 self.stdout.write(f'  알림 발송 완료: {notice.title}')
-                # 텔레그램 동일 채팅방 분당 20개 제한 준수
-                time.sleep(1)
+                # Discord 웹훅은 채널당 분당 약 30회 제한 — 최소 2초 간격을 둔다
+                time.sleep(2)
             else:
                 self.stderr.write(f'  알림 발송 실패: {notice.title}')
 

@@ -21,4 +21,40 @@
   </article>
   {% endfor %}
 </div>
+
+{% if notice_sources %}
+<h2 class="text-xl font-bold mt-10 mb-4">자동 알리미</h2>
+{% if discord_invite_url %}
+<a href="{{ discord_invite_url }}" target="_blank" rel="noopener"
+   aria-label="Discord 서버 참여 신청 (새 탭)" class="btn btn-primary mb-4">
+  Discord 참여 신청
+</a>
+{% endif %}
+<div class="grid gap-4">
+  {% for source in notice_sources %}
+  <article class="card bg-base-200">
+    <div class="card-body">
+      <h3 class="card-title">
+        {{ source.name }}
+        {% if source.is_active %}
+        <span class="badge badge-success">운영 중</span>
+        {% else %}
+        <span class="badge badge-ghost">중단됨</span>
+        {% endif %}
+      </h3>
+      {% if source.description %}
+      <p>{{ source.description }}</p>
+      {% endif %}
+      {% if source.is_active %}
+      <p class="text-sm opacity-70">{{ notice_schedule_text }}</p>
+      {% endif %}
+      <a href="{{ source.url }}" target="_blank" rel="noopener"
+         aria-label="{{ source.name }} 출처 사이트 바로가기 (새 탭)" class="link link-hover text-sm">
+        출처 사이트 바로가기
+      </a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}

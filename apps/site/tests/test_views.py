@@ -1528,3 +1528,199 @@ def test_home_은_아바타를_112px_둥근_정사각형으로_렌더링한다(s
     body = response.content.decode()
 
     assert 'w-28 h-28 rounded-xl object-cover' in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_알리미_카드와_discord_cta를_렌더링한다() -> None:
+    from django.test import Client, override_settings
+
+    from apps.core.models import ScheduledJobConfig
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='세종대 학사공지',
+        url='https://www.sejong.ac.kr/kor/intro/notice3.do',
+        crawler_type='sejong',
+        description='세종대학교 학사공지를 자동으로 수집해 알려드립니다.',
+        discord_webhook_url='https://discord.com/api/webhooks/1/a',
+        is_active=True,
+    )
+    NoticeSource.objects.create(
+        name='중단된 소스',
+        url='https://example.com',
+        crawler_type='dacon',
+        description='',
+        # 한때 Discord에 연동됐다가 지금은 비활성화된 소스를 나타낸다(웹훅 없는 소스는
+        # lab_index 쿼리셋에서 애초에 제외되므로, "중단됨" 배지를 검증하려면 웹훅이 있어야 한다).
+        discord_webhook_url='https://discord.com/api/webhooks/2/inactive',
+        is_active=False,
+    )
+    ScheduledJobConfig.objects.create(
+        job_id='check_new_notices',
+        is_enabled=True,
+        cron_day_of_week='*',
+        schedule_mode='fixed_times',
+        fixed_hours='8',
+        fixed_minute=0,
+    )
+
+    with override_settings(DISCORD_INVITE_URL='https://discord.gg/test-invite'):
+        client = Client()
+        response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '세종대 학사공지' in body
+    assert '세종대학교 학사공지를 자동으로 수집해 알려드립니다.' in body
+    assert '중단된 소스' in body
+    assert '운영 중' in body
+    assert '중단됨' in body
+    assert '08:00' in body
+    assert 'https://discord.gg/test-invite' in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_discord_invite_url_미설정시_cta만_숨긴다() -> None:
+    from django.test import Client, override_settings
+
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='세종대 학사공지',
+        url='https://www.sejong.ac.kr/kor/intro/notice3.do',
+        crawler_type='sejong',
+        description='',
+        # lab_index가 discord_webhook_url이 설정된 소스만 노출하므로, 이 소스가
+        # 본문에 나타나려면 웹훅이 있어야 한다(CTA 숨김 여부와는 별개 검증 대상).
+        discord_webhook_url='https://discord.com/api/webhooks/3/active',
+        is_active=True,
+    )
+
+    with override_settings(DISCORD_INVITE_URL=''):
+        client = Client()
+        response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '세종대 학사공지' in body
+    assert 'Discord 참여 신청' not in body
+
+
+@pytest.mark.django_db
+def test_lab_index는_discord_webhook_미설정_소스를_노출하지_않는다() -> None:
+    """discord_webhook_url이 빈 소스는 is_active=True여도 check_new_notices가 발송을
+    건너뛰므로 실제로는 운영 중이 아니다. lab 페이지가 이런 소스를 "운영 중"으로 잘못
+    노출하지 않는지 검증한다(Finding 1 회귀 테스트)."""
+    from django.test import Client
+
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='웹훅_미설정_소스',
+        url='https://example.com',
+        crawler_type='dacon',
+        description='',
+        discord_webhook_url='',
+        is_active=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '웹훅_미설정_소스' not in body
+
+
+class TestFormatNoticeScheduleText:
+    """apps.site.views._format_notice_schedule_text의 분기별 동작을 검증한다."""
+
+    def test_config_none이면_미설정_문구(self) -> None:
+        from apps.site.views import _format_notice_schedule_text
+
+        assert _format_notice_schedule_text(None) == '자동 수집 일정 미설정'
+
+    def test_interval_모드(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='interval', interval_hours=3, interval_minute=0,
+            cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '매일 3시간마다 자동 수집'
+
+    def test_interval_24시간은_매일_자동_수집(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='interval', interval_hours=24, interval_minute=0,
+            cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '매일 자동 수집'
+
+    def test_interval_hours_none이어도_예외없이_기본_문구(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='interval', interval_hours=None, interval_minute=0,
+            cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '매일 자동 수집'
+
+    def test_특정_요일_여러개(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='fixed_times', fixed_hours='9', fixed_minute=30,
+            cron_day_of_week='mon,wed',
+        )
+        assert _format_notice_schedule_text(config) == '매주 월요일, 수요일 09:30 자동 수집'
+
+    def test_알수없는_요일_토큰이어도_예외없이_토큰_그대로_사용(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='fixed_times', fixed_hours='9', fixed_minute=0,
+            cron_day_of_week='invalid',
+        )
+        assert _format_notice_schedule_text(config) == '매주 invalid 09:00 자동 수집'
+
+    def test_is_enabled_false면_중단_문구(self) -> None:
+        """잡이 꺼져 있으면(운영자가 자동화 제어 화면에서 비활성화) 실제로 수집이 멈춘 상태이므로
+        공개 페이지에 여전히 "매일 08:00 자동 수집"처럼 동작 중인 것처럼 보여주면 안 된다."""
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', is_enabled=False, schedule_mode='fixed_times', fixed_hours='8',
+            fixed_minute=0, cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '자동 수집 일시 중단'
+
+    def test_fixed_hours에_숫자가_아닌_토큰이_있어도_예외없이_무시(self) -> None:
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='fixed_times', fixed_hours='8,abc', fixed_minute=0,
+            cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '매일 08:00 자동 수집'
+
+    def test_fixed_hours에_isdigit은_true지만_int_변환이_실패하는_문자가_있어도_예외없이_무시(self) -> None:
+        """'²'(U+00B2)는 str.isdigit()이 True를 반환하지만 int()는 ValueError를 던진다 —
+        isdecimal()을 써야 하는 이유를 직접 검증한다(이 프로젝트가 apps/site/views.py의
+        projects 뷰에서 이미 겪은 것과 동일한 함정)."""
+        from apps.core.models import ScheduledJobConfig
+        from apps.site.views import _format_notice_schedule_text
+
+        config = ScheduledJobConfig(
+            job_id='x', schedule_mode='fixed_times', fixed_hours='8,²', fixed_minute=0,
+            cron_day_of_week='*',
+        )
+        assert _format_notice_schedule_text(config) == '매일 08:00 자동 수집'

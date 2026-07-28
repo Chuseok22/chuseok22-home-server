@@ -1,5 +1,6 @@
 from itertools import groupby
 
+from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import F
 from django.http import HttpRequest, HttpResponse
@@ -13,7 +14,9 @@ from apps.blog.services.category import (
     get_category_sidebar_items,
 )
 from apps.blog.services.markdown_renderer import render_markdown
+from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.engagement.models import Comment, Like
+from apps.notifications.models import NoticeSource
 from apps.profile.models import (
     Activity,
     Career,
@@ -44,6 +47,9 @@ from apps.site.forms import (
     StudentSearchForm,
 )
 from apps.site.models import Tool
+
+# apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
+_WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
 
 
 def home(request: HttpRequest) -> HttpResponse:
@@ -147,11 +153,63 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     )
 
 
+def _format_notice_schedule_text(config: ScheduledJobConfig | None) -> str:
+    """ScheduledJobConfig 설정값을 lab 페이지에 표시할 한국어 문구로 변환한다.
+
+    공개 페이지(비로그인 접근 가능)에서 호출되므로, 예상 밖의 설정값(cron_day_of_week 오타,
+    interval_hours 미설정, fixed_hours에 숫자가 아닌 토큰 등)이 있어도 예외를 던지지 않고
+    안전한 기본 문구로 대체한다. is_enabled가 False면 실제로는 수집이 멈춘 상태이므로
+    운영 중인 것처럼 보이지 않도록 별도 문구를 반환한다.
+    """
+    if config is None:
+        return '자동 수집 일정 미설정'
+    if not config.is_enabled:
+        return '자동 수집 일시 중단'
+
+    if config.cron_day_of_week == '*':
+        day_prefix = '매일'
+    else:
+        day_labels = [
+            _WEEKDAY_LABELS.get(token, token) for token in config.cron_day_of_week.split(',')
+        ]
+        day_prefix = '매주 ' + ', '.join(day_labels)
+
+    if config.schedule_mode == 'interval':
+        if config.interval_hours is None or config.interval_hours == 24:
+            return f'{day_prefix} 자동 수집'
+        return f'{day_prefix} {config.interval_hours}시간마다 자동 수집'
+
+    # clean()을 거치지 않는 경로(관리 커맨드, 데이터 마이그레이션 등)로 저장된 값이 섞여
+    # 있어도 int() 변환에서 예외가 나지 않도록 숫자 토큰만 사용한다. str.isdigit()은 '²' 같은
+    # 비-십진 유니코드 숫자에도 True를 반환해 int() 호출이 ValueError를 낼 수 있으므로(이미
+    # apps/site/views.py의 projects 뷰에서 겪은 문제) isdecimal()만 순수 10진 문자열에 True를
+    # 반환하는 이 메서드를 사용한다.
+    hours = [h for h in config.fixed_hours.split(',') if h.strip().isdecimal()]
+    if not hours:
+        return f'{day_prefix} 자동 수집'
+    times = ', '.join(f'{int(h):02d}:{config.fixed_minute:02d}' for h in hours)
+    return f'{day_prefix} {times} 자동 수집'
+
+
 def lab_index(request: HttpRequest) -> HttpResponse:
-    """Lab 유틸 목록. 소유자 전용 도구는 소유자에게만 링크를 노출한다."""
+    """Lab 유틸 목록. 소유자 전용 도구는 소유자에게만 링크를 노출한다.
+
+    자동 알리미 섹션은 discord_webhook_url이 설정된(즉 한 번이라도 Discord에 연동된)
+    NoticeSource만 노출한다(비활성 포함). 웹훅이 없는 소스는 check_new_notices가 발송
+    자체를 건너뛰므로, 애초에 노출하지 않아야 "운영 중"처럼 보이는 오해를 막을 수 있다.
+    check_new_notices 잡의 ScheduledJobConfig를 조회해 수집 주기 문구를 함께 보여준다.
+    """
     is_owner = request.user.is_authenticated and request.user.is_staff
     tools = Tool.objects.all()
-    return render(request, 'site/lab_index.html', {'tools': tools, 'is_owner': is_owner})
+    notice_sources = NoticeSource.objects.exclude(discord_webhook_url='').order_by('id')
+    schedule_config = ScheduledJobConfig.objects.filter(job_id='check_new_notices').first()
+    return render(request, 'site/lab_index.html', {
+        'tools': tools,
+        'is_owner': is_owner,
+        'notice_sources': notice_sources,
+        'notice_schedule_text': _format_notice_schedule_text(schedule_config),
+        'discord_invite_url': settings.DISCORD_INVITE_URL,
+    })
 
 
 @owner_required
