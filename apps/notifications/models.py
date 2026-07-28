@@ -4,6 +4,7 @@ from django.db import models
 class NoticeSource(models.Model):
     """공지사항 크롤링 대상 사이트 정보"""
     name = models.CharField(max_length=100, verbose_name='사이트명')
+    icon = models.CharField(max_length=8, blank=True, default='', verbose_name='아이콘(이모지)')
     url = models.URLField(verbose_name='목록 URL')
     # 크롤러 타입 식별자 — 새 사이트 추가 시 crawlers/ 에 구현체 등록 후 사용
     crawler_type = models.CharField(max_length=50, verbose_name='크롤러 타입')

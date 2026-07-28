@@ -5,7 +5,7 @@ from .models import Notice, NoticeSource
 
 @admin.register(NoticeSource)
 class NoticeSourceAdmin(admin.ModelAdmin):
-    list_display = ('name', 'crawler_type', 'url', 'is_active', 'has_webhook', 'created_at')
+    list_display = ('name', 'icon', 'crawler_type', 'url', 'is_active', 'has_webhook', 'created_at')
     list_filter = ('is_active', 'crawler_type')
     search_fields = ('name',)
 
