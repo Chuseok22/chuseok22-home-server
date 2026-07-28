@@ -34,6 +34,17 @@ class TelegramService:
             response = requests.post(url, json=payload, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
             return True
+        except requests.HTTPError as e:
+            # HTTPError 메시지 자체에 봇 토큰이 포함된 URL이 그대로 들어간다(requests가
+            # 'for url: https://api.telegram.org/bot<TOKEN>/...' 형태로 채움)—
+            # 예외를 그대로 로깅하지 않고 상태 코드만 남긴다
+            status = e.response.status_code if e.response is not None else '?'
+            logger.error('텔레그램 메시지 발송 실패 (chat_id=%s, status=%s)', chat_id, status)
+            return False
         except requests.RequestException as e:
-            logger.error('텔레그램 메시지 발송 실패 (chat_id=%s): %s', chat_id, e)
+            # ConnectionError 등 다른 예외 메시지에도 토큰이 포함된 URL 경로가 섞일 수 있으므로
+            # (예: "Max retries exceeded with url: ...") 예외 원문 대신 타입명만 남긴다
+            logger.error(
+                '텔레그램 메시지 발송 실패 (chat_id=%s, error_type=%s)', chat_id, type(e).__name__,
+            )
             return False
