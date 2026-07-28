@@ -99,7 +99,7 @@ python manage.py migrate --settings=config.settings.development
 pytest
 ```
 
-> 테스트·검증 명령을 실제로 실행하는 주체에 대한 규칙은 `30-testing-and-verification.md`를 따른다(에이전트는 안내만 하고 직접 실행하지 않음).
+> 테스트·검증 명령을 실제로 실행하는 주체에 대한 규칙은 `30-testing-and-verification.md`를 따른다(개발 환경의 `pytest`/`check`/`migrate`는 에이전트가 직접 실행 가능, 운영 환경 명령·그 외 management command는 안내만).
 
 ## Project-specific constraints
 
