@@ -159,6 +159,8 @@ CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 # 텔레그램 알림 설정
 TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID', default='')
+# Discord 서버 참여 신청(Apply to Join) 링크 — lab 페이지 CTA에 사용
+DISCORD_INVITE_URL = env('DISCORD_INVITE_URL', default='')
 
 # 세종대 포털 인증 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')
