@@ -1,0 +1,73 @@
+<div
+  id="projects-content"
+  data-page-transition
+  class="flex flex-col md:flex-row gap-4 md:gap-8"
+>
+  <div class="flex md:hidden gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+    <a
+      href="{% url 'site:projects' %}"
+      hx-get="{% url 'site:projects' %}"
+      hx-target="#projects-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm shrink-0 {% if not selected_category_id %}btn-primary{% else %}btn-ghost{% endif %}"
+    >전체 ({{ total_project_count }})</a>
+    {% for item in sidebar_items %}
+    <a
+      href="{% url 'site:projects' %}?category={{ item.id }}"
+      hx-get="{% url 'site:projects' %}?category={{ item.id }}"
+      hx-target="#projects-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm shrink-0 {% if selected_category_id == item.id %}btn-primary{% else %}btn-ghost{% endif %}"
+    >{{ item.name }} ({{ item.project_count }})</a>
+    {% endfor %}
+  </div>
+  <aside class="hidden md:block w-48 shrink-0">
+    <ul class="menu menu-sm p-0">
+      <li>
+        <a
+          href="{% url 'site:projects' %}"
+          hx-get="{% url 'site:projects' %}"
+          hx-target="#projects-content"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          class="{% if not selected_category_id %}font-bold bg-base-200{% endif %}"
+        >전체 ({{ total_project_count }})</a>
+      </li>
+      {% for item in sidebar_items %}
+      <li>
+        <a
+          href="{% url 'site:projects' %}?category={{ item.id }}"
+          hx-get="{% url 'site:projects' %}?category={{ item.id }}"
+          hx-target="#projects-content"
+          hx-swap="outerHTML"
+          hx-push-url="true"
+          class="{% if selected_category_id == item.id %}font-bold bg-base-200{% endif %}"
+        >{{ item.name }} ({{ item.project_count }})</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <div class="flex-1">
+    <div class="grid gap-4">
+      {% if selected_category_id %}
+        {% for project in projects %}
+          {% include 'site/partials/project_card.html' %}
+        {% empty %}
+          <p class="opacity-60">등록된 프로젝트가 없습니다.</p>
+        {% endfor %}
+      {% else %}
+        {% regroup projects by category as category_list %}
+        {% for group in category_list %}
+          <h2 class="text-lg font-semibold{% if not forloop.first %} mt-4{% endif %}">{{ group.grouper.name }}</h2>
+          {% for project in group.list %}
+            {% include 'site/partials/project_card.html' %}
+          {% endfor %}
+        {% empty %}
+          <p class="opacity-60">등록된 프로젝트가 없습니다.</p>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
+</div>
