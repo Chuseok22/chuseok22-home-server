@@ -75,6 +75,8 @@ class ExtraLinksField(forms.Field):
                 raise forms.ValidationError(f'{line_number}번째 줄: "라벨|URL" 형식이 아닙니다.')
             label, url = stripped.split('|', 1)
             label, url = label.strip(), url.strip()
+            if not label:
+                raise forms.ValidationError(f'{line_number}번째 줄: 라벨이 비어 있습니다.')
             try:
                 url_validator(url)
             except forms.ValidationError:

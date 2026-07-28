@@ -82,6 +82,12 @@ def test_ExtraLinksField_URL_형식이_잘못되면_ValidationError를_발생시
         field.clean('Notion|not-a-valid-url')
 
 
+def test_ExtraLinksField_라벨이_비어있으면_ValidationError를_발생시킨다() -> None:
+    field = ExtraLinksField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('|https://notion.so/example')
+
+
 def test_ExtraLinksField_저장된_리스트를_라벨_URL_텍스트로_되돌린다() -> None:
     field = ExtraLinksField(required=False)
     assert field.prepare_value([{'label': 'Notion', 'url': 'https://notion.so/example'}]) == (
