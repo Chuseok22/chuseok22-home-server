@@ -335,7 +335,7 @@ def chat(request: HttpRequest) -> JsonResponse:
 
     try:
         payload = json.loads(request.body)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
 
     if not isinstance(payload, dict):

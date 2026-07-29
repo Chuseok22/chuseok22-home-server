@@ -57,6 +57,20 @@ def test_잘못된_JSON은_400을_반환한다() -> None:
 
 
 @pytest.mark.django_db
+def test_UTF8이_아닌_바이트_바디는_400을_반환한다() -> None:
+    client = Client()
+
+    # json.loads는 내부적으로 bytes를 detect_encoding()으로 디코딩하는데, 유효하지 않은
+    # UTF-8 바이트(예: 0x80 단독)는 json.JSONDecodeError가 아닌 UnicodeDecodeError를
+    # 던진다 — 공개 엔드포인트이므로 500이 아닌 400으로 처리되어야 한다.
+    response = client.post(
+        reverse('site:chat'), data=b'\x80\x81\x82', content_type='application/json',
+    )
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
 def test_JSON이_객체가_아니면_400을_반환한다() -> None:
     client = Client()
 
