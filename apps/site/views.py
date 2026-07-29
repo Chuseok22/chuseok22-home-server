@@ -351,6 +351,9 @@ def chat(request: HttpRequest) -> JsonResponse:
     history = payload.get('history') if payload.get('history') is not None else []
     if not _is_valid_chat_history(history):
         return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+    # role/content 외 임의의 추가 키(예: images)가 그대로 업스트림 SUH-AIder API로 전달되지
+    # 않도록, 검증을 통과한 항목이라도 허용된 두 필드만 남기고 재구성한다.
+    history = [{'role': item['role'], 'content': item['content']} for item in history]
 
     try:
         reply = get_chat_reply(message, history)

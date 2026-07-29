@@ -143,6 +143,20 @@ def test_history_항목_개수가_20개를_초과하면_400을_반환한다() ->
 
 
 @pytest.mark.django_db
+def test_history_항목의_허용되지_않은_추가_키는_제거되고_role_content만_전달된다() -> None:
+    client = Client()
+
+    with patch('apps.site.views.get_chat_reply', return_value='응답') as mock_reply:
+        response = _post_chat_json(client, {
+            'message': '안녕',
+            'history': [{'role': 'user', 'content': 'hi', 'images': ['x']}],
+        })
+
+    assert response.status_code == 200
+    mock_reply.assert_called_once_with('안녕', [{'role': 'user', 'content': 'hi'}])
+
+
+@pytest.mark.django_db
 def test_history가_없으면_빈_리스트로_처리한다() -> None:
     client = Client()
 
