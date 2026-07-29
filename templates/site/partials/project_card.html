@@ -55,7 +55,7 @@
         {% endif %}
         {% if project.web_site_href %}
         <a href="{{ project.web_site_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="웹사이트">
-          {% include 'site/partials/icons/globe.svg.html' %}
+          <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/globe-alt.svg" alt="" class="w-4 h-4 shrink-0">
         </a>
         {% endif %}
         {% for link in project.extra_links %}
