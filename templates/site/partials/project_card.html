@@ -1,3 +1,4 @@
+{% load profile_tags %}
 <article class="card bg-base-200" x-data="{ open: false }">
   <div class="card-body">
     <div class="flex items-center justify-between gap-2">
@@ -39,22 +40,22 @@
       <div class="flex gap-2 items-center flex-wrap">
         {% if project.github_href %}
         <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub 저장소">
-          {% include 'site/partials/icons/github.svg.html' %}
+          <img src="{{ "github"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
         </a>
         {% endif %}
         {% if project.ios_href %}
         <a href="{{ project.ios_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="App Store">
-          {% include 'site/partials/icons/apple.svg.html' %}
+          <img src="{{ "apple"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
         </a>
         {% endif %}
         {% if project.android_href %}
         <a href="{{ project.android_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="Google Play">
-          {% include 'site/partials/icons/google-play.svg.html' %}
+          <img src="{{ "googleplay"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
         </a>
         {% endif %}
         {% if project.web_site_href %}
         <a href="{{ project.web_site_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="웹사이트">
-          {% include 'site/partials/icons/globe.svg.html' %}
+          <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/globe-alt.svg" alt="" class="w-4 h-4 shrink-0">
         </a>
         {% endif %}
         {% for link in project.extra_links %}

@@ -23,7 +23,7 @@
           {% if profile.email %}<a href="mailto:{{ profile.email }}" class="link link-hover">✉️ Email</a>{% endif %}
           {% if profile.github_url %}
           <a href="{{ profile.github_url }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
-            {% include 'site/partials/icons/github.svg.html' %}
+            <img src="{{ "github"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
             GitHub
           </a>
           {% endif %}
