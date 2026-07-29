@@ -194,3 +194,34 @@ def test_GET_요청은_허용되지_않는다() -> None:
     response = client.get(reverse('site:chat'))
 
     assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_CSRF_토큰_없이_POST하면_403을_반환한다() -> None:
+    # 기본 Client()는 CSRF 검증을 건너뛰므로, chat 뷰가 csrf_exempt가 아님을 실제로
+    # 검증하려면 enforce_csrf_checks=True인 Client가 필요하다.
+    client = Client(enforce_csrf_checks=True)
+
+    response = _post_chat_json(client, {'message': '안녕', 'history': []})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_CSRF_쿠키와_헤더가_일치하면_200을_반환한다() -> None:
+    client = Client(enforce_csrf_checks=True)
+    # site:home 페이지 응답에서 {{ csrf_token }}이 렌더링되면(base.html의 hx-headers 속성)
+    # Django가 csrftoken 쿠키를 내려준다. 그 값을 X-CSRFToken 헤더로 그대로 실어 보내면
+    # CSRF 검증을 통과해야 한다.
+    client.get(reverse('site:home'))
+    csrf_token = client.cookies['csrftoken'].value
+
+    with patch('apps.site.views.get_chat_reply', return_value='안녕하세요!'):
+        response = client.post(
+            reverse('site:chat'),
+            data=json.dumps({'message': '안녕', 'history': []}),
+            content_type='application/json',
+            HTTP_X_CSRFTOKEN=csrf_token,
+        )
+
+    assert response.status_code == 200

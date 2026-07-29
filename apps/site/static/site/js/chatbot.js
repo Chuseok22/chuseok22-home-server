@@ -28,7 +28,9 @@ function chatbotWidget() {
       const message = this.input.trim();
       if (!message || this.loading) return;
 
-      const history = this.messages.map((item) => ({ role: item.role, content: item.content }));
+      // 서버가 history 항목 수를 20개로 제한하므로(_CHAT_MAX_HISTORY_ITEMS), sessionStorage에
+      // 누적된 전체 messages를 그대로 보내면 대화가 길어질수록 400으로 거부된다. 최근 20개만 전송한다.
+      const history = this.messages.slice(-20).map((item) => ({ role: item.role, content: item.content }));
       this.messages.push({ role: 'user', content: message });
       this.input = '';
       this.loading = true;
@@ -68,7 +70,9 @@ function chatbotWidget() {
 }
 
 function getCsrfToken() {
-  // base.html의 hx-headers가 매 페이지 로드시 csrftoken 쿠키를 이미 설정해두므로 그대로 재사용한다.
+  // 페이지 응답 어딘가에서 {{ csrf_token }}이 렌더링되면(현재는 base.html의 hx-headers
+  // 속성이 그 용도) Django의 get_token() 호출로 csrftoken 쿠키가 설정된다. 이 함수는 그
+  // 쿠키를 읽어 재사용할 뿐이며, hx-headers 자체에 종속된 동작이 아니다.
   const match = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
   return match ? decodeURIComponent(match[2]) : '';
 }
