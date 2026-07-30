@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.functions import Lower
 
@@ -25,6 +26,45 @@ class RestaurantTag(models.Model):
     def save(self, *args: object, **kwargs: object) -> None:
         self.clean()
         super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Restaurant(models.Model):
+    """카카오 로컬 API 검색으로 등록하는 맛집. 좌표는 지도 마커 및 2단계 위치 검색에 사용한다."""
+
+    class MealTime(models.TextChoices):
+        BREAKFAST = 'breakfast', '아침'
+        LUNCH = 'lunch', '점심'
+        DINNER = 'dinner', '저녁'
+        ALL_DAY = 'all_day', '상시'
+
+    name = models.CharField(max_length=100, verbose_name='상호명')
+    address = models.CharField(max_length=255, blank=True, verbose_name='지번 주소')
+    road_address = models.CharField(max_length=255, blank=True, verbose_name='도로명 주소')
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name='위도')
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name='경도')
+    kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
+    category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
+    tags = models.ManyToManyField(RestaurantTag, blank=True, related_name='restaurants', verbose_name='태그')
+    meal_time = models.CharField(
+        max_length=20, choices=MealTime.choices, default=MealTime.ALL_DAY, verbose_name='식사 시간대',
+    )
+    personal_rating = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name='개인 평점',
+    )
+    personal_review = models.CharField(max_length=200, blank=True, verbose_name='한줄 평')
+    note = models.TextField(blank=True, verbose_name='비고')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'restaurants_restaurant'
+        ordering = ['-created_at']
+        verbose_name = '맛집'
+        verbose_name_plural = '맛집 목록'
 
     def __str__(self) -> str:
         return self.name
