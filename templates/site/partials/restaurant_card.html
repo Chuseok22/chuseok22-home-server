@@ -1,0 +1,15 @@
+<article class="card bg-base-200">
+  <div class="card-body">
+    <h2 class="card-title">
+      <a href="{% url 'site:restaurant-detail' restaurant.pk %}" class="link link-hover">{{ restaurant.name }}</a>
+    </h2>
+    <p class="text-sm opacity-70">{{ restaurant.road_address|default:restaurant.address }}</p>
+    <div class="flex gap-2 flex-wrap">
+      {% for tag in restaurant.tags.all %}
+      <span class="badge-tag">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% if restaurant.personal_rating %}<p class="text-sm">평점: {{ restaurant.personal_rating }}/5</p>{% endif %}
+    {% if restaurant.personal_review %}<p class="text-sm">"{{ restaurant.personal_review }}"</p>{% endif %}
+  </div>
+</article>

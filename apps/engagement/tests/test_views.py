@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -6,6 +8,7 @@ from django.urls import reverse
 
 from apps.blog.models import Post
 from apps.engagement.models import Comment, Like
+from apps.restaurants.models import Restaurant
 
 User = get_user_model()
 
@@ -177,3 +180,37 @@ def test_좋아요_버튼은_요청_중_비활성화_속성과_스피너를_포�
     assert 'hx-disabled-elt="this"' in body
     assert 'id="like-spinner"' in body
     assert 'loading-spinner' in body
+
+
+@pytest.mark.django_db
+def test_로그인_사용자는_맛집에_댓글을_작성할_수_있다() -> None:
+    user = User.objects.create_user(username='reader')
+    restaurant = Restaurant.objects.create(
+        name='몽탄', latitude=Decimal('37.540000'), longitude=Decimal('127.070000'),
+    )
+    content_type = ContentType.objects.get_for_model(Restaurant)
+
+    client = Client()
+    client.force_login(user)
+    url = reverse('engagement:comment-create', kwargs={'app_label': content_type.app_label, 'model': content_type.model, 'object_id': restaurant.pk})
+    response = client.post(url, {'body': '여기 진짜 맛있어요'})
+
+    assert response.status_code == 200
+    assert Comment.objects.filter(content_type=content_type, object_id=restaurant.pk, body='여기 진짜 맛있어요').exists()
+
+
+@pytest.mark.django_db
+def test_로그인_사용자는_맛집에_좋아요를_누를_수_있다() -> None:
+    user = User.objects.create_user(username='reader')
+    restaurant = Restaurant.objects.create(
+        name='몽탄', latitude=Decimal('37.540000'), longitude=Decimal('127.070000'),
+    )
+    content_type = ContentType.objects.get_for_model(Restaurant)
+
+    client = Client()
+    client.force_login(user)
+    url = reverse('engagement:like-toggle', kwargs={'app_label': content_type.app_label, 'model': content_type.model, 'object_id': restaurant.pk})
+    response = client.post(url)
+
+    assert response.status_code == 200
+    assert Like.objects.filter(content_type=content_type, object_id=restaurant.pk, user=user).exists()
