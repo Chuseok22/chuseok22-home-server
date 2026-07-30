@@ -3,8 +3,11 @@
 {% block title %}맛집 — 백지훈{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">맛집</h1>
-<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_api_key }}&autoload=false"></script>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">맛집</h1>
+  <a href="{% url 'site:restaurant-suggest' %}" class="btn btn-sm btn-outline">맛집 제보하기</a>
+</div>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_api_key }}&amp;autoload=false"></script>
 <div aria-live="polite">
   {% include "site/partials/restaurants_content.html" %}
 </div>

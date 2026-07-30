@@ -9,6 +9,7 @@
       <span class="badge-tag">{{ tag.name }}</span>
       {% endfor %}
     </div>
+    {% if restaurant.personal_rating %}<p class="text-sm">평점: {{ restaurant.personal_rating }}/5</p>{% endif %}
     {% if restaurant.personal_review %}<p class="text-sm">"{{ restaurant.personal_review }}"</p>{% endif %}
   </div>
 </article>

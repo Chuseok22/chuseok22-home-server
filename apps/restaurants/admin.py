@@ -53,7 +53,9 @@ class RestaurantAdmin(admin.ModelAdmin):
     def kakao_search_view(self, request: HttpRequest) -> JsonResponse:
         # admin_view()는 로그인·staff 여부만 검사하므로, Restaurant 변경 권한이 없는
         # staff 계정의 검색을 막으려면 모델 단위 권한을 별도로 확인해야 한다.
-        if not self.has_change_permission(request):
+        # 검색 위젯은 추가(add) 화면에도 노출되므로 change 권한만 검사하면 add 권한만
+        # 가진 staff 계정이 403을 받는다 — 두 권한 중 하나라도 있으면 허용한다.
+        if not (self.has_change_permission(request) or self.has_add_permission(request)):
             return JsonResponse({'success': False, 'error_message': '권한이 없습니다.'}, status=403)
 
         query = request.GET.get('query', '').strip()

@@ -1,4 +1,3 @@
-from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest

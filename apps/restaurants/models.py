@@ -21,10 +21,15 @@ class RestaurantTag(models.Model):
         ]
 
     def clean(self) -> None:
+        # DB의 UniqueConstraint(Lower('name'))는 항상 걸리지만, 어드민 "새 태그 추가" 팝업처럼
+        # 폼 검증을 거치는 경로에서 IntegrityError 대신 친절한 메시지를 보여주기 위해
+        # 동일 조건을 애플리케이션 레벨에서도 검사한다.
         if RestaurantTag.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
             raise ValidationError(f"태그 '{self.name}'이 이미 존재합니다 (대소문자 무시).")
 
     def save(self, *args: object, **kwargs: object) -> None:
+        # slug 자동 생성은 어드민(RestaurantTagAdmin.save_model) 호출 시점에 명시적으로
+        # 처리한다 — apps.blog.Tag와 동일한 패턴.
         self.clean()
         super().save(*args, **kwargs)
 

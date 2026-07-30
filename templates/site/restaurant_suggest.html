@@ -10,20 +10,26 @@
 {% if rate_limited %}
 <div class="alert alert-error mb-4">잠시 후 다시 시도해주세요.</div>
 {% endif %}
+{% if form.errors %}
+<div class="alert alert-error mb-4">입력값을 다시 확인해주세요.</div>
+{% endif %}
 {% if user.is_authenticated %}
 <form method="post" class="flex flex-col gap-4 max-w-md">
   {% csrf_token %}
   <label class="form-control">
     <span class="label-text">상호명</span>
     {{ form.restaurant_name }}
+    {% if form.restaurant_name.errors %}<span class="text-error text-sm">{{ form.restaurant_name.errors|join:', ' }}</span>{% endif %}
   </label>
   <label class="form-control">
     <span class="label-text">카카오맵 링크 (선택)</span>
     {{ form.kakao_place_url }}
+    {% if form.kakao_place_url.errors %}<span class="text-error text-sm">{{ form.kakao_place_url.errors|join:', ' }}</span>{% endif %}
   </label>
   <label class="form-control">
     <span class="label-text">추천 이유 (선택)</span>
     {{ form.message }}
+    {% if form.message.errors %}<span class="text-error text-sm">{{ form.message.errors|join:', ' }}</span>{% endif %}
   </label>
   <button type="submit" class="btn btn-primary self-start">제보하기</button>
 </form>

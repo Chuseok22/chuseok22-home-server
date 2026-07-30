@@ -10,7 +10,7 @@ User = get_user_model()
 
 
 @pytest.fixture(autouse=True)
-def _clear_cache():
+def _clear_cache() -> None:
     cache.clear()
     yield
     cache.clear()

@@ -12,7 +12,9 @@
     <span class="badge-tag">{{ tag.name }}</span>
     {% endfor %}
   </div>
+  {% if restaurant.personal_rating %}<p class="my-2">평점: {{ restaurant.personal_rating }}/5</p>{% endif %}
   {% if restaurant.personal_review %}<p class="my-2">"{{ restaurant.personal_review }}"</p>{% endif %}
+  {% if restaurant.note %}<p class="my-2 text-sm opacity-70">{{ restaurant.note }}</p>{% endif %}
   {% if restaurant.kakao_place_url %}
   <a href="{{ restaurant.kakao_place_url }}" class="link link-hover" target="_blank" rel="noopener">카카오맵에서 보기</a>
   {% endif %}
