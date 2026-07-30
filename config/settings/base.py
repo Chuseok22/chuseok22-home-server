@@ -205,3 +205,7 @@ BLOG_INGEST_API_KEY = env('BLOG_INGEST_API_KEY', default='')
 # SUH-AIder AI 서버 연동 설정
 SUH_AIDER_BASE_URL = env('SUH_AIDER_BASE_URL', default='')
 SUH_AIDER_API_KEY = env('SUH_AIDER_API_KEY', default='')
+
+# 카카오 로컬 API 설정
+KAKAO_REST_API_KEY = env('KAKAO_REST_API_KEY', default='')
+KAKAO_JS_API_KEY = env('KAKAO_JS_API_KEY', default='')
