@@ -48,6 +48,7 @@ LOCAL_APPS = [
     'apps.site',
     'apps.engagement',
     'apps.ai',
+    'apps.restaurants',
 ]
 
 TAILWIND_APP_NAME = 'theme'
