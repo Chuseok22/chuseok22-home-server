@@ -4,7 +4,7 @@ from itertools import groupby
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import F
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -35,6 +35,7 @@ from apps.projects.services.category import (
     filter_projects_by_category_id,
     get_project_category_sidebar_items,
 )
+from apps.restaurants.models import Restaurant, RestaurantTag
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
@@ -156,6 +157,74 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
             'is_liked': is_liked,
         },
     )
+
+
+def _restaurant_filter_query(tag_ids: list[int], meal_time: str | None) -> str:
+    """태그·식사시간대 필터 링크의 querystring을 만든다.
+    tags는 항상 먼저, meal_time은 그 다음에 넣어 링크 순서를 예측 가능하게 고정한다."""
+    query = QueryDict(mutable=True)
+    if tag_ids:
+        query.setlist('tags', tag_ids)
+    if meal_time:
+        query['meal_time'] = meal_time
+    return query.urlencode()
+
+
+def restaurants(request: HttpRequest) -> HttpResponse:
+    """맛집 목록 페이지. ?tags=<id>(다중 가능)&meal_time=<value>로 필터링,
+    HX-Request 헤더가 있으면(히스토리 복원 요청 제외) 목록 프래그먼트만 반환한다.
+    각 태그·식사시간대 옵션의 링크는 자기 자신만 토글하고 나머지 선택(다른 태그들,
+    다른 필터 차원)은 그대로 유지하도록 다음 querystring을 뷰에서 미리 계산해 넘긴다."""
+    tag_ids = [int(value) for value in request.GET.getlist('tags') if value.isdecimal()]
+    meal_time = request.GET.get('meal_time') or None
+
+    queryset = Restaurant.objects.prefetch_related('tags')
+    if tag_ids:
+        queryset = queryset.filter(tags__id__in=tag_ids).distinct()
+    if meal_time:
+        queryset = queryset.filter(meal_time=meal_time)
+
+    tag_filters = [
+        {
+            'tag': tag,
+            'is_selected': tag.id in tag_ids,
+            'query': _restaurant_filter_query(
+                [t for t in tag_ids if t != tag.id] if tag.id in tag_ids else [*tag_ids, tag.id],
+                meal_time,
+            ),
+        }
+        for tag in RestaurantTag.objects.all()
+    ]
+    meal_time_filters = [
+        {
+            'value': value,
+            'label': label,
+            'is_selected': meal_time == value,
+            'query': _restaurant_filter_query(tag_ids, None if meal_time == value else value),
+        }
+        for value, label in Restaurant.MealTime.choices
+    ]
+
+    context = {
+        'restaurants': queryset,
+        'tag_filters': tag_filters,
+        'meal_time_filters': meal_time_filters,
+        'has_any_filter': bool(tag_ids or meal_time),
+        'kakao_js_api_key': settings.KAKAO_JS_API_KEY,
+    }
+    is_htmx_fragment_request = (
+        request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request')
+    )
+    template_name = 'site/partials/restaurants_content.html' if is_htmx_fragment_request else 'site/restaurants.html'
+    return render(request, template_name, context)
+
+
+def restaurant_suggest(request: HttpRequest) -> HttpResponse:  # Task 11에서 구현 대체
+    raise NotImplementedError
+
+
+def restaurant_detail(request: HttpRequest, pk: int) -> HttpResponse:  # Task 10에서 구현 대체
+    raise NotImplementedError
 
 
 def _format_notice_schedule_text(config: ScheduledJobConfig | None) -> str:
