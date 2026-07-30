@@ -13,6 +13,10 @@ from apps.projects.models import Project
 _MAX_HISTORY_TURNS = 10
 _SEARCH_RESULT_LIMIT = 3
 _MIN_TOKEN_LENGTH = 2
+# 토큰 수가 많을수록 Project/Post/Skill 각각에서 OR로 묶인 icontains 절이 그만큼 늘어나므로,
+# 인증 없이 호출 가능한(rate limit은 있지만) 공개 엔드포인트에서 과도한 쿼리 비용이 발생하지
+# 않도록 검색에 사용할 토큰 수를 제한한다.
+_MAX_TOKENS = 20
 # 공백/구두점 기준으로만 나누는 러프한 토큰화 — 한국어 조사가 붙은 형태("프로젝트에")는 그대로
 # 하나의 토큰이 되므로 완벽하지 않지만, 형태소 분석 없이 "관련 있을 법한 항목을 놓치지 않는" 목적에는
 # 충분하다고 판단했다(스펙의 "간단한 검색" 합의 사항).
@@ -39,7 +43,8 @@ def get_chat_reply(user_message: str, history: list[dict[str, str]]) -> str:
 
 def _extract_tokens(user_message: str) -> list[str]:
     tokens = _TOKEN_PATTERN.split(user_message)
-    return [token for token in tokens if len(token) >= _MIN_TOKEN_LENGTH]
+    filtered = [token for token in tokens if len(token) >= _MIN_TOKEN_LENGTH]
+    return filtered[:_MAX_TOKENS]
 
 
 def _build_dynamic_context(user_message: str) -> str:
@@ -54,7 +59,7 @@ def _build_dynamic_context(user_message: str) -> str:
 
 
 def _build_profile_section() -> str:
-    profile = Profile.objects.first()
+    profile = Profile.objects.order_by('pk').first()
     if profile is None:
         return ''
     lines = [f'이름: {profile.name}', f'한 줄 소개: {profile.tagline}']

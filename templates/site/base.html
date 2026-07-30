@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 챗봇 위젯(chatbot.js)의 CSRF 토큰 조회 전용 태그. hx-headers처럼 다른 목적의 속성에
+       암묵적으로 의존하지 않도록 명시적으로 둔다. {% csrf_token %} 태그는 <input> 엘리먼트를
+       렌더링하므로 속성 값 안에서 쓸 수 없어, 원시 토큰 문자열인 {{ csrf_token }} 변수를 사용한다. -->
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}백지훈{% endblock %}</title>
   <script>
     (function () {
@@ -120,6 +124,7 @@
           type="text"
           x-model="input"
           placeholder="메시지를 입력하세요"
+          aria-label="챗봇 메시지"
           class="input input-bordered input-sm flex-1"
         >
         <button type="submit" class="btn btn-primary btn-sm" :disabled="loading">전송</button>

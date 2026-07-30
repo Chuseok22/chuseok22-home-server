@@ -7,7 +7,7 @@ from apps.ai.models import PromptTemplate
 from apps.blog.models import Category, Post, Tag
 from apps.profile.models import Profile, Skill
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
-from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
+from apps.site.services.chatbot import ChatbotConfigError, _MAX_TOKENS, _extract_tokens, get_chat_reply
 
 
 @pytest.mark.django_db
@@ -142,6 +142,16 @@ def test_기술스택_검색어와_일치하면_컨텍스트에_포함된다() -
     system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
     assert 'Django' in system_content
     assert 'React' not in system_content
+
+
+def test_토큰이_20개를_초과하면_20개로_제한된다() -> None:
+    # 유효 토큰(길이 2 이상) 30개를 만들어 최대 개수(_MAX_TOKENS) 초과 시 잘리는지 확인한다.
+    message = ' '.join(f'단어{i}' for i in range(30))
+
+    tokens = _extract_tokens(message)
+
+    assert len(tokens) == _MAX_TOKENS
+    assert tokens == [f'단어{i}' for i in range(_MAX_TOKENS)]
 
 
 @pytest.mark.django_db
