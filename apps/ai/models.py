@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.utils import timezone
 
 
 class PromptTemplate(models.Model):
@@ -38,9 +39,11 @@ class PromptTemplate(models.Model):
         # 레코드가 0개로 남지 않도록 원자적으로 처리한다.
         if self.is_active:
             with transaction.atomic():
+                # queryset.update()는 save()를 거치지 않아 auto_now=True인 updated_at이
+                # 자동 갱신되지 않으므로, 비활성화 시각이 변경 이력에 정확히 남도록 직접 채운다.
                 PromptTemplate.objects.filter(
                     feature=self.feature, is_active=True,
-                ).exclude(pk=self.pk).update(is_active=False)
+                ).exclude(pk=self.pk).update(is_active=False, updated_at=timezone.now())
                 super().save(*args, **kwargs)
         else:
             super().save(*args, **kwargs)

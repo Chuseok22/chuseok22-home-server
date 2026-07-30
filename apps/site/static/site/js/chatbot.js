@@ -32,7 +32,10 @@ function chatbotWidget() {
       const message = this.input.trim();
       if (!message || this.loading) return;
 
-      if (message.length > MAX_MESSAGE_LENGTH) {
+      // 서버는 Python len()으로 유니코드 코드포인트 수를 센다. message.length는 UTF-16 코드
+      // 유닛 수라 서로게이트 페어(이모지 등)에서 서버 기준보다 커지므로, [...message].length로
+      // 코드포인트 단위로 맞춰 세야 정상 메시지가 잘못 차단되지 않는다.
+      if ([...message].length > MAX_MESSAGE_LENGTH) {
         this.messages.push({ role: 'assistant', content: '메시지가 너무 깁니다.' });
         this.persist();
         return;
