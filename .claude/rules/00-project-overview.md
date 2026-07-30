@@ -60,6 +60,9 @@ apps/
   accounts/           - 인증/계정 관련
   site/               - SSR 표현 계층 (10-architecture-and-boundaries.md의 SSR 예외 참고)
   engagement/         - 댓글·좋아요 등 참여 기능
+  ai/                 - SUH-AIder AI 서버 연동 인프라(services/suh_aider_client.py) + 기능별
+                        프롬프트·모델 설정(models.py의 PromptTemplate). 도메인 모델 미참조,
+                        다른 앱이 재사용하는 순수 인프라(10-architecture-and-boundaries.md 참고)
   <domain>/           - 신규 기능 단위 앱 (Django app 구조 준수)
     models.py
     views.py / serializers.py
