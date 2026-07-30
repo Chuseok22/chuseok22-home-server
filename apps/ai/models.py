@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 
 
 class PromptTemplate(models.Model):
@@ -20,16 +20,30 @@ class PromptTemplate(models.Model):
         ordering = ('feature', '-updated_at')
         verbose_name = 'AI 프롬프트'
         verbose_name_plural = 'AI 프롬프트 목록'
+        constraints = [
+            # 애플리케이션 레벨(save())의 배타적 활성화 로직은 bulk_create/queryset.update()
+            # 같은 우회 경로에서 보장되지 않으므로, DB 레벨에서도 feature당 활성 레코드가
+            # 최대 1개임을 강제한다.
+            models.UniqueConstraint(
+                fields=['feature'], condition=models.Q(is_active=True),
+                name='unique_active_prompt_template_per_feature',
+            ),
+        ]
 
     def save(self, *args: object, **kwargs: object) -> None:
         # 같은 feature 내에서 활성 프롬프트는 항상 하나만 존재해야 하므로, 새로 활성화되는
         # 레코드를 저장하기 직전에 같은 feature의 기존 활성 레코드를 자동으로 내린다.
         # 비활성화된 레코드는 삭제하지 않으므로 이 테이블 자체가 프롬프트 변경 이력이 된다.
+        # 두 단계(기존 레코드 비활성화 + 신규 레코드 저장) 사이에 실패가 발생해도 활성
+        # 레코드가 0개로 남지 않도록 원자적으로 처리한다.
         if self.is_active:
-            PromptTemplate.objects.filter(
-                feature=self.feature, is_active=True,
-            ).exclude(pk=self.pk).update(is_active=False)
-        super().save(*args, **kwargs)
+            with transaction.atomic():
+                PromptTemplate.objects.filter(
+                    feature=self.feature, is_active=True,
+                ).exclude(pk=self.pk).update(is_active=False)
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f'[{self.get_feature_display()}] {self.name} ({"활성" if self.is_active else "비활성"})'

@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from apps.ai.models import PromptTemplate
@@ -64,3 +65,27 @@ class TestPromptTemplateExclusiveActivation(TestCase):
 
         active.refresh_from_db()
         self.assertTrue(active.is_active)
+
+    def test_save를_우회해_같은_feature에_활성_레코드_두_개를_만들면_DB_제약이_거부한다(self) -> None:
+        # bulk_create/queryset.update()처럼 save()를 거치지 않는 경로는 애플리케이션 레벨의
+        # 배타적 활성화 로직을 우회할 수 있으므로, DB 레벨 UniqueConstraint가 실제로
+        # 두 번째 활성 레코드 생성을 막는지 검증한다.
+        first = PromptTemplate.objects.create(
+            feature=PromptTemplate.Feature.CHATBOT,
+            name='v1',
+            system_prompt='첫 번째 프롬프트',
+            model='functiongemma',
+            is_active=True,
+        )
+        second = PromptTemplate.objects.create(
+            feature=PromptTemplate.Feature.CHATBOT,
+            name='v2',
+            system_prompt='두 번째 프롬프트',
+            model='functiongemma',
+            is_active=False,
+        )
+        self.assertTrue(PromptTemplate.objects.get(pk=first.pk).is_active)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PromptTemplate.objects.filter(pk=second.pk).update(is_active=True)
