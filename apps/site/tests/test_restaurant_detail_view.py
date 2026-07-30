@@ -1,5 +1,5 @@
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -37,7 +37,7 @@ def test_존재하지_않는_맛집은_404() -> None:
 
 @pytest.mark.django_db
 @patch('apps.notifications.services.telegram.TelegramService.send_admin_alert', return_value=True)
-def test_로그인_사용자에게_좋아요_버튼이_보인다(mock_send_admin_alert) -> None:
+def test_로그인_사용자에게_좋아요_버튼이_보인다(mock_send_admin_alert: MagicMock) -> None:
     # Like 생성은 apps.engagement.signals의 post_save 시그널로 텔레그램 관리자 알림을
     # 실제로 호출한다(apps/engagement/tests/conftest.py의 autouse mock은 apps/site/tests/에는
     # 적용되지 않으므로 이 테스트에서 직접 mock한다).
