@@ -1,8 +1,10 @@
 from django import forms
 from django.contrib import admin
-from django.http import HttpRequest
+from django.http import HttpRequest, JsonResponse
+from django.urls import path
 
 from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
+from apps.restaurants.services.kakao import KakaoApiError, search_places
 from apps.restaurants.services.slug import generate_unique_slug
 
 
@@ -34,6 +36,50 @@ class RestaurantAdmin(admin.ModelAdmin):
             'fields': ('tags', 'meal_time', 'personal_rating', 'personal_review', 'note'),
         }),
     )
+
+    class Media:
+        js = ('restaurants/admin/kakao_search.js',)
+
+    def get_urls(self) -> list:
+        custom_urls = [
+            path(
+                'kakao-search/',
+                self.admin_site.admin_view(self.kakao_search_view),
+                name='restaurants_restaurant_kakao_search',
+            ),
+        ]
+        return custom_urls + super().get_urls()
+
+    def kakao_search_view(self, request: HttpRequest) -> JsonResponse:
+        # admin_view()는 로그인·staff 여부만 검사하므로, Restaurant 변경 권한이 없는
+        # staff 계정의 검색을 막으려면 모델 단위 권한을 별도로 확인해야 한다.
+        if not self.has_change_permission(request):
+            return JsonResponse({'success': False, 'error_message': '권한이 없습니다.'}, status=403)
+
+        query = request.GET.get('query', '').strip()
+        if not query:
+            return JsonResponse({'success': False, 'error_message': '검색어를 입력해주세요.'}, status=400)
+
+        try:
+            results = search_places(query)
+        except KakaoApiError as exc:
+            return JsonResponse({'success': False, 'error_message': str(exc)}, status=502)
+
+        return JsonResponse({
+            'success': True,
+            'results': [
+                {
+                    'name': result.name,
+                    'address': result.address,
+                    'road_address': result.road_address,
+                    'latitude': result.latitude,
+                    'longitude': result.longitude,
+                    'category': result.category,
+                    'place_url': result.place_url,
+                }
+                for result in results
+            ],
+        })
 
 
 @admin.register(RestaurantSuggestion)
