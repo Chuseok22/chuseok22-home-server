@@ -1,8 +1,11 @@
 import pytest
 from decimal import Decimal
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from apps.restaurants.models import Restaurant, RestaurantTag
+from apps.restaurants.models import Restaurant, RestaurantTag, RestaurantSuggestion
+
+User = get_user_model()
 
 
 @pytest.mark.django_db
@@ -57,3 +60,17 @@ def test_개인평점은_1에서_5까지만_허용된다():
     )
     with pytest.raises(ValidationError):
         restaurant.full_clean()
+
+
+@pytest.mark.django_db
+def test_제보_문자열_표현은_상호명과_제보자다():
+    user = User.objects.create_user(username='visitor')
+    suggestion = RestaurantSuggestion.objects.create(restaurant_name='몽탄', submitted_by=user)
+    assert str(suggestion) == f'몽탄 ({user})'
+
+
+@pytest.mark.django_db
+def test_제보는_기본적으로_검토되지_않은_상태다():
+    user = User.objects.create_user(username='visitor')
+    suggestion = RestaurantSuggestion.objects.create(restaurant_name='몽탄', submitted_by=user)
+    assert suggestion.is_reviewed is False

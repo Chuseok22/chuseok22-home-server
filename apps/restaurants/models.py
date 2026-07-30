@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -68,3 +69,26 @@ class Restaurant(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class RestaurantSuggestion(models.Model):
+    """방문자가 새 맛집을 제보하는 검토 대기 큐. Restaurant 본체와 분리해 상태 머신을 두지 않는다."""
+
+    restaurant_name = models.CharField(max_length=100, verbose_name='제보 상호명')
+    kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
+    message = models.TextField(blank=True, verbose_name='추천 이유')
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='restaurant_suggestions', verbose_name='제보자',
+    )
+    is_reviewed = models.BooleanField(default=False, verbose_name='검토 완료')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'restaurants_restaurant_suggestion'
+        ordering = ['-created_at']
+        verbose_name = '맛집 제보'
+        verbose_name_plural = '맛집 제보 목록'
+
+    def __str__(self) -> str:
+        return f'{self.restaurant_name} ({self.submitted_by})'
