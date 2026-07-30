@@ -223,8 +223,26 @@ def restaurant_suggest(request: HttpRequest) -> HttpResponse:  # Task 11에서 �
     raise NotImplementedError
 
 
-def restaurant_detail(request: HttpRequest, pk: int) -> HttpResponse:  # Task 10에서 구현 대체
-    raise NotImplementedError
+def restaurant_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    """맛집 상세 페이지. 댓글·좋아요를 붙이기 위한 페이지."""
+    restaurant = get_object_or_404(Restaurant.objects.prefetch_related('tags'), pk=pk)
+    content_type = ContentType.objects.get_for_model(Restaurant)
+    comments = Comment.objects.filter(content_type=content_type, object_id=restaurant.pk).select_related('author')
+    like_count = Like.objects.filter(content_type=content_type, object_id=restaurant.pk).count()
+    is_liked = (
+        request.user.is_authenticated
+        and Like.objects.filter(content_type=content_type, object_id=restaurant.pk, user=request.user).exists()
+    )
+    return render(
+        request,
+        'site/restaurant_detail.html',
+        {
+            'restaurant': restaurant,
+            'comments': comments,
+            'like_count': like_count,
+            'is_liked': is_liked,
+        },
+    )
 
 
 def _format_notice_schedule_text(config: ScheduledJobConfig | None) -> str:

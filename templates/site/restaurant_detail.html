@@ -1,0 +1,51 @@
+{% extends "site/base.html" %}
+{% load engagement_tags %}
+
+{% block title %}{{ restaurant.name }} — 백지훈{% endblock %}
+
+{% block content %}
+<article>
+  <h1 class="text-2xl font-bold">{{ restaurant.name }}</h1>
+  <p class="opacity-70">{{ restaurant.road_address|default:restaurant.address }}</p>
+  <div class="flex gap-2 flex-wrap my-2">
+    {% for tag in restaurant.tags.all %}
+    <span class="badge-tag">{{ tag.name }}</span>
+    {% endfor %}
+  </div>
+  {% if restaurant.personal_review %}<p class="my-2">"{{ restaurant.personal_review }}"</p>{% endif %}
+  {% if restaurant.kakao_place_url %}
+  <a href="{{ restaurant.kakao_place_url }}" class="link link-hover" target="_blank" rel="noopener">카카오맵에서 보기</a>
+  {% endif %}
+</article>
+
+<section class="mt-6 flex items-center gap-4">
+  {% if user.is_authenticated %}
+  {% include "engagement/like_button.html" with target=restaurant %}
+  {% else %}
+  <span class="opacity-60">❤️ {{ like_count }}</span>
+  {% endif %}
+</section>
+
+<section class="mt-8">
+  <h2 class="text-xl font-semibold mb-4">댓글</h2>
+  {% if user.is_authenticated %}
+  <form
+    hx-post="{% url 'engagement:comment-create' restaurant|content_type_app_label restaurant|content_type_model restaurant.pk %}"
+    hx-target="#comments"
+    hx-disabled-elt="find button"
+    class="flex gap-2 mb-4"
+  >
+    <input type="text" name="body" class="input input-bordered flex-1" placeholder="댓글을 입력하세요">
+    <button type="submit" class="btn btn-primary">
+      등록
+      <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
+    </button>
+  </form>
+  {% else %}
+  <p class="opacity-60">댓글을 작성하려면 <a href="{% url 'github_login' %}" class="link">GitHub 로그인</a>이 필요합니다.</p>
+  {% endif %}
+  <div id="comments" aria-live="polite">
+    {% include "engagement/comments.html" %}
+  </div>
+</section>
+{% endblock %}
