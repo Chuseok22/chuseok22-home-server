@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -49,8 +51,16 @@ class Restaurant(models.Model):
     name = models.CharField(max_length=100, verbose_name='상호명')
     address = models.CharField(max_length=255, blank=True, verbose_name='지번 주소')
     road_address = models.CharField(max_length=255, blank=True, verbose_name='도로명 주소')
-    latitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name='위도')
-    longitude = models.DecimalField(max_digits=10, decimal_places=7, verbose_name='경도')
+    latitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        validators=[MinValueValidator(Decimal('-90')), MaxValueValidator(Decimal('90'))],
+        verbose_name='위도',
+    )
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=7,
+        validators=[MinValueValidator(Decimal('-180')), MaxValueValidator(Decimal('180'))],
+        verbose_name='경도',
+    )
     kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
     category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
     tags = models.ManyToManyField(RestaurantTag, blank=True, related_name='restaurants', verbose_name='태그')

@@ -64,6 +64,20 @@ def test_개인평점은_1에서_5까지만_허용된다() -> None:
 
 
 @pytest.mark.django_db
+def test_위도는_영90에서_90까지만_허용된다() -> None:
+    restaurant = Restaurant(name='몽탄', latitude=Decimal('91'), longitude=Decimal('127'))
+    with pytest.raises(ValidationError):
+        restaurant.full_clean()
+
+
+@pytest.mark.django_db
+def test_경도는_영180에서_180까지만_허용된다() -> None:
+    restaurant = Restaurant(name='몽탄', latitude=Decimal('37'), longitude=Decimal('181'))
+    with pytest.raises(ValidationError):
+        restaurant.full_clean()
+
+
+@pytest.mark.django_db
 def test_제보_문자열_표현은_상호명과_제보자다() -> None:
     user = User.objects.create_user(username='visitor')
     suggestion = RestaurantSuggestion.objects.create(restaurant_name='몽탄', submitted_by=user)

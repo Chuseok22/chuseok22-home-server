@@ -50,15 +50,21 @@
           },
           {% endfor %}
         ];
+        const bounds = new kakao.maps.LatLngBounds();
         positions.forEach(function (pos) {
+          const location = new kakao.maps.LatLng(pos.lat, pos.lng);
+          bounds.extend(location);
           const marker = new kakao.maps.Marker({
-            position: new kakao.maps.LatLng(pos.lat, pos.lng),
+            position: location,
             map: map,
           });
           kakao.maps.event.addListener(marker, 'click', function () {
             window.location.href = pos.url;
           });
         });
+        if (positions.length) {
+          map.setBounds(bounds);
+        }
       });
     })();
   </script>

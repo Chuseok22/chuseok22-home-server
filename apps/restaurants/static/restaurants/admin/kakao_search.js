@@ -50,7 +50,9 @@
         .then(function (data) {
           resultsList.innerHTML = '';
           if (!data.success) {
-            resultsList.innerHTML = '<li>' + (data.error_message || '검색에 실패했습니다.') + '</li>';
+            const errorItem = document.createElement('li');
+            errorItem.textContent = data.error_message || '검색에 실패했습니다.';
+            resultsList.appendChild(errorItem);
             return;
           }
           if (data.results.length === 0) {

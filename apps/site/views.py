@@ -5,7 +5,8 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import F
 from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -226,8 +227,11 @@ def restaurant_suggest(request: HttpRequest) -> HttpResponse:
     큐(RestaurantSuggestion)에 저장한다. @login_required로 감싸면 비로그인 GET이
     로그인 페이지로 리다이렉트되어 "폼 대신 로그인 안내를 보여준다"는 요구사항과
     충돌하므로, 인증 분기를 뷰 안에서 직접 처리한다. 제출은 챗봇 엔드포인트와 동일한
-    check_rate_limit 유틸로 IP당 분당 5회로 제한한다."""
-    submitted = False
+    check_rate_limit 유틸로 IP당 분당 5회로 제한한다.
+
+    저장 성공 후에는 PRG(Post/Redirect/Get) 패턴으로 리다이렉트한다 — 저장 후 같은
+    POST 응답을 그대로 렌더링하면 새로고침 시 동일한 RestaurantSuggestion이 중복
+    생성되므로, 성공 표시는 리다이렉트된 GET의 ?submitted=1 쿼리 파라미터로 전달한다."""
     if request.method == 'POST' and request.user.is_authenticated:
         if not check_rate_limit(request, key='restaurant-suggest', limit=5, window_seconds=60):
             form = RestaurantSuggestionForm(request.POST)
@@ -245,11 +249,11 @@ def restaurant_suggest(request: HttpRequest) -> HttpResponse:
                 message=form.cleaned_data['message'],
                 submitted_by=request.user,
             )
-            submitted = True
-            form = RestaurantSuggestionForm()
+            return redirect(f"{reverse('site:restaurant-suggest')}?submitted=1")
     else:
         form = RestaurantSuggestionForm()
 
+    submitted = request.GET.get('submitted') == '1'
     return render(request, 'site/restaurant_suggest.html', {'form': form, 'submitted': submitted})
 
 
