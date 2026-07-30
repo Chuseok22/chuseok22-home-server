@@ -1,13 +1,16 @@
+import json
 from itertools import groupby
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import F
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.activity.models import GithubProfileStats
+from apps.ai.services.suh_aider_client import SuhAiderClientError
 from apps.blog.models import Post
 from apps.blog.services.category import (
     filter_published_posts_by_category_slug,
@@ -15,6 +18,7 @@ from apps.blog.services.category import (
 )
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
+from apps.core.services.rate_limit import check_rate_limit
 from apps.engagement.models import Comment, Like
 from apps.notifications.models import NoticeSource
 from apps.profile.models import (
@@ -47,6 +51,7 @@ from apps.site.forms import (
     StudentSearchForm,
 )
 from apps.site.models import Tool
+from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
 
 # apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
@@ -315,3 +320,63 @@ def lab_student_search(request: HttpRequest) -> HttpResponse:
         return HttpResponse('세종대 Classic 서비스에 연결할 수 없습니다.', status=200)
 
     return render(request, 'site/partials/student_results.html', {'results': results})
+
+
+_CHAT_MAX_MESSAGE_LENGTH = 2000
+_CHAT_MAX_HISTORY_ITEMS = 20
+_CHAT_ALLOWED_HISTORY_ROLES = {'user', 'assistant'}
+
+
+@require_POST
+def chat(request: HttpRequest) -> JsonResponse:
+    """전역 챗봇 위젯의 메시지 전송을 처리한다. 로그인 불필요, IP당 분당 5회로 제한한다."""
+    if not check_rate_limit(request, key='chat', limit=5, window_seconds=60):
+        return JsonResponse({'error': '잠시 후 다시 시도해주세요.'}, status=429)
+
+    try:
+        payload = json.loads(request.body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+
+    if not isinstance(payload, dict):
+        return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+
+    message = payload.get('message')
+    if not isinstance(message, str) or not message.strip():
+        return JsonResponse({'error': '메시지를 입력해주세요.'}, status=400)
+    message = message.strip()
+    if len(message) > _CHAT_MAX_MESSAGE_LENGTH:
+        return JsonResponse({'error': '메시지가 너무 깁니다.'}, status=400)
+
+    history = payload.get('history') if payload.get('history') is not None else []
+    if not _is_valid_chat_history(history):
+        return JsonResponse({'error': '잘못된 요청입니다.'}, status=400)
+    # role/content 외 임의의 추가 키(예: images)가 그대로 업스트림 SUH-AIder API로 전달되지
+    # 않도록, 검증을 통과한 항목이라도 허용된 두 필드만 남기고 재구성한다.
+    history = [{'role': item['role'], 'content': item['content']} for item in history]
+
+    try:
+        reply = get_chat_reply(message, history)
+    except ChatbotConfigError:
+        return JsonResponse({'error': '챗봇 준비 중입니다. 잠시 후 다시 시도해주세요.'}, status=503)
+    except SuhAiderClientError:
+        return JsonResponse({'error': '일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요.'}, status=503)
+
+    return JsonResponse({'reply': reply})
+
+
+def _is_valid_chat_history(history: object) -> bool:
+    # 클라이언트가 role: 'system'을 주입해 시스템 프롬프트를 덮어쓰려는 시도를 막기 위해
+    # user/assistant만 허용한다. 항목 수·길이 상한은 Django 기본 DATA_UPLOAD_MAX_MEMORY_SIZE만으로는
+    # 항목당 길이가 사실상 무제한이라(요청 전체 크기만 제한됨) 별도로 강제한다.
+    if not isinstance(history, list) or len(history) > _CHAT_MAX_HISTORY_ITEMS:
+        return False
+    for item in history:
+        if not isinstance(item, dict):
+            return False
+        if item.get('role') not in _CHAT_ALLOWED_HISTORY_ROLES:
+            return False
+        content = item.get('content')
+        if not isinstance(content, str) or len(content) > _CHAT_MAX_MESSAGE_LENGTH:
+            return False
+    return True

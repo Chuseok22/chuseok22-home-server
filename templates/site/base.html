@@ -4,6 +4,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 챗봇 위젯(chatbot.js)의 CSRF 토큰 조회 전용 태그. hx-headers처럼 다른 목적의 속성에
+       암묵적으로 의존하지 않도록 명시적으로 둔다. {% csrf_token %} 태그는 <input> 엘리먼트를
+       렌더링하므로 속성 값 안에서 쓸 수 없어, 원시 토큰 문자열인 {{ csrf_token }} 변수를 사용한다. -->
+  <meta name="csrf-token" content="{{ csrf_token }}">
   <title>{% block title %}백지훈{% endblock %}</title>
   <script>
     (function () {
@@ -12,6 +16,7 @@
     })();
   </script>
   <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+  <script src="{% static 'site/js/chatbot.js' %}" defer></script>
   <script src="https://unpkg.com/htmx.org@2.0.3" defer></script>
   <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
   <script src="{% static 'site/js/page-loading.js' %}" defer></script>
@@ -85,5 +90,46 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
+  <div x-data="chatbotWidget()" @click.outside="open = false" class="fixed bottom-4 right-4 z-[9998]">
+    <button
+      @click="open = !open"
+      class="btn btn-primary btn-circle shadow-lg"
+      aria-label="챗봇 열기"
+    >💬</button>
+
+    <div
+      x-show="open"
+      x-cloak
+      class="absolute bottom-16 right-0 w-80 max-h-[28rem] bg-base-100 border border-base-300 rounded-box shadow-xl flex flex-col"
+    >
+      <div class="flex items-center justify-between p-3 border-b border-base-300">
+        <span class="font-bold text-sm">AI 챗봇</span>
+        <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
+      </div>
+      <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2" x-ref="messageList">
+        <template x-for="(item, index) in messages" :key="index">
+          <div :class="item.role === 'user' ? 'chat chat-end' : 'chat chat-start'">
+            <div
+              :class="item.role === 'user' ? 'chat-bubble chat-bubble-primary' : 'chat-bubble'"
+              x-text="item.content"
+            ></div>
+          </div>
+        </template>
+        <div x-show="loading" class="chat chat-start">
+          <div class="chat-bubble">...</div>
+        </div>
+      </div>
+      <form @submit.prevent="send()" class="p-3 border-t border-base-300 flex gap-2">
+        <input
+          type="text"
+          x-model="input"
+          placeholder="메시지를 입력하세요"
+          aria-label="챗봇 메시지"
+          class="input input-bordered input-sm flex-1"
+        >
+        <button type="submit" class="btn btn-primary btn-sm" :disabled="loading">전송</button>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

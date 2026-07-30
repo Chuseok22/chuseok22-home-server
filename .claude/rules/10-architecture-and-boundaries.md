@@ -33,6 +33,7 @@
 | `management/commands/` | 배치·스케줄 작업 흐름 조율 | HTTP 엔드포인트 로직 금지 |
 | `apps/core/` | 인프라성 엔드포인트(헬스체크 등), django-apscheduler 기반 인앱 스케줄러 관리 | 도메인 로직 금지 |
 | `apps/notifications/crawlers/` | 공지·공모전 등 외부 소스별 크롤러 구현체(`base.py` 공통 인터페이스, `registry.py`로 등록) | `services/`가 호출하는 하위 구현 레이어이며, 이 레이어를 우회해 크롤링 로직을 `services/`나 `views.py`에 직접 작성하지 않는다 |
+| `apps/ai/` | SUH-AIder 연동 클라이언트, 기능(feature)별 AI 프롬프트·모델 설정(`PromptTemplate`) 관리 | 다른 도메인 앱의 모델 import 금지(순수 인프라 유지). 자세한 내용은 아래 "AI 프롬프트·모델 설정" 절 참고 |
 
 **허용 의존 방향**: `views → services → models`, `commands → services → models`, `services → crawlers/`(notifications 한정)
 
@@ -121,3 +122,19 @@ urlpatterns += [
 - `Category.clean()`이 "부모로 지정하려는 카테고리가 이미 누군가의 자식인 경우" `ValidationError`를 발생시켜 3단계 이상 중첩을 막는다.
 - Admin에서도 `CategoryAdmin.formfield_for_foreignkey()`가 `parent` 드롭다운을 최상위(`parent__isnull=True`) 카테고리로 제한한다.
 - 이 불변조건을 우회하는 방식(예: `parent`를 통해 재귀적으로 트리를 순회하는 로직 추가)은 도입하지 않는다. 3단계 이상이 필요해지면 `clean()`의 깊이 검증 자체를 완화하는 별도 논의를 거친다.
+
+## AI 프롬프트·모델 설정 (apps.ai)
+
+- `apps.ai.models.PromptTemplate`은 `feature`(어떤 기능이 쓰는지) 단위로 시스템 프롬프트·SUH-AIder
+  모델명·활성화 여부를 관리한다. **여러 기능이 프롬프트나 모델을 공유하지 않는다** — 기능마다 독립적인
+  `PromptTemplate` 레코드를 가지며, 한 기능의 프롬프트·모델을 바꿔도 다른 기능에는 영향을 주지 않는다.
+  (예: `chatbot` 기능의 모델을 변경해도 향후 추가될 블로그 요약 등 다른 기능의 설정은 그대로 유지된다.)
+- 같은 `feature` 내에서는 항상 활성 레코드가 최대 1개다. `PromptTemplate.save()`가 새로 활성화되는
+  레코드를 저장할 때 같은 feature의 기존 활성 레코드를 자동으로 비활성화하며(트랜잭션으로 원자적 처리),
+  `Meta.constraints`의 `UniqueConstraint(condition=Q(is_active=True))`가 DB 레벨에서도 이를 강제한다.
+  비활성화된 레코드는 삭제하지 않으므로 이 테이블 자체가 feature별 프롬프트 변경 이력이 된다.
+- 소비 앱은 `PromptTemplate` 모델을 직접 쿼리하지 않고 `apps.ai.services.prompt_template.get_active_prompt(feature)`만
+  사용한다 — 모델 직접 import는 "앱 간 직접 model import 금지" 규칙 위반이다.
+- 새로운 AI 소비 기능을 추가할 때는 `PromptTemplate.Feature`에 choice 하나만 추가하면 된다(choices는
+  DB 제약이 아니므로 별도 마이그레이션 불필요). 해당 기능 전용 프롬프트·모델은 Admin에서 별도로
+  생성·활성화하며, 기존 기능의 프롬프트·모델 설정에는 아무 영향이 없다.

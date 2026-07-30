@@ -16,4 +16,5 @@ urlpatterns = [
     path('lab/library/reserve/', views.lab_library_reserve, name='lab-library-reserve'),
     path('lab/student/', views.lab_student, name='lab-student'),
     path('lab/student/search/', views.lab_student_search, name='lab-student-search'),
+    path('chat/', views.chat, name='chat'),
 ]
