@@ -35,7 +35,7 @@ from apps.projects.services.category import (
     filter_projects_by_category_id,
     get_project_category_sidebar_items,
 )
-from apps.restaurants.models import Restaurant, RestaurantTag
+from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
@@ -49,6 +49,7 @@ from apps.site.forms import (
     LibraryDateForm,
     LibraryReserveForm,
     LibraryReserveSlotForm,
+    RestaurantSuggestionForm,
     StudentSearchForm,
 )
 from apps.site.models import Tool
@@ -219,8 +220,37 @@ def restaurants(request: HttpRequest) -> HttpResponse:
     return render(request, template_name, context)
 
 
-def restaurant_suggest(request: HttpRequest) -> HttpResponse:  # Task 11에서 구현 대체
-    raise NotImplementedError
+def restaurant_suggest(request: HttpRequest) -> HttpResponse:
+    """방문자 맛집 제보 폼. GET은 로그인 여부와 관계없이 200을 반환하고(비로그인은
+    템플릿에서 로그인 안내로 대체), 제출(POST)은 로그인 사용자만 처리해 검토 대기
+    큐(RestaurantSuggestion)에 저장한다. @login_required로 감싸면 비로그인 GET이
+    로그인 페이지로 리다이렉트되어 "폼 대신 로그인 안내를 보여준다"는 요구사항과
+    충돌하므로, 인증 분기를 뷰 안에서 직접 처리한다. 제출은 챗봇 엔드포인트와 동일한
+    check_rate_limit 유틸로 IP당 분당 5회로 제한한다."""
+    submitted = False
+    if request.method == 'POST' and request.user.is_authenticated:
+        if not check_rate_limit(request, key='restaurant-suggest', limit=5, window_seconds=60):
+            form = RestaurantSuggestionForm(request.POST)
+            return render(
+                request, 'site/restaurant_suggest.html',
+                {'form': form, 'submitted': False, 'rate_limited': True},
+                status=429,
+            )
+
+        form = RestaurantSuggestionForm(request.POST)
+        if form.is_valid():
+            RestaurantSuggestion.objects.create(
+                restaurant_name=form.cleaned_data['restaurant_name'],
+                kakao_place_url=form.cleaned_data['kakao_place_url'],
+                message=form.cleaned_data['message'],
+                submitted_by=request.user,
+            )
+            submitted = True
+            form = RestaurantSuggestionForm()
+    else:
+        form = RestaurantSuggestionForm()
+
+    return render(request, 'site/restaurant_suggest.html', {'form': form, 'submitted': submitted})
 
 
 def restaurant_detail(request: HttpRequest, pk: int) -> HttpResponse:
