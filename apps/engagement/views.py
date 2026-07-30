@@ -13,6 +13,7 @@ _ALLOWED_TARGET_MODELS = {
     ('blog', 'post'),
     ('projects', 'project'),
     ('site', 'tool'),
+    ('restaurants', 'restaurant'),
 }
 
 _MAX_COMMENT_LENGTH = 1000
