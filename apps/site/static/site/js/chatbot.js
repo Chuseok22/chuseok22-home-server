@@ -3,7 +3,7 @@
 const MAX_MESSAGE_LENGTH = 2000;
 
 // 대화 기록이 없을 때(최초 진입, 초기화 직후) 보여줄 인사말과 추천 질문.
-const GREETING_MESSAGE = '안녕하세요! 백지훈의 포트폴리오 AI 챗봇입니다. 무엇을 도와드릴까요?';
+const GREETING_MESSAGE = '안녕하세요! Chuseok22 AI 챗봇입니다. 무엇을 도와드릴까요?';
 const SUGGESTED_QUESTIONS = [
   '기술 스택이 궁금해요',
   '진행한 프로젝트를 소개해줘',
