@@ -92,7 +92,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
-  <div x-data="chatbotWidget()" @click.outside="open = false" @keydown.escape.window="open = false" class="fixed bottom-4 right-4 z-[9998]">
+  <div x-data="chatbotWidget()" @click.outside="open = false" @keydown.escape.window="if (open) { open = false; $nextTick(() => $refs.toggle.focus()) }" class="fixed bottom-4 right-4 z-[9998]">
     <button
       @click="open = !open"
       x-ref="toggle"
