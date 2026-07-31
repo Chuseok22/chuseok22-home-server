@@ -56,7 +56,9 @@ function chatbotWidget() {
       // 누적된 전체 messages를 그대로 보내면 대화가 길어질수록 400으로 거부된다. 최근 20개만 전송한다.
       const history = this.messages.slice(-20).map((item) => ({ role: item.role, content: item.content }));
       this.messages.push({ role: 'user', content: message });
-      this.input = '';
+      // 추천 질문(preset) 클릭은 입력창을 거치지 않으므로, 작성 중이던 초안이 지워지지 않도록
+      // 실제 입력 필드에서 보낸 경우(presetMessage === undefined)에만 input을 비운다.
+      if (presetMessage === undefined) this.input = '';
       this.loading = true;
       this.persist();
       this.scrollToBottom();
