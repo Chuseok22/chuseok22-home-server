@@ -115,7 +115,7 @@
       <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2" x-ref="messageList">
         <div x-show="messages.length === 0" class="space-y-3">
           <div class="chat chat-start">
-            <div class="chat-bubble" x-text="greeting"></div>
+            <div class="chat-bubble chat-bubble-accent" x-text="greeting"></div>
           </div>
           <div class="flex flex-wrap gap-2">
             <template x-for="question in suggestedQuestions" :key="question">
@@ -131,13 +131,13 @@
         <template x-for="(item, index) in messages" :key="index">
           <div :class="item.role === 'user' ? 'chat chat-end' : 'chat chat-start'">
             <div
-              :class="item.role === 'user' ? 'chat-bubble chat-bubble-primary' : 'chat-bubble'"
+              :class="item.role === 'user' ? 'chat-bubble chat-bubble-primary' : 'chat-bubble chat-bubble-accent'"
               x-text="item.content"
             ></div>
           </div>
         </template>
         <div x-show="loading" class="chat chat-start">
-          <div class="chat-bubble">...</div>
+          <div class="chat-bubble chat-bubble-accent">...</div>
         </div>
       </div>
       <form @submit.prevent="send()" class="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-base-300 flex gap-2">
