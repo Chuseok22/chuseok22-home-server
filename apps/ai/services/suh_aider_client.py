@@ -6,6 +6,8 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 _CHAT_PATH = '/api/chat'
+_TAGS_PATH = '/api/tags'
+_SHOW_PATH = '/api/show'
 _CONNECT_TIMEOUT = 5
 _READ_TIMEOUT = 60
 
@@ -45,3 +47,50 @@ class SuhAiderClient:
         except (KeyError, TypeError) as exc:
             logger.error('SUH-AIder 응답 형식 이상: %s', exc)
             raise SuhAiderClientError(f'SUH-AIder 응답 형식 이상: {exc}') from exc
+
+    def list_models(self) -> list[dict[str, object]]:
+        """SUH-AIder /api/tags 호출 후 등록된 전체 모델 목록을 반환한다."""
+        url = f'{self._base_url.rstrip("/")}{_TAGS_PATH}'
+        headers = {'X-API-Key': self._api_key}
+
+        try:
+            response = requests.get(url, headers=headers, timeout=(_CONNECT_TIMEOUT, _READ_TIMEOUT))
+            response.raise_for_status()
+            payload = response.json()
+            return payload['models']
+        except requests.exceptions.RequestException as exc:
+            body_preview = ''
+            if getattr(exc, 'response', None) is not None:
+                body_preview = exc.response.text[:200]
+            logger.error('SUH-AIder 모델 목록 조회 실패: %s | 응답 바디: %s', exc, body_preview)
+            raise SuhAiderClientError(f'SUH-AIder 모델 목록 조회 실패: {exc}') from exc
+        except (KeyError, TypeError) as exc:
+            logger.error('SUH-AIder 모델 목록 응답 형식 이상: %s', exc)
+            raise SuhAiderClientError(f'SUH-AIder 모델 목록 응답 형식 이상: {exc}') from exc
+
+    def get_model_capabilities(self, model_name: str) -> list[str]:
+        """SUH-AIder /api/show 호출 후 지정한 모델의 capabilities 목록을 반환한다."""
+        url = f'{self._base_url.rstrip("/")}{_SHOW_PATH}'
+        headers = {'Content-Type': 'application/json', 'X-API-Key': self._api_key}
+        body = {'model': model_name}
+
+        try:
+            response = requests.post(
+                url, headers=headers, json=body, timeout=(_CONNECT_TIMEOUT, _READ_TIMEOUT)
+            )
+            response.raise_for_status()
+            payload = response.json()
+            return payload['capabilities']
+        except requests.exceptions.RequestException as exc:
+            body_preview = ''
+            if getattr(exc, 'response', None) is not None:
+                body_preview = exc.response.text[:200]
+            logger.error(
+                'SUH-AIder 모델(%s) capabilities 조회 실패: %s | 응답 바디: %s', model_name, exc, body_preview
+            )
+            raise SuhAiderClientError(f'SUH-AIder 모델({model_name}) capabilities 조회 실패: {exc}') from exc
+        except (KeyError, TypeError) as exc:
+            logger.error('SUH-AIder 모델(%s) capabilities 응답 형식 이상: %s', model_name, exc)
+            raise SuhAiderClientError(
+                f'SUH-AIder 모델({model_name}) capabilities 응답 형식 이상: {exc}'
+            ) from exc
