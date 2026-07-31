@@ -92,7 +92,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
-  <div x-data="chatbotWidget()" @click.outside="open = false" @keydown.escape.window="if (open) { open = false; $nextTick(() => $refs.toggle.focus()) }" class="fixed bottom-4 right-4 z-[9998]">
+  <div x-data="chatbotWidget()" @click.outside="open = false" @keydown.escape.window="if (open) { open = false; $nextTick(() => $refs.toggle.focus()) }" class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9998]">
     <button
       @click="open = !open"
       x-ref="toggle"
@@ -105,7 +105,7 @@
       x-cloak
       class="fixed inset-0 md:absolute md:inset-auto md:bottom-16 md:right-0 md:w-[26rem] md:h-[70vh] bg-base-100 md:border md:border-base-300 md:rounded-box md:shadow-xl flex flex-col"
     >
-      <div class="flex items-center justify-between p-3 border-b border-base-300">
+      <div class="flex items-center justify-between p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))] border-b border-base-300">
         <span class="font-bold text-sm">AI 챗봇</span>
         <div class="flex items-center gap-1">
           <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
