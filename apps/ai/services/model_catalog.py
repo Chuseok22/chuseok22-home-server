@@ -35,9 +35,12 @@ def get_model_choices() -> list[tuple[str, list[tuple[str, str]]]]:
     other_options: list[tuple[str, str]] = []
 
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as executor:
-        future_to_model = {
-            executor.submit(client.get_model_capabilities, model['name']): model for model in models
-        }
+        future_to_model = {}
+        for model in models:
+            if not isinstance(model, dict) or 'name' not in model:
+                logger.warning('SUH-AIder 모델 목록 항목이 잘못된 형식임 (name 키 없음) — 목록에서 제외한다.')
+                continue
+            future_to_model[executor.submit(client.get_model_capabilities, model['name'])] = model
         for future, model in future_to_model.items():
             name = model['name']
             try:

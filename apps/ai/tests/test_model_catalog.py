@@ -97,3 +97,18 @@ class TestGetModelChoices(TestCase):
         self.assertEqual(second, [])
         # 캐시됐다면 두 번째 호출은 list_models()를 다시 부르지 않았을 것이다 — 재시도됐는지 확인.
         self.assertEqual(mock_client.list_models.call_count, 2)
+
+    @patch('apps.ai.services.model_catalog.SuhAiderClient')
+    def test_name_키가_없는_모델은_skip한다(self, mock_client_cls: MagicMock) -> None:
+        mock_client = mock_client_cls.return_value
+        mock_client.list_models.return_value = [
+            {'name': 'functiongemma:latest', 'details': {'parameter_size': '268.10M'}},
+            {'details': {'parameter_size': '1B'}},  # name 키 없음
+        ]
+        mock_client.get_model_capabilities.return_value = ['completion']
+
+        result = get_model_choices()
+
+        self.assertEqual(
+            result, [('채팅용', [('functiongemma:latest', 'functiongemma:latest (268.10M)')])]
+        )
