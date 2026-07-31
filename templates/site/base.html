@@ -106,7 +106,10 @@
     >
       <div class="flex items-center justify-between p-3 border-b border-base-300">
         <span class="font-bold text-sm">AI 챗봇</span>
-        <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
+        <div class="flex items-center gap-1">
+          <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
+          <button @click="open = false" class="btn btn-ghost btn-xs" aria-label="챗봇 닫기">✕</button>
+        </div>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2" x-ref="messageList">
         <template x-for="(item, index) in messages" :key="index">
