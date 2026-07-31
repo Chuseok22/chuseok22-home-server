@@ -3,7 +3,7 @@
 <html lang="ko" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <!-- 챗봇 위젯(chatbot.js)의 CSRF 토큰 조회 전용 태그. hx-headers처럼 다른 목적의 속성에
        암묵적으로 의존하지 않도록 명시적으로 둔다. {% csrf_token %} 태그는 <input> 엘리먼트를
        렌더링하므로 속성 값 안에서 쓸 수 없어, 원시 토큰 문자열인 {{ csrf_token }} 변수를 사용한다. -->
@@ -92,9 +92,10 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="text-center text-sm opacity-60 py-8">© {% now "Y" %} 백지훈</footer>
-  <div x-data="chatbotWidget()" @click.outside="open = false" class="fixed bottom-4 right-4 z-[9998]">
+  <div x-data="chatbotWidget()" @click.outside="open = false" @keydown.escape.window="if (open) { open = false; $nextTick(() => $refs.toggle.focus()) }" class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-[9998]">
     <button
       @click="open = !open"
+      x-ref="toggle"
       class="btn btn-primary btn-circle shadow-lg"
       aria-label="챗봇 열기"
     >💬</button>
@@ -102,13 +103,31 @@
     <div
       x-show="open"
       x-cloak
-      class="absolute bottom-16 right-0 w-80 max-h-[28rem] bg-base-100 border border-base-300 rounded-box shadow-xl flex flex-col"
+      class="fixed inset-0 md:absolute md:inset-auto md:bottom-16 md:right-0 md:w-[26rem] md:h-[70vh] bg-base-100 md:border md:border-base-300 md:rounded-box md:shadow-xl flex flex-col"
     >
-      <div class="flex items-center justify-between p-3 border-b border-base-300">
+      <div class="flex items-center justify-between p-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))] border-b border-base-300">
         <span class="font-bold text-sm">AI 챗봇</span>
-        <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
+        <div class="flex items-center gap-1">
+          <button @click="reset()" class="btn btn-ghost btn-xs" aria-label="대화 초기화">🗑️</button>
+          <button @click="open = false; $nextTick(() => $refs.toggle.focus())" class="btn btn-ghost btn-xs" aria-label="챗봇 닫기">✕</button>
+        </div>
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2" x-ref="messageList">
+      <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2" x-ref="messageList">
+        <div x-show="messages.length === 0" class="space-y-3">
+          <div class="chat chat-start">
+            <div class="chat-bubble" x-text="greeting"></div>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="question in suggestedQuestions" :key="question">
+              <button
+                type="button"
+                @click="send(question)"
+                class="btn btn-outline btn-sm"
+                x-text="question"
+              ></button>
+            </template>
+          </div>
+        </div>
         <template x-for="(item, index) in messages" :key="index">
           <div :class="item.role === 'user' ? 'chat chat-end' : 'chat chat-start'">
             <div
@@ -121,7 +140,7 @@
           <div class="chat-bubble">...</div>
         </div>
       </div>
-      <form @submit.prevent="send()" class="p-3 border-t border-base-300 flex gap-2">
+      <form @submit.prevent="send()" class="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-base-300 flex gap-2">
         <input
           type="text"
           x-model="input"

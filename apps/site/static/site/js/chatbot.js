@@ -2,12 +2,23 @@
 // 보내지 않아 rate limit(분당 5회) 슬롯을 실패가 확정된 요청에 낭비하지 않는다.
 const MAX_MESSAGE_LENGTH = 2000;
 
+// 대화 기록이 없을 때(최초 진입, 초기화 직후) 보여줄 인사말과 추천 질문.
+const GREETING_MESSAGE = '안녕하세요! 백지훈의 포트폴리오 AI 챗봇입니다. 무엇을 도와드릴까요?';
+const SUGGESTED_QUESTIONS = [
+  '기술 스택이 궁금해요',
+  '진행한 프로젝트를 소개해줘',
+  '블로그에 어떤 글이 있나요?',
+  '경력이 궁금해요',
+];
+
 function chatbotWidget() {
   return {
     open: false,
     input: '',
     loading: false,
     messages: [],
+    greeting: GREETING_MESSAGE,
+    suggestedQuestions: SUGGESTED_QUESTIONS,
 
     init() {
       const saved = sessionStorage.getItem('chatbot-messages');
@@ -28,8 +39,8 @@ function chatbotWidget() {
       sessionStorage.setItem('chatbot-messages', JSON.stringify(this.messages));
     },
 
-    async send() {
-      const message = this.input.trim();
+    async send(presetMessage) {
+      const message = (presetMessage ?? this.input).trim();
       if (!message || this.loading) return;
 
       // 서버는 Python len()으로 유니코드 코드포인트 수를 센다. message.length는 UTF-16 코드
@@ -45,7 +56,9 @@ function chatbotWidget() {
       // 누적된 전체 messages를 그대로 보내면 대화가 길어질수록 400으로 거부된다. 최근 20개만 전송한다.
       const history = this.messages.slice(-20).map((item) => ({ role: item.role, content: item.content }));
       this.messages.push({ role: 'user', content: message });
-      this.input = '';
+      // 추천 질문(preset) 클릭은 입력창을 거치지 않으므로, 작성 중이던 초안이 지워지지 않도록
+      // 실제 입력 필드에서 보낸 경우(presetMessage === undefined)에만 input을 비운다.
+      if (presetMessage === undefined) this.input = '';
       this.loading = true;
       this.persist();
       this.scrollToBottom();
