@@ -18,6 +18,7 @@ class PromptTemplateForm(forms.ModelForm):
     def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         choices = get_model_choices()
+        catalog_fetch_failed = not choices
 
         # 기존에 저장된 model 값이 최신 목록에 없으면(서버에서 모델이 삭제됐거나 조회
         # 실패) 저장이 막히지 않도록 임시 선택지로 끼워 넣는다.
@@ -27,7 +28,7 @@ class PromptTemplateForm(forms.ModelForm):
             choices = [('현재 값 (목록에 없음)', [(current, current)])] + choices
 
         self.fields['model'].choices = choices
-        if not choices:
+        if catalog_fetch_failed:
             self.fields['model'].help_text = (
                 'SUH-AIder 서버에 연결할 수 없어 모델 목록을 불러오지 못했습니다.'
             )
