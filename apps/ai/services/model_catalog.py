@@ -49,7 +49,8 @@ def get_model_choices() -> list[tuple[str, list[tuple[str, str]]]]:
                 logger.warning('SUH-AIder 모델(%s) capabilities 조회 실패 — 목록에서 제외한다.', name)
                 continue
 
-            parameter_size = model.get('details', {}).get('parameter_size', '')
+            # details 키가 존재해도 값이 null일 수 있어(Ollama 응답 스키마) or로 한 번 더 기본값 처리한다.
+            parameter_size = (model.get('details') or {}).get('parameter_size', '')
             label = f'{name} ({parameter_size})' if parameter_size else name
             option = (name, label)
             if 'completion' in capabilities:

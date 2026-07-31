@@ -185,3 +185,14 @@ class TestSuhAiderClientGetModelCapabilities(TestCase):
         client = SuhAiderClient()
         with self.assertRaises(SuhAiderClientError):
             client.get_model_capabilities('functiongemma:latest')
+
+    @patch('apps.ai.services.suh_aider_client.requests.post')
+    def test_capabilities가_list가_아닐때_SuhAiderClientError_발생(self, mock_post: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'capabilities': None}
+        mock_post.return_value = mock_response
+
+        client = SuhAiderClient()
+        with self.assertRaises(SuhAiderClientError):
+            client.get_model_capabilities('functiongemma:latest')

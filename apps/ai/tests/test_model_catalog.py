@@ -112,3 +112,15 @@ class TestGetModelChoices(TestCase):
         self.assertEqual(
             result, [('채팅용', [('functiongemma:latest', 'functiongemma:latest (268.10M)')])]
         )
+
+    @patch('apps.ai.services.model_catalog.SuhAiderClient')
+    def test_details가_null인_모델도_정상_처리한다(self, mock_client_cls: MagicMock) -> None:
+        mock_client = mock_client_cls.return_value
+        mock_client.list_models.return_value = [
+            {'name': 'functiongemma:latest', 'details': None},
+        ]
+        mock_client.get_model_capabilities.return_value = ['completion']
+
+        result = get_model_choices()
+
+        self.assertEqual(result, [('채팅용', [('functiongemma:latest', 'functiongemma:latest')])])

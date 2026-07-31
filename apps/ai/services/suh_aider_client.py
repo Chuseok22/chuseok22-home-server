@@ -80,7 +80,10 @@ class SuhAiderClient:
             )
             response.raise_for_status()
             payload = response.json()
-            return payload['capabilities']
+            capabilities = payload['capabilities']
+            if not isinstance(capabilities, list):
+                raise TypeError(f'capabilities 필드가 list 형식이 아님: {type(capabilities).__name__}')
+            return capabilities
         except requests.exceptions.RequestException as exc:
             body_preview = ''
             if getattr(exc, 'response', None) is not None:
