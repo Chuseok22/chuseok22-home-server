@@ -1,8 +1,10 @@
 import re
+from dataclasses import dataclass
 from functools import reduce
 from operator import or_
 
 from django.db.models import Q
+from django.urls import reverse
 
 from apps.ai.services.prompt_template import CHATBOT_FEATURE, get_active_prompt
 from apps.ai.services.suh_aider_client import SuhAiderClient
@@ -25,6 +27,38 @@ _TOKEN_PATTERN = re.compile(r'[^\w가-힣]+')
 
 class ChatbotConfigError(Exception):
     """챗봇용 활성 프롬프트가 설정되지 않았을 때 발생한다."""
+
+
+@dataclass(frozen=True)
+class ChatLink:
+    """챗봇 답변에 함께 보여줄 추천 링크(버튼) 하나."""
+
+    label: str
+    url: str
+
+
+@dataclass(frozen=True)
+class ChatReply:
+    """get_chat_reply()의 반환값. 답변 본문과 추천 링크를 함께 담는다."""
+
+    text: str
+    links: list[ChatLink]
+
+
+def _project_recommendation_link(project: Project) -> ChatLink:
+    """프로젝트를 대표하는 링크 하나를 우선순위대로 골라 ChatLink로 반환한다.
+
+    title_href → web_site_href → github_href 순으로 첫 번째 non-empty 값을 쓰고,
+    셋 다 없으면 프로젝트 목록 페이지로 폴백한다. project_card.html에서 title_href를
+    프로젝트의 대표 링크로 쓰는 기존 관례를 그대로 따른다.
+    """
+    if project.title_href:
+        return ChatLink(label=f'{project.title} ↗', url=project.title_href)
+    if project.web_site_href:
+        return ChatLink(label=f'{project.title} ↗', url=project.web_site_href)
+    if project.github_href:
+        return ChatLink(label=f'{project.title} ↗', url=project.github_href)
+    return ChatLink(label='프로젝트 목록 →', url=reverse('site:projects'))
 
 
 def get_chat_reply(user_message: str, history: list[dict[str, str]]) -> str:

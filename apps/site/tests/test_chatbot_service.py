@@ -1,13 +1,21 @@
 from unittest.mock import patch
 
 import pytest
+from django.urls import reverse
 
 from apps.ai.services.prompt_template import CHATBOT_FEATURE
 from apps.ai.models import PromptTemplate
 from apps.blog.models import Category, Post, Tag
 from apps.profile.models import Profile, Skill
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
-from apps.site.services.chatbot import ChatbotConfigError, _MAX_TOKENS, _extract_tokens, get_chat_reply
+from apps.site.services.chatbot import (
+    ChatbotConfigError,
+    ChatLink,
+    _MAX_TOKENS,
+    _extract_tokens,
+    _project_recommendation_link,
+    get_chat_reply,
+)
 
 
 @pytest.mark.django_db
@@ -170,3 +178,59 @@ def test_history는_최근_10턴만_사용한다() -> None:
     # messages = [system, *trimmed_history(10), user] → 총 12개
     assert len(messages) == 12
     assert messages[1] == {'role': 'user', 'content': '메시지5'}
+
+
+@pytest.mark.django_db
+def test_title_href가_있으면_우선_사용한다() -> None:
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    project = Project.objects.create(
+        category=category, title='Version Management', description='설명', status=status,
+        title_href='https://title.example.com', web_site_href='https://site.example.com',
+        github_href='https://github.com/example/repo',
+    )
+
+    link = _project_recommendation_link(project)
+
+    assert link == ChatLink(label='Version Management ↗', url='https://title.example.com')
+
+
+@pytest.mark.django_db
+def test_title_href가_없으면_web_site_href를_사용한다() -> None:
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    project = Project.objects.create(
+        category=category, title='Version Management', description='설명', status=status,
+        web_site_href='https://site.example.com', github_href='https://github.com/example/repo',
+    )
+
+    link = _project_recommendation_link(project)
+
+    assert link == ChatLink(label='Version Management ↗', url='https://site.example.com')
+
+
+@pytest.mark.django_db
+def test_title_href와_web_site_href가_없으면_github_href를_사용한다() -> None:
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    project = Project.objects.create(
+        category=category, title='Version Management', description='설명', status=status,
+        github_href='https://github.com/example/repo',
+    )
+
+    link = _project_recommendation_link(project)
+
+    assert link == ChatLink(label='Version Management ↗', url='https://github.com/example/repo')
+
+
+@pytest.mark.django_db
+def test_외부_링크가_전부_없으면_프로젝트_목록으로_폴백한다() -> None:
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    project = Project.objects.create(
+        category=category, title='Version Management', description='설명', status=status,
+    )
+
+    link = _project_recommendation_link(project)
+
+    assert link == ChatLink(label='프로젝트 목록 →', url=reverse('site:projects'))
