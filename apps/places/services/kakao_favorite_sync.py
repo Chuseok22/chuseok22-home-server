@@ -39,6 +39,8 @@ class SyncResult:
     created_count: int
     skipped_count: int
     changed_places: list[ChangedPlace]
+    # 장소가 아닌 북마크(주소 즐겨찾기 등)이거나 형식이 이상해 건너뛴 항목 수
+    malformed_count: int = 0
 
 
 def resolve_folder_id(value: str) -> str:
@@ -96,9 +98,12 @@ def sync_folder(folder: PlaceSyncFolder) -> SyncResult:
     정보 수정인지 카카오 API로는 구분할 수 없어 관리자가 직접 확인해야 한다). kakao_item_updated_at이
     비어있는(=아직 추적을 시작하지 않은, 예: 수동 등록) 기존 장소는 알림 없이 기준값만 채운다.
     즐겨찾기에서 빠진 장소를 감지해 삭제하는 기능은 의도적으로 두지 않는다 — 개인 평점/한줄평 등
-    큐레이션 데이터가 유실될 수 있어, 삭제는 항상 어드민에서 수동으로 한다."""
+    큐레이션 데이터가 유실될 수 있어, 삭제는 항상 어드민에서 수동으로 한다.
+    장소가 아닌 북마크(주소 즐겨찾기 등)나 형식이 이상한 개별 항목은 폴더 전체를 중단시키지 않고
+    건너뛰며 malformed_count로만 집계한다."""
     created_count = 0
     skipped_count = 0
+    malformed_count = 0
     changed_places: list[ChangedPlace] = []
     next_id: int | None = None
     seen_next_ids: set[int] = set()
@@ -108,14 +113,25 @@ def sync_folder(folder: PlaceSyncFolder) -> SyncResult:
         favorites = payload['favorites']
 
         for item in favorites:
+            if item.get('type') != 'PLACE':
+                # 주소 즐겨찾기 등 장소가 아닌 북마크는 건너뛴다.
+                malformed_count += 1
+                continue
             try:
                 kakao_place_id = str(item['key'])
                 display_name = item['display1']
                 latitude = round(item['lat'], 7)
                 longitude = round(item['lon'], 7)
             except (KeyError, TypeError) as exc:
-                logger.error('카카오맵 즐겨찾기 항목 형식 이상 (folder_id=%s): %s', folder.kakao_folder_id, exc)
-                raise KakaoFavoriteSyncError(f'카카오맵 즐겨찾기 항목 형식 이상: {exc}') from exc
+                # 항목 하나의 형식 이상으로 폴더 전체 동기화가 영구히 멈추면 안 된다
+                # (매주 같은 지점에서 계속 실패해 last_synced_at이 다시는 갱신되지 않음) —
+                # 이 항목만 건너뛰고 계속 진행한다.
+                logger.warning(
+                    '카카오맵 즐겨찾기 항목 형식 이상, 건너뜀 (folder_id=%s): %s',
+                    folder.kakao_folder_id, exc,
+                )
+                malformed_count += 1
+                continue
 
             item_updated_at = item.get('item_updated_at', '')
             existing = Place.objects.filter(kakao_place_id=kakao_place_id).first()
@@ -161,4 +177,7 @@ def sync_folder(folder: PlaceSyncFolder) -> SyncResult:
 
     folder.last_synced_at = timezone.now()
     folder.save(update_fields=['last_synced_at'])
-    return SyncResult(created_count=created_count, skipped_count=skipped_count, changed_places=changed_places)
+    return SyncResult(
+        created_count=created_count, skipped_count=skipped_count,
+        changed_places=changed_places, malformed_count=malformed_count,
+    )

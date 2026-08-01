@@ -159,14 +159,46 @@ class TestSyncFolder(TestCase):
             sync_folder(self.folder)
 
     @patch('apps.places.services.kakao_favorite_sync.requests.get')
-    def test_항목에_필수_키가_없으면_KakaoFavoriteSyncError_발생(self, mock_get: MagicMock) -> None:
+    def test_항목에_필수_키가_없어도_그_항목만_건너뛰고_계속_진행한다(self, mock_get: MagicMock) -> None:
+        # 항목 하나의 형식 이상이 폴더 전체 동기화를 영구히 멈추면 안 된다.
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {'favorites': [{'type': 'PLACE'}], 'next_id': None}
+        mock_response.json.return_value = {
+            'favorites': [
+                {'type': 'PLACE'},                       # key/display1/lat/lon 없음
+                {**_SAMPLE_ITEM, 'lat': 'not-a-number'},  # lat이 숫자가 아님
+                _SAMPLE_ITEM,                             # 정상 항목
+            ],
+            'next_id': None,
+        }
         mock_get.return_value = mock_response
 
-        with self.assertRaises(KakaoFavoriteSyncError):
-            sync_folder(self.folder)
+        result = sync_folder(self.folder)
+
+        self.assertEqual(result.malformed_count, 2)
+        self.assertEqual(result.created_count, 1)
+        self.assertTrue(Place.objects.filter(kakao_place_id='861945610').exists())
+        self.folder.refresh_from_db()
+        self.assertIsNotNone(self.folder.last_synced_at)
+
+    @patch('apps.places.services.kakao_favorite_sync.requests.get')
+    def test_PLACE가_아닌_북마크는_건너뛴다(self, mock_get: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            'favorites': [
+                {'type': 'ADDRESS', 'display1': '서울 광진구 능동로32길 6', 'key': '999'},
+                _SAMPLE_ITEM,
+            ],
+            'next_id': None,
+        }
+        mock_get.return_value = mock_response
+
+        result = sync_folder(self.folder)
+
+        self.assertEqual(result.malformed_count, 1)
+        self.assertEqual(result.created_count, 1)
+        self.assertFalse(Place.objects.filter(kakao_place_id='999').exists())
 
     @patch('apps.places.services.kakao_favorite_sync.requests.get')
     def test_동기화_후_last_synced_at이_갱신된다(self, mock_get: MagicMock) -> None:
