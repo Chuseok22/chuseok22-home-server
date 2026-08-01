@@ -24,16 +24,19 @@ class RestaurantTagAdmin(admin.ModelAdmin):
 
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'meal_time', 'personal_rating', 'updated_at')
-    list_filter = ('meal_time', 'tags')
+    list_display = ('name', 'category', 'kakao_category', 'meal_time', 'personal_rating', 'updated_at')
+    list_filter = ('category', 'meal_time', 'tags')
     search_fields = ('name', 'address', 'road_address')
     autocomplete_fields = ('tags',)
     fieldsets = (
         ('카카오 검색', {
-            'fields': ('name', 'address', 'road_address', 'latitude', 'longitude', 'category', 'kakao_place_url'),
+            'fields': (
+                'name', 'address', 'road_address', 'latitude', 'longitude',
+                'kakao_category', 'kakao_place_url', 'kakao_place_id',
+            ),
         }),
         ('큐레이션', {
-            'fields': ('tags', 'meal_time', 'personal_rating', 'personal_review', 'note'),
+            'fields': ('category', 'tags', 'meal_time', 'personal_rating', 'personal_review', 'note'),
         }),
     )
 

@@ -1,8 +1,10 @@
+import importlib
 from decimal import Decimal
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
 from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
 
@@ -89,3 +91,64 @@ def test_제보는_기본적으로_검토되지_않은_상태다() -> None:
     user = User.objects.create_user(username='visitor')
     suggestion = RestaurantSuggestion.objects.create(restaurant_name='몽탄', submitted_by=user)
     assert suggestion.is_reviewed is False
+
+
+@pytest.mark.django_db
+def test_카테고리_기본값은_맛집이다() -> None:
+    restaurant = Restaurant.objects.create(
+        name='몽탄', latitude=Decimal('37.540000'), longitude=Decimal('127.070000'),
+    )
+    assert restaurant.category == Restaurant.Category.RESTAURANT
+
+
+@pytest.mark.django_db
+def test_카카오_장소_ID는_중복될_수_없다() -> None:
+    Restaurant.objects.create(
+        name='몽탄', latitude=Decimal('37.54'), longitude=Decimal('127.07'), kakao_place_id='1273083863',
+    )
+    with pytest.raises(IntegrityError):
+        Restaurant.objects.create(
+            name='다른곳', latitude=Decimal('37.55'), longitude=Decimal('127.08'), kakao_place_id='1273083863',
+        )
+
+
+def _load_backfill_function():
+    module = importlib.import_module(
+        'apps.restaurants.migrations.0005_add_category_and_kakao_place_id',
+    )
+    return module.backfill_kakao_place_id
+
+
+@pytest.mark.django_db
+def test_백필은_중복되는_URL을_건너뛴다() -> None:
+    from django.apps import apps as django_apps
+
+    Restaurant.objects.create(
+        name='몽탄', latitude=Decimal('37.54'), longitude=Decimal('127.07'),
+        kakao_place_url='http://place.map.kakao.com/111',
+    )
+    Restaurant.objects.create(
+        name='몽탄(중복)', latitude=Decimal('37.55'), longitude=Decimal('127.08'),
+        kakao_place_url='http://place.map.kakao.com/111',
+    )
+
+    backfill = _load_backfill_function()
+    backfill(django_apps, None)
+
+    assert Restaurant.objects.filter(kakao_place_id='111').count() == 1
+
+
+@pytest.mark.django_db
+def test_백필은_숫자가_아닌_경로는_건너뛴다() -> None:
+    from django.apps import apps as django_apps
+
+    restaurant = Restaurant.objects.create(
+        name='구형태URL', latitude=Decimal('37.54'), longitude=Decimal('127.07'),
+        kakao_place_url='http://map.kakao.com/link/map/몽탄,37.54,127.07',
+    )
+
+    backfill = _load_backfill_function()
+    backfill(django_apps, None)
+
+    restaurant.refresh_from_db()
+    assert restaurant.kakao_place_id is None

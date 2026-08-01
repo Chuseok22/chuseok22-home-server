@@ -42,6 +42,13 @@ class RestaurantTag(models.Model):
 class Restaurant(models.Model):
     """카카오 로컬 API 검색으로 등록하는 맛집. 좌표는 지도 마커 및 2단계 위치 검색에 사용한다."""
 
+    class Category(models.TextChoices):
+        RESTAURANT = 'restaurant', '맛집'
+        CAFE = 'cafe', '카페'
+        BAR = 'bar', '바'
+        DATE_COURSE = 'date_course', '데이트코스'
+        ACCOMMODATION = 'accommodation', '숙소'
+
     class MealTime(models.TextChoices):
         BREAKFAST = 'breakfast', '아침'
         LUNCH = 'lunch', '점심'
@@ -62,7 +69,13 @@ class Restaurant(models.Model):
         verbose_name='경도',
     )
     kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
-    category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
+    kakao_category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.RESTAURANT, verbose_name='카테고리',
+    )
+    kakao_place_id = models.CharField(
+        max_length=32, unique=True, null=True, blank=True, verbose_name='카카오 장소 ID',
+    )
     tags = models.ManyToManyField(RestaurantTag, blank=True, related_name='restaurants', verbose_name='태그')
     meal_time = models.CharField(
         max_length=20, choices=MealTime.choices, default=MealTime.ALL_DAY, verbose_name='식사 시간대',
