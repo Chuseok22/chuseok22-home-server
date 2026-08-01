@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 from django.db import migrations, models
 
 
-def backfill_kakao_place_id(apps, schema_editor):
+def backfill_kakao_place_id(apps, schema_editor) -> None:
     # 기존 kakao_place_url("https://place.map.kakao.com/{id}")에서 ID를 역파싱해 채운다.
     # kakao_place_id는 unique=True라, 같은 URL을 가진 레코드가 2건 이상이면 두 번째부터
     # IntegrityError로 마이그레이션 전체가 롤백된다 — 그런 레코드는 조용히 건너뛴다(로그만 남김).
@@ -31,7 +31,7 @@ def backfill_kakao_place_id(apps, schema_editor):
         restaurant.save(update_fields=['kakao_place_id'])
 
 
-def noop_reverse(apps, schema_editor):
+def noop_reverse(apps, schema_editor) -> None:
     pass
 
 

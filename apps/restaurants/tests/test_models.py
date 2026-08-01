@@ -1,5 +1,6 @@
 import importlib
 from decimal import Decimal
+from typing import Callable
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -112,7 +113,7 @@ def test_카카오_장소_ID는_중복될_수_없다() -> None:
         )
 
 
-def _load_backfill_function():
+def _load_backfill_function() -> Callable[..., None]:
     module = importlib.import_module(
         'apps.restaurants.migrations.0005_add_category_and_kakao_place_id',
     )
