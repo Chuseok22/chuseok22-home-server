@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import requests
 from django.test import TestCase, override_settings
 
-from apps.restaurants.services.kakao import KakaoApiError, search_places
+from apps.places.services.kakao import KakaoApiError, search_places
 
 _SAMPLE_DOCUMENT = {
     'place_name': '몽탄',
@@ -19,7 +19,7 @@ _SAMPLE_DOCUMENT = {
 
 @override_settings(KAKAO_REST_API_KEY='test-rest-key')
 class TestSearchPlaces(TestCase):
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_정상_응답시_KakaoPlaceResult_리스트_반환(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -44,7 +44,7 @@ class TestSearchPlaces(TestCase):
             timeout=(5, 10),
         )
 
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_검색결과가_없으면_빈_리스트_반환(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -53,10 +53,10 @@ class TestSearchPlaces(TestCase):
 
         self.assertEqual(search_places('존재하지않는맛집'), [])
 
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_좌표는_소수점_7자리로_반올림된다(self, mock_get: MagicMock) -> None:
         # 카카오 API가 실제로 소수점 7자리를 초과하는 좌표를 반환하는 경우가 흔한데,
-        # Restaurant.latitude/longitude가 DecimalField(decimal_places=7)이라 그대로
+        # Place.latitude/longitude가 DecimalField(decimal_places=7)이라 그대로
         # 저장하면 Admin 폼 검증에서 실패한다. 서비스 레벨에서 미리 반올림해 이를 막는다.
         document = {**_SAMPLE_DOCUMENT, 'x': '127.10866424103800', 'y': '37.54450371234567'}
         mock_response = MagicMock()
@@ -72,7 +72,7 @@ class TestSearchPlaces(TestCase):
 
 @override_settings(KAKAO_REST_API_KEY='test-rest-key')
 class TestSearchPlacesErrors(TestCase):
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_비2xx_응답시_KakaoApiError_발생(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -84,14 +84,14 @@ class TestSearchPlacesErrors(TestCase):
         with self.assertRaises(KakaoApiError):
             search_places('몽탄')
 
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_네트워크_연결_오류시_KakaoApiError_발생(self, mock_get: MagicMock) -> None:
         mock_get.side_effect = requests.exceptions.ConnectionError('connection refused')
 
         with self.assertRaises(KakaoApiError):
             search_places('몽탄')
 
-    @patch('apps.restaurants.services.kakao.requests.get')
+    @patch('apps.places.services.kakao.requests.get')
     def test_응답에_documents_키_없을때_KakaoApiError_발생(self, mock_get: MagicMock) -> None:
         mock_response = MagicMock()
         mock_response.status_code = 200

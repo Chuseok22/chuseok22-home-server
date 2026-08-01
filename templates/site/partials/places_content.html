@@ -1,0 +1,105 @@
+<div id="places-content" data-page-transition>
+  <div class="flex gap-2 flex-wrap mb-2">
+    <a
+      href="{% url 'site:places' %}"
+      hx-get="{% url 'site:places' %}"
+      hx-target="#places-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm {% if not has_any_filter %}btn-primary{% else %}btn-ghost{% endif %}"
+    >전체</a>
+    {% for item in category_filters %}
+    <a
+      href="{% url 'site:places' %}?{{ item.query }}"
+      hx-get="{% url 'site:places' %}?{{ item.query }}"
+      hx-target="#places-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm {% if item.is_selected %}btn-primary{% else %}btn-ghost{% endif %}"
+    >{{ item.label }}</a>
+    {% endfor %}
+  </div>
+  <div class="flex gap-2 flex-wrap mb-4">
+    {% for item in tag_filters %}
+    <a
+      href="{% url 'site:places' %}?{{ item.query }}"
+      hx-get="{% url 'site:places' %}?{{ item.query }}"
+      hx-target="#places-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="badge-tag {% if item.is_selected %}badge-primary{% endif %}"
+    >{{ item.tag.name }}</a>
+    {% endfor %}
+  </div>
+
+  <div id="place-map" class="w-full h-96 rounded-box mb-6"></div>
+  <script>
+    (function () {
+      if (typeof kakao === 'undefined') { return; }
+      kakao.maps.load(function () {
+        const map = new kakao.maps.Map(document.getElementById('place-map'), {
+          center: new kakao.maps.LatLng(37.5665, 126.9780),
+          level: 7,
+        });
+        const positions = [
+          {% for place in places %}
+          {
+            lat: {{ place.latitude }},
+            lng: {{ place.longitude }},
+            url: '{% url "site:place-detail" place.pk %}',
+          },
+          {% endfor %}
+        ];
+        const bounds = new kakao.maps.LatLngBounds();
+        positions.forEach(function (pos) {
+          const location = new kakao.maps.LatLng(pos.lat, pos.lng);
+          bounds.extend(location);
+          const marker = new kakao.maps.Marker({
+            position: location,
+            map: map,
+          });
+          kakao.maps.event.addListener(marker, 'click', function () {
+            window.location.href = pos.url;
+          });
+        });
+        if (positions.length) {
+          map.setBounds(bounds);
+        }
+      });
+    })();
+  </script>
+
+  <div class="grid gap-4 md:grid-cols-2">
+    {% for place in places %}
+    {% include 'site/partials/place_card.html' %}
+    {% empty %}
+    <p class="opacity-60">등록된 장소가 없습니다.</p>
+    {% endfor %}
+  </div>
+
+  {% if page_obj.has_other_pages %}
+  <div class="flex items-center justify-center gap-4 mt-6">
+    {% if page_obj.has_previous %}
+    <a
+      href="{% url 'site:places' %}?{{ prev_query }}"
+      hx-get="{% url 'site:places' %}?{{ prev_query }}"
+      hx-target="#places-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm btn-ghost"
+    >이전</a>
+    {% endif %}
+    <span class="text-sm opacity-70">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a
+      href="{% url 'site:places' %}?{{ next_query }}"
+      hx-get="{% url 'site:places' %}?{{ next_query }}"
+      hx-target="#places-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="btn btn-sm btn-ghost"
+    >다음</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -3,27 +3,27 @@ from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
 
-from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
-from apps.restaurants.services.kakao import KakaoApiError, search_places
-from apps.restaurants.services.slug import generate_unique_slug
+from apps.places.models import Place, PlaceSuggestion, PlaceTag
+from apps.places.services.kakao import KakaoApiError, search_places
+from apps.places.services.slug import generate_unique_slug
 
 
-@admin.register(RestaurantTag)
-class RestaurantTagAdmin(admin.ModelAdmin):
+@admin.register(PlaceTag)
+class PlaceTagAdmin(admin.ModelAdmin):
     list_display = ('name',)
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
 
     def save_model(
-        self, request: HttpRequest, obj: RestaurantTag, form: forms.ModelForm, change: bool,
+        self, request: HttpRequest, obj: PlaceTag, form: forms.ModelForm, change: bool,
     ) -> None:
         if not obj.slug:
-            obj.slug = generate_unique_slug(RestaurantTag, obj.name)
+            obj.slug = generate_unique_slug(PlaceTag, obj.name)
         super().save_model(request, obj, form, change)
 
 
-@admin.register(Restaurant)
-class RestaurantAdmin(admin.ModelAdmin):
+@admin.register(Place)
+class PlaceAdmin(admin.ModelAdmin):
     list_display = ('name', 'category', 'kakao_category', 'meal_time', 'personal_rating', 'updated_at')
     list_filter = ('category', 'meal_time', 'tags')
     search_fields = ('name', 'address', 'road_address')
@@ -41,20 +41,20 @@ class RestaurantAdmin(admin.ModelAdmin):
     )
 
     class Media:
-        js = ('restaurants/admin/kakao_search.js',)
+        js = ('places/admin/kakao_search.js',)
 
     def get_urls(self) -> list:
         custom_urls = [
             path(
                 'kakao-search/',
                 self.admin_site.admin_view(self.kakao_search_view),
-                name='restaurants_restaurant_kakao_search',
+                name='places_place_kakao_search',
             ),
         ]
         return custom_urls + super().get_urls()
 
     def kakao_search_view(self, request: HttpRequest) -> JsonResponse:
-        # admin_view()는 로그인·staff 여부만 검사하므로, Restaurant 변경 권한이 없는
+        # admin_view()는 로그인·staff 여부만 검사하므로, Place 변경 권한이 없는
         # staff 계정의 검색을 막으려면 모델 단위 권한을 별도로 확인해야 한다.
         # 검색 위젯은 추가(add) 화면에도 노출되므로 change 권한만 검사하면 add 권한만
         # 가진 staff 계정이 403을 받는다 — 두 권한 중 하나라도 있으면 허용한다.
@@ -87,8 +87,8 @@ class RestaurantAdmin(admin.ModelAdmin):
         })
 
 
-@admin.register(RestaurantSuggestion)
-class RestaurantSuggestionAdmin(admin.ModelAdmin):
+@admin.register(PlaceSuggestion)
+class PlaceSuggestionAdmin(admin.ModelAdmin):
     list_display = ('restaurant_name', 'submitted_by', 'is_reviewed', 'created_at')
     list_filter = ('is_reviewed',)
     search_fields = ('restaurant_name', 'message')

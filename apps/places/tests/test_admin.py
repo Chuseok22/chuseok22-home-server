@@ -6,25 +6,25 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
-from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
-from apps.restaurants.services.kakao import KakaoApiError, KakaoPlaceResult
+from apps.places.models import Place, PlaceSuggestion, PlaceTag
+from apps.places.services.kakao import KakaoApiError, KakaoPlaceResult
 
 User = get_user_model()
 
 
 def test_세_모델_모두_admin에_등록되어_있다() -> None:
-    assert site.is_registered(Restaurant)
-    assert site.is_registered(RestaurantTag)
-    assert site.is_registered(RestaurantSuggestion)
+    assert site.is_registered(Place)
+    assert site.is_registered(PlaceTag)
+    assert site.is_registered(PlaceSuggestion)
 
 
 @pytest.mark.django_db
-def test_스태프는_맛집_등록_화면에_접근할_수_있다() -> None:
+def test_스태프는_장소_등록_화면에_접근할_수_있다() -> None:
     staff = User.objects.create_user(username='admin', is_staff=True, is_superuser=True)
     client = Client()
     client.force_login(staff)
 
-    response = client.get(reverse('admin:restaurants_restaurant_add'))
+    response = client.get(reverse('admin:places_place_add'))
 
     assert response.status_code == 200
 
@@ -35,21 +35,21 @@ def test_태그_어드민에서_슬러그가_자동_생성된다() -> None:
     client = Client()
     client.force_login(staff)
 
-    client.post(reverse('admin:restaurants_restauranttag_add'), {'name': '데이트'})
+    client.post(reverse('admin:places_placetag_add'), {'name': '데이트'})
 
-    tag = RestaurantTag.objects.get(name='데이트')
+    tag = PlaceTag.objects.get(name='데이트')
     assert tag.slug
 
 
 @pytest.mark.django_db
 def test_비로그인_사용자는_카카오_검색_프록시에_접근할_수_없다() -> None:
     client = Client()
-    response = client.get(reverse('admin:restaurants_restaurant_kakao_search'), {'query': '몽탄'})
+    response = client.get(reverse('admin:places_place_kakao_search'), {'query': '몽탄'})
     assert response.status_code in (302, 403)
 
 
 @pytest.mark.django_db
-@patch('apps.restaurants.admin.search_places')
+@patch('apps.places.admin.search_places')
 def test_스태프는_카카오_검색_결과를_JSON으로_받는다(mock_search_places: MagicMock) -> None:
     mock_search_places.return_value = [
         KakaoPlaceResult(
@@ -61,7 +61,7 @@ def test_스태프는_카카오_검색_결과를_JSON으로_받는다(mock_searc
     client = Client()
     client.force_login(staff)
 
-    response = client.get(reverse('admin:restaurants_restaurant_kakao_search'), {'query': '몽탄'})
+    response = client.get(reverse('admin:places_place_kakao_search'), {'query': '몽탄'})
 
     assert response.status_code == 200
     data = response.json()
@@ -76,20 +76,20 @@ def test_검색어가_비어있으면_400을_반환한다() -> None:
     client = Client()
     client.force_login(staff)
 
-    response = client.get(reverse('admin:restaurants_restaurant_kakao_search'), {'query': ''})
+    response = client.get(reverse('admin:places_place_kakao_search'), {'query': ''})
 
     assert response.status_code == 400
 
 
 @pytest.mark.django_db
-@patch('apps.restaurants.admin.search_places')
+@patch('apps.places.admin.search_places')
 def test_카카오_API_오류시_502를_반환한다(mock_search_places: MagicMock) -> None:
     mock_search_places.side_effect = KakaoApiError('카카오 로컬 API 호출 실패')
     staff = User.objects.create_user(username='admin', is_staff=True, is_superuser=True)
     client = Client()
     client.force_login(staff)
 
-    response = client.get(reverse('admin:restaurants_restaurant_kakao_search'), {'query': '몽탄'})
+    response = client.get(reverse('admin:places_place_kakao_search'), {'query': '몽탄'})
 
     assert response.status_code == 502
     assert response.json()['success'] is False

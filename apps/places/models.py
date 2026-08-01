@@ -7,31 +7,26 @@ from django.db import models
 from django.db.models.functions import Lower
 
 
-class RestaurantTag(models.Model):
-    """맛집 태그. 대소문자만 다른 동일 태그의 중복 생성을 막는다 (apps.blog.Tag와 동일한 패턴)."""
+class PlaceTag(models.Model):
+    """장소 태그. 대소문자만 다른 동일 태그의 중복 생성을 막는다."""
 
     name = models.CharField(max_length=50, verbose_name='이름')
     slug = models.SlugField(unique=True, blank=True, verbose_name='슬러그')
 
     class Meta:
-        db_table = 'restaurants_restaurant_tag'
+        db_table = 'places_place_tag'
         ordering = ['name']
-        verbose_name = '맛집 태그'
-        verbose_name_plural = '맛집 태그 목록'
+        verbose_name = '장소 태그'
+        verbose_name_plural = '장소 태그 목록'
         constraints = [
-            models.UniqueConstraint(Lower('name'), name='unique_restaurant_tag_name_ci'),
+            models.UniqueConstraint(Lower('name'), name='unique_place_tag_name_ci'),
         ]
 
     def clean(self) -> None:
-        # DB의 UniqueConstraint(Lower('name'))는 항상 걸리지만, 어드민 "새 태그 추가" 팝업처럼
-        # 폼 검증을 거치는 경로에서 IntegrityError 대신 친절한 메시지를 보여주기 위해
-        # 동일 조건을 애플리케이션 레벨에서도 검사한다.
-        if RestaurantTag.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
+        if PlaceTag.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
             raise ValidationError(f"태그 '{self.name}'이 이미 존재합니다 (대소문자 무시).")
 
     def save(self, *args: object, **kwargs: object) -> None:
-        # slug 자동 생성은 어드민(RestaurantTagAdmin.save_model) 호출 시점에 명시적으로
-        # 처리한다 — apps.blog.Tag와 동일한 패턴.
         self.clean()
         super().save(*args, **kwargs)
 
@@ -39,8 +34,8 @@ class RestaurantTag(models.Model):
         return self.name
 
 
-class Restaurant(models.Model):
-    """카카오 로컬 API 검색으로 등록하는 맛집. 좌표는 지도 마커 및 2단계 위치 검색에 사용한다."""
+class Place(models.Model):
+    """카카오 로컬 API 검색 또는 카카오맵 즐겨찾기 동기화로 등록하는 장소."""
 
     class Category(models.TextChoices):
         RESTAURANT = 'restaurant', '맛집'
@@ -56,6 +51,9 @@ class Restaurant(models.Model):
         ALL_DAY = 'all_day', '상시'
 
     name = models.CharField(max_length=100, verbose_name='상호명')
+    category = models.CharField(
+        max_length=20, choices=Category.choices, default=Category.RESTAURANT, verbose_name='카테고리',
+    )
     address = models.CharField(max_length=255, blank=True, verbose_name='지번 주소')
     road_address = models.CharField(max_length=255, blank=True, verbose_name='도로명 주소')
     latitude = models.DecimalField(
@@ -68,15 +66,12 @@ class Restaurant(models.Model):
         validators=[MinValueValidator(Decimal('-180')), MaxValueValidator(Decimal('180'))],
         verbose_name='경도',
     )
-    kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
-    kakao_category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
-    category = models.CharField(
-        max_length=20, choices=Category.choices, default=Category.RESTAURANT, verbose_name='카테고리',
-    )
     kakao_place_id = models.CharField(
         max_length=32, unique=True, null=True, blank=True, verbose_name='카카오 장소 ID',
     )
-    tags = models.ManyToManyField(RestaurantTag, blank=True, related_name='restaurants', verbose_name='태그')
+    kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
+    kakao_category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
+    tags = models.ManyToManyField(PlaceTag, blank=True, related_name='places', verbose_name='태그')
     meal_time = models.CharField(
         max_length=20, choices=MealTime.choices, default=MealTime.ALL_DAY, verbose_name='식사 시간대',
     )
@@ -90,33 +85,33 @@ class Restaurant(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'restaurants_restaurant'
+        db_table = 'places_place'
         ordering = ['-created_at']
-        verbose_name = '맛집'
-        verbose_name_plural = '맛집 목록'
+        verbose_name = '장소'
+        verbose_name_plural = '장소 목록'
 
     def __str__(self) -> str:
         return self.name
 
 
-class RestaurantSuggestion(models.Model):
-    """방문자가 새 맛집을 제보하는 검토 대기 큐. Restaurant 본체와 분리해 상태 머신을 두지 않는다."""
+class PlaceSuggestion(models.Model):
+    """방문자가 새 장소를 제보하는 검토 대기 큐."""
 
     restaurant_name = models.CharField(max_length=100, verbose_name='제보 상호명')
     kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
     message = models.TextField(blank=True, verbose_name='추천 이유')
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-        related_name='restaurant_suggestions', verbose_name='제보자',
+        related_name='place_suggestions', verbose_name='제보자',
     )
     is_reviewed = models.BooleanField(default=False, verbose_name='검토 완료')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'restaurants_restaurant_suggestion'
+        db_table = 'places_place_suggestion'
         ordering = ['-created_at']
-        verbose_name = '맛집 제보'
-        verbose_name_plural = '맛집 제보 목록'
+        verbose_name = '장소 제보'
+        verbose_name_plural = '장소 제보 목록'
 
     def __str__(self) -> str:
         return f'{self.restaurant_name} ({self.submitted_by})'
