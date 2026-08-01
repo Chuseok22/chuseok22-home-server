@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlsplit
 
 from django.db import migrations
 
@@ -16,14 +17,17 @@ def migrate_existing_data(apps, schema_editor) -> None:
             'INSERT INTO places_place_tag (id, name, slug) '
             'SELECT id, name, slug FROM restaurants_restaurant_tag'
         )
+        # 운영 DB는 이 시점에도 0004 상태(kakao_place_id/kakao_category 없음, category는
+        # 옛 카카오 업종 문자열)다 — 신규 category는 기본값 'restaurant'로, kakao_category는
+        # 옛 category 컬럼값으로 채운다. kakao_place_id는 아래에서 ORM으로 별도 백필한다.
         cursor.execute(
             'INSERT INTO places_place ('
             '  id, name, category, address, road_address, latitude, longitude, '
-            '  kakao_place_id, kakao_place_url, kakao_category, meal_time, '
+            '  kakao_place_url, kakao_category, meal_time, '
             '  personal_rating, personal_review, note, created_at, updated_at'
             ') SELECT '
-            '  id, name, category, address, road_address, latitude, longitude, '
-            '  kakao_place_id, kakao_place_url, kakao_category, meal_time, '
+            "  id, name, 'restaurant', address, road_address, latitude, longitude, "
+            '  kakao_place_url, category, meal_time, '
             '  personal_rating, personal_review, note, created_at, updated_at'
             ' FROM restaurants_restaurant'
         )
@@ -53,6 +57,24 @@ def migrate_existing_data(apps, schema_editor) -> None:
         cursor.execute('DROP TABLE restaurants_restaurant_suggestion')
         cursor.execute('DROP TABLE restaurants_restaurant')
         cursor.execute('DROP TABLE restaurants_restaurant_tag')
+
+    # kakao_place_id 백필: kakao_place_url에서 ID를 역파싱한다(Task 1의 0005 마이그레이션과
+    # 동일한 로직 — 중복 URL·비숫자 경로는 건너뛴다).
+    Place = apps.get_model('places', 'Place')
+    for place in Place.objects.exclude(kakao_place_url=''):
+        place_id = urlsplit(place.kakao_place_url).path.lstrip('/')
+        if not place_id.isdecimal():
+            logger.warning(
+                '카카오 장소 ID 백필 건너뜀 (숫자 아님): place_id=%s, url=%s', place.pk, place.kakao_place_url,
+            )
+            continue
+        if Place.objects.filter(kakao_place_id=place_id).exclude(pk=place.pk).exists():
+            logger.warning(
+                '카카오 장소 ID 백필 건너뜀 (중복): place_id=%s, kakao_place_id=%s', place.pk, place_id,
+            )
+            continue
+        place.kakao_place_id = place_id
+        place.save(update_fields=['kakao_place_id'])
 
     ContentType = apps.get_model('contenttypes', 'ContentType')
     for old_model, new_model in (
