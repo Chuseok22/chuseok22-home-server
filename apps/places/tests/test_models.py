@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
-from apps.places.models import Place, PlaceSuggestion, PlaceTag
+from apps.places.models import Place, PlaceSuggestion, PlaceTag, PlaceSyncFolder
 
 User = get_user_model()
 
@@ -92,3 +92,21 @@ def test_제보는_기본적으로_검토되지_않은_상태다() -> None:
     user = User.objects.create_user(username='visitor')
     suggestion = PlaceSuggestion.objects.create(restaurant_name='몽탄', submitted_by=user)
     assert suggestion.is_reviewed is False
+
+
+@pytest.mark.django_db
+def test_동기화_폴더_문자열_표현은_제목이다() -> None:
+    folder = PlaceSyncFolder.objects.create(category=Place.Category.RESTAURANT, kakao_folder_id='10340963', title='맛집')
+    assert str(folder) == '맛집'
+
+
+@pytest.mark.django_db
+def test_동기화_폴더는_기본적으로_활성화된다() -> None:
+    folder = PlaceSyncFolder.objects.create(category=Place.Category.CAFE, kakao_folder_id='1', title='카페')
+    assert folder.is_active is True
+
+
+@pytest.mark.django_db
+def test_동기화_폴더의_마지막_동기화_시각은_기본적으로_비어있다() -> None:
+    folder = PlaceSyncFolder.objects.create(category=Place.Category.BAR, kakao_folder_id='2', title='바')
+    assert folder.last_synced_at is None

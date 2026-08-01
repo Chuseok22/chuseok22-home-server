@@ -115,3 +115,22 @@ class PlaceSuggestion(models.Model):
 
     def __str__(self) -> str:
         return f'{self.restaurant_name} ({self.submitted_by})'
+
+
+class PlaceSyncFolder(models.Model):
+    """카카오맵 즐겨찾기 폴더 ↔ Place.category 매핑. 활성화된 폴더만 동기화 대상이 된다."""
+
+    category = models.CharField(max_length=20, choices=Place.Category.choices, verbose_name='카테고리')
+    kakao_folder_id = models.CharField(max_length=32, verbose_name='카카오 폴더 ID')
+    title = models.CharField(max_length=100, blank=True, verbose_name='폴더 제목 (참고용)')
+    is_active = models.BooleanField(default=True, verbose_name='동기화 활성화')
+    last_synced_at = models.DateTimeField(null=True, blank=True, verbose_name='마지막 동기화 시각')
+
+    class Meta:
+        db_table = 'places_sync_folder'
+        ordering = ['category']
+        verbose_name = '장소 동기화 폴더'
+        verbose_name_plural = '장소 동기화 폴더 목록'
+
+    def __str__(self) -> str:
+        return self.title or self.kakao_folder_id

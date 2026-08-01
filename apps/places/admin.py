@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
 
-from apps.places.models import Place, PlaceSuggestion, PlaceTag
+from apps.places.models import Place, PlaceSuggestion, PlaceTag, PlaceSyncFolder
 from apps.places.services.kakao import KakaoApiError, search_places
 from apps.places.services.slug import generate_unique_slug
 
@@ -92,3 +92,10 @@ class PlaceSuggestionAdmin(admin.ModelAdmin):
     list_display = ('restaurant_name', 'submitted_by', 'is_reviewed', 'created_at')
     list_filter = ('is_reviewed',)
     search_fields = ('restaurant_name', 'message')
+
+
+@admin.register(PlaceSyncFolder)
+class PlaceSyncFolderAdmin(admin.ModelAdmin):
+    list_display = ('title', 'category', 'kakao_folder_id', 'is_active', 'last_synced_at')
+    list_filter = ('category', 'is_active')
+    readonly_fields = ('last_synced_at',)

@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
-from apps.places.models import Place, PlaceSuggestion, PlaceTag
+from apps.places.models import Place, PlaceSuggestion, PlaceTag, PlaceSyncFolder
 from apps.places.services.kakao import KakaoApiError, KakaoPlaceResult
 
 User = get_user_model()
@@ -93,3 +93,7 @@ def test_카카오_API_오류시_502를_반환한다(mock_search_places: MagicMo
 
     assert response.status_code == 502
     assert response.json()['success'] is False
+
+
+def test_동기화_폴더_admin에_등록되어_있다() -> None:
+    assert site.is_registered(PlaceSyncFolder)
