@@ -8,7 +8,7 @@ from django.test import Client
 from django.urls import reverse
 
 from apps.ai.services.suh_aider_client import SuhAiderClientError
-from apps.site.services.chatbot import ChatbotConfigError
+from apps.site.services.chatbot import ChatbotConfigError, ChatLink, ChatReply
 
 
 @pytest.fixture(autouse=True)
@@ -27,14 +27,18 @@ def _post_chat_json(client: Client, payload: dict) -> HttpResponse:
 
 
 @pytest.mark.django_db
-def test_정상_메시지는_200과_reply를_반환한다() -> None:
+def test_정상_메시지는_200과_reply와_links를_반환한다() -> None:
     client = Client()
 
-    with patch('apps.site.views.get_chat_reply', return_value='안녕하세요!') as mock_reply:
+    mock_result = ChatReply(text='안녕하세요!', links=[ChatLink(label='홈서버 프로젝트 ↗', url='https://example.com')])
+    with patch('apps.site.views.get_chat_reply', return_value=mock_result) as mock_reply:
         response = _post_chat_json(client, {'message': '안녕', 'history': []})
 
     assert response.status_code == 200
-    assert response.json() == {'reply': '안녕하세요!'}
+    assert response.json() == {
+        'reply': '안녕하세요!',
+        'links': [{'label': '홈서버 프로젝트 ↗', 'url': 'https://example.com'}],
+    }
     mock_reply.assert_called_once_with('안녕', [])
 
 
@@ -146,7 +150,7 @@ def test_history_항목_개수가_20개를_초과하면_400을_반환한다() ->
 def test_history_항목의_허용되지_않은_추가_키는_제거되고_role_content만_전달된다() -> None:
     client = Client()
 
-    with patch('apps.site.views.get_chat_reply', return_value='응답') as mock_reply:
+    with patch('apps.site.views.get_chat_reply', return_value=ChatReply(text='응답', links=[])) as mock_reply:
         response = _post_chat_json(client, {
             'message': '안녕',
             'history': [{'role': 'user', 'content': 'hi', 'images': ['x']}],
@@ -160,7 +164,7 @@ def test_history_항목의_허용되지_않은_추가_키는_제거되고_role_c
 def test_history가_없으면_빈_리스트로_처리한다() -> None:
     client = Client()
 
-    with patch('apps.site.views.get_chat_reply', return_value='응답') as mock_reply:
+    with patch('apps.site.views.get_chat_reply', return_value=ChatReply(text='응답', links=[])) as mock_reply:
         response = _post_chat_json(client, {'message': '안녕'})
 
     assert response.status_code == 200
@@ -191,7 +195,7 @@ def test_SuhAiderClientError_발생시_503을_반환한다() -> None:
 def test_분당_5회_초과시_429를_반환한다() -> None:
     client = Client()
 
-    with patch('apps.site.views.get_chat_reply', return_value='응답'):
+    with patch('apps.site.views.get_chat_reply', return_value=ChatReply(text='응답', links=[])):
         for _ in range(5):
             response = _post_chat_json(client, {'message': '안녕', 'history': []})
             assert response.status_code == 200
@@ -230,7 +234,7 @@ def test_CSRF_쿠키와_헤더가_일치하면_200을_반환한다() -> None:
     client.get(reverse('site:home'))
     csrf_token = client.cookies['csrftoken'].value
 
-    with patch('apps.site.views.get_chat_reply', return_value='안녕하세요!'):
+    with patch('apps.site.views.get_chat_reply', return_value=ChatReply(text='안녕하세요!', links=[])):
         response = client.post(
             reverse('site:chat'),
             data=json.dumps({'message': '안녕', 'history': []}),
