@@ -251,3 +251,12 @@ class TestResolveFolderId(TestCase):
 
         with self.assertRaises(KakaoFavoriteSyncError):
             resolve_folder_id('https://kko.to/KVWPW2bHLZ')
+
+    @patch('apps.places.services.kakao_favorite_sync.requests.get')
+    def test_허용되지_않은_호스트는_요청_없이_KakaoFavoriteSyncError_발생(self, mock_get: MagicMock) -> None:
+        # 스태프 폼 입력을 그대로 requests.get에 넘기므로, 카카오 도메인이 아닌 호스트(내부망,
+        # 클라우드 메타데이터 주소 등)로는 요청 자체가 나가면 안 된다(SSRF 방지).
+        with self.assertRaises(KakaoFavoriteSyncError):
+            resolve_folder_id('http://169.254.169.254/latest/meta-data/')
+
+        mock_get.assert_not_called()

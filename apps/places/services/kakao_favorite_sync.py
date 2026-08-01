@@ -16,6 +16,9 @@ _READ_TIMEOUT = 10
 # 폴더당 최대 페이지 수 안전장치 — 카카오 응답이 next_id를 계속 새로 발급해도 무한 루프에
 # 빠지지 않도록 상한을 둔다. 현재 최대 폴더(맛집, 556건)도 페이지당 500건 기준 2페이지면 충분하다.
 _MAX_PAGES = 50
+# resolve_folder_id()가 요청을 허용하는 호스트 — 스태프 폼 입력을 그대로 requests.get에
+# 넘기므로, 내부망/클라우드 메타데이터 주소 등으로의 SSRF를 막기 위해 카카오 도메인만 허용한다.
+_ALLOWED_SHARE_LINK_HOSTS = {'kko.to', 'map.kakao.com'}
 
 
 class KakaoFavoriteSyncError(Exception):
@@ -49,6 +52,10 @@ def resolve_folder_id(value: str) -> str:
     따라가 실제 folderid를 추출하고, 이미 숫자 ID 문자열이면 그대로 반환한다."""
     if not value.startswith('http'):
         return value
+
+    hostname = urlsplit(value).hostname
+    if hostname not in _ALLOWED_SHARE_LINK_HOSTS:
+        raise KakaoFavoriteSyncError(f'허용되지 않은 호스트입니다: {hostname}')
 
     try:
         response = requests.get(

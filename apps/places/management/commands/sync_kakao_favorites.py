@@ -33,6 +33,14 @@ class Command(BaseCommand):
                 self.stderr.write(f'[{label}] 동기화 실패: {e}')
                 failed_labels.append(label)
                 continue
+            except Exception as e:
+                # 스케줄러(apps.core.scheduler._run_job)는 예외를 로깅만 하고 삼키므로,
+                # 예상 못한 예외(DB 오류 등)로 커맨드 전체가 중단되면 나머지 폴더는 동기화되지
+                # 않고 이미 모은 결과에 대한 알림도 나가지 않는다 — 이 폴더만 실패 처리하고 계속한다.
+                logger.exception('폴더 동기화 중 예기치 못한 오류 (folder_id=%s)', folder.kakao_folder_id)
+                self.stderr.write(f'[{label}] 예기치 못한 오류: {e}')
+                failed_labels.append(label)
+                continue
             self.stdout.write(f'[{label}] 신규 {result.created_count}건, 스킵 {result.skipped_count}건')
             all_changed.extend(result.changed_places)
 

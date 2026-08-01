@@ -45,6 +45,30 @@ def test_한_폴더_실패가_다른_폴더_처리를_막지_않는다(
 
 
 @pytest.mark.django_db
+@patch('apps.places.management.commands.sync_kakao_favorites.TelegramService')
+@patch('apps.places.management.commands.sync_kakao_favorites.sync_folder')
+def test_예상치_못한_예외도_한_폴더만_실패시키고_계속_진행한다(
+    mock_sync_folder: MagicMock, mock_telegram_cls: MagicMock,
+) -> None:
+    # KakaoFavoriteSyncError가 아닌 예외(예: DB 오류)도 커맨드 전체를 중단시키면 안 된다 —
+    # 스케줄러가 예외를 삼키므로, 중단되면 나머지 폴더 동기화와 이미 모은 알림 발송도 사라진다.
+    PlaceSyncFolder.objects.create(category=Place.Category.RESTAURANT, kakao_folder_id='1', title='맛집')
+    PlaceSyncFolder.objects.create(category=Place.Category.CAFE, kakao_folder_id='2', title='카페')
+    mock_sync_folder.side_effect = [
+        RuntimeError('예상 못한 DB 오류'),
+        SyncResult(created_count=2, skipped_count=0, changed_places=[]),
+    ]
+
+    out = StringIO()
+    err = StringIO()
+    call_command('sync_kakao_favorites', stdout=out, stderr=err)
+
+    assert mock_sync_folder.call_count == 2
+    assert '예기치 못한 오류' in err.getvalue()
+    assert '신규 2건' in out.getvalue()
+
+
+@pytest.mark.django_db
 def test_활성_폴더가_없으면_안내_메시지를_출력한다() -> None:
     out = StringIO()
     call_command('sync_kakao_favorites', stdout=out)
