@@ -38,7 +38,8 @@ def test_정상_흐름에서_SuhAiderClient_chat이_시스템_프롬프트와_�
         mock_client_cls.return_value.chat.return_value = '안녕하세요!'
         reply = get_chat_reply('안녕', [])
 
-    assert reply == '안녕하세요!'
+    assert reply.text == '안녕하세요!'
+    assert reply.links == []
     mock_client_cls.return_value.chat.assert_called_once()
     call_kwargs = mock_client_cls.return_value.chat.call_args.kwargs
     assert call_kwargs['model'] == 'functiongemma'
@@ -234,3 +235,106 @@ def test_외부_링크가_전부_없으면_프로젝트_목록으로_폴백한�
     link = _project_recommendation_link(project)
 
     assert link == ChatLink(label='프로젝트 목록 →', url=reverse('site:projects'))
+
+
+@pytest.mark.django_db
+def test_관련_프로젝트가_있으면_links에_대표_링크가_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    Project.objects.create(
+        category=category, title='홈서버 프로젝트', description='Django 기반 홈서버',
+        status=status, title_href='https://external.example.com/homeserver',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        reply = get_chat_reply('홈서버 프로젝트에 대해 알려줘', [])
+
+    assert reply.links == [
+        ChatLink(label='홈서버 프로젝트 ↗', url='https://external.example.com/homeserver'),
+    ]
+
+
+@pytest.mark.django_db
+def test_관련_블로그_글이_있으면_links에_상세_페이지_링크가_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = Category.objects.create(name='개발')
+    Post.objects.create(
+        title='배포 자동화 회고', slug='deploy-post', summary='배포 과정 정리',
+        content='내용', category=category, is_published=True,
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        reply = get_chat_reply('배포 자동화 회고 보여줘', [])
+
+    assert reply.links == [
+        ChatLink(label='배포 자동화 회고 →', url=reverse('site:blog-detail', kwargs={'slug': 'deploy-post'})),
+    ]
+
+
+@pytest.mark.django_db
+def test_프로젝트_링크가_블로그_링크보다_먼저_온다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    Project.objects.create(
+        category=category, title='홈서버', description='홈서버 배포 자동화 프로젝트',
+        status=status, title_href='https://external.example.com/homeserver',
+    )
+    blog_category = Category.objects.create(name='개발')
+    Post.objects.create(
+        title='홈서버 배포 회고', slug='homeserver-deploy', summary='배포 과정 정리',
+        content='내용', category=blog_category, is_published=True,
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        reply = get_chat_reply('홈서버 배포에 대해 알려줘', [])
+
+    assert reply.links == [
+        ChatLink(label='홈서버 ↗', url='https://external.example.com/homeserver'),
+        ChatLink(label='홈서버 배포 회고 →', url=reverse('site:blog-detail', kwargs={'slug': 'homeserver-deploy'})),
+    ]
+
+
+@pytest.mark.django_db
+def test_외부_링크_없는_프로젝트가_여러_개면_목록_링크는_하나만_남는다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    Project.objects.create(category=category, title='홈서버 프로젝트A', description='설명', status=status)
+    Project.objects.create(category=category, title='홈서버 프로젝트B', description='설명', status=status)
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        reply = get_chat_reply('홈서버 프로젝트 알려줘', [])
+
+    assert reply.links == [ChatLink(label='프로젝트 목록 →', url=reverse('site:projects'))]
+
+
+@pytest.mark.django_db
+def test_매칭되는_항목이_없으면_links는_빈_리스트다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        reply = get_chat_reply('안녕하세요', [])
+
+    assert reply.links == []

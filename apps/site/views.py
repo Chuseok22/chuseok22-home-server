@@ -477,13 +477,16 @@ def chat(request: HttpRequest) -> JsonResponse:
     history = [{'role': item['role'], 'content': item['content']} for item in history]
 
     try:
-        reply = get_chat_reply(message, history)
+        result = get_chat_reply(message, history)
     except ChatbotConfigError:
         return JsonResponse({'error': '챗봇 준비 중입니다. 잠시 후 다시 시도해주세요.'}, status=503)
     except SuhAiderClientError:
         return JsonResponse({'error': '일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해주세요.'}, status=503)
 
-    return JsonResponse({'reply': reply})
+    return JsonResponse({
+        'reply': result.text,
+        'links': [{'label': link.label, 'url': link.url} for link in result.links],
+    })
 
 
 def _is_valid_chat_history(history: object) -> bool:
