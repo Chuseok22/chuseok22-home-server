@@ -1,28 +1,28 @@
 {% extends "site/base.html" %}
 {% load engagement_tags %}
 
-{% block title %}{{ restaurant.name }} — 백지훈{% endblock %}
+{% block title %}{{ place.name }} — 백지훈{% endblock %}
 
 {% block content %}
 <article>
-  <h1 class="text-2xl font-bold">{{ restaurant.name }}</h1>
-  <p class="opacity-70">{{ restaurant.road_address|default:restaurant.address }}</p>
+  <h1 class="text-2xl font-bold">{{ place.name }}</h1>
+  <p class="opacity-70">{{ place.road_address|default:place.address }}</p>
   <div class="flex gap-2 flex-wrap my-2">
-    {% for tag in restaurant.tags.all %}
+    {% for tag in place.tags.all %}
     <span class="badge-tag">{{ tag.name }}</span>
     {% endfor %}
   </div>
-  {% if restaurant.personal_rating %}<p class="my-2">평점: {{ restaurant.personal_rating }}/5</p>{% endif %}
-  {% if restaurant.personal_review %}<p class="my-2">"{{ restaurant.personal_review }}"</p>{% endif %}
-  {% if restaurant.note %}<p class="my-2 text-sm opacity-70">{{ restaurant.note }}</p>{% endif %}
-  {% if restaurant.kakao_place_url %}
-  <a href="{{ restaurant.kakao_place_url }}" class="link link-hover" target="_blank" rel="noopener">카카오맵에서 보기</a>
+  {% if place.personal_rating %}<p class="my-2">평점: {{ place.personal_rating }}/5</p>{% endif %}
+  {% if place.personal_review %}<p class="my-2">"{{ place.personal_review }}"</p>{% endif %}
+  {% if place.note %}<p class="my-2 text-sm opacity-70">{{ place.note }}</p>{% endif %}
+  {% if place.kakao_place_url %}
+  <a href="{{ place.kakao_place_url }}" class="link link-hover" target="_blank" rel="noopener">카카오맵에서 보기</a>
   {% endif %}
 </article>
 
 <section class="mt-6 flex items-center gap-4">
   {% if user.is_authenticated %}
-  {% include "engagement/like_button.html" with target=restaurant %}
+  {% include "engagement/like_button.html" with target=place %}
   {% else %}
   <span class="opacity-60">❤️ {{ like_count }}</span>
   {% endif %}
@@ -32,7 +32,7 @@
   <h2 class="text-xl font-semibold mb-4">댓글</h2>
   {% if user.is_authenticated %}
   <form
-    hx-post="{% url 'engagement:comment-create' restaurant|content_type_app_label restaurant|content_type_model restaurant.pk %}"
+    hx-post="{% url 'engagement:comment-create' place|content_type_app_label place|content_type_model place.pk %}"
     hx-target="#comments"
     hx-disabled-elt="find button"
     class="flex gap-2 mb-4"

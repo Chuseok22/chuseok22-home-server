@@ -3,6 +3,7 @@ from itertools import groupby
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.paginator import Paginator
 from django.db.models import F
 from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
@@ -22,6 +23,7 @@ from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.core.services.rate_limit import check_rate_limit
 from apps.engagement.models import Comment, Like
 from apps.notifications.models import NoticeSource
+from apps.places.models import Place, PlaceSuggestion, PlaceTag
 from apps.profile.models import (
     Activity,
     Career,
@@ -36,7 +38,6 @@ from apps.projects.services.category import (
     filter_projects_by_category_id,
     get_project_category_sidebar_items,
 )
-from apps.restaurants.models import Restaurant, RestaurantSuggestion, RestaurantTag
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
@@ -50,7 +51,7 @@ from apps.site.forms import (
     LibraryDateForm,
     LibraryReserveForm,
     LibraryReserveSlotForm,
-    RestaurantSuggestionForm,
+    PlaceSuggestionForm,
     StudentSearchForm,
 )
 from apps.site.models import Tool
@@ -161,117 +162,129 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     )
 
 
-def _restaurant_filter_query(tag_ids: list[int], meal_time: str | None) -> str:
-    """태그·식사시간대 필터 링크의 querystring을 만든다.
-    tags는 항상 먼저, meal_time은 그 다음에 넣어 링크 순서를 예측 가능하게 고정한다."""
+_PLACES_PER_PAGE = 30
+
+
+def _place_filter_query(tag_ids: list[int], category: str | None, page: int | None = None) -> str:
+    """태그·카테고리·페이지 필터 링크의 querystring을 만든다.
+    tags는 항상 먼저, category, page 순으로 넣어 링크 순서를 예측 가능하게 고정한다."""
     query = QueryDict(mutable=True)
     if tag_ids:
         query.setlist('tags', tag_ids)
-    if meal_time:
-        query['meal_time'] = meal_time
+    if category:
+        query['category'] = category
+    if page and page > 1:
+        query['page'] = page
     return query.urlencode()
 
 
-def restaurants(request: HttpRequest) -> HttpResponse:
-    """맛집 목록 페이지. ?tags=<id>(다중 가능)&meal_time=<value>로 필터링,
+def places(request: HttpRequest) -> HttpResponse:
+    """장소 목록 페이지. ?tags=<id>(다중 가능)&category=<value>&page=<n>으로 필터링,
     HX-Request 헤더가 있으면(히스토리 복원 요청 제외) 목록 프래그먼트만 반환한다.
-    각 태그·식사시간대 옵션의 링크는 자기 자신만 토글하고 나머지 선택(다른 태그들,
-    다른 필터 차원)은 그대로 유지하도록 다음 querystring을 뷰에서 미리 계산해 넘긴다."""
+    카드 목록과 지도 마커 모두 현재 페이지 항목만 표시한다(전체 장소가 1,000건이 넘어
+    한 페이지에 전부 렌더링하면 무거워지므로)."""
     tag_ids = [int(value) for value in request.GET.getlist('tags') if value.isdecimal()]
-    meal_time = request.GET.get('meal_time') or None
+    category = request.GET.get('category') or None
 
-    queryset = Restaurant.objects.prefetch_related('tags')
+    queryset = Place.objects.prefetch_related('tags')
     if tag_ids:
         queryset = queryset.filter(tags__id__in=tag_ids).distinct()
-    if meal_time:
-        queryset = queryset.filter(meal_time=meal_time)
+    if category:
+        queryset = queryset.filter(category=category)
+
+    paginator = Paginator(queryset, _PLACES_PER_PAGE)
+    page_number = request.GET.get('page', '1')
+    page_obj = paginator.get_page(page_number if page_number.isdecimal() else 1)
 
     tag_filters = [
         {
             'tag': tag,
             'is_selected': tag.id in tag_ids,
-            'query': _restaurant_filter_query(
+            'query': _place_filter_query(
                 [t for t in tag_ids if t != tag.id] if tag.id in tag_ids else [*tag_ids, tag.id],
-                meal_time,
+                category,
             ),
         }
-        for tag in RestaurantTag.objects.all()
+        for tag in PlaceTag.objects.all()
     ]
-    meal_time_filters = [
+    category_filters = [
         {
             'value': value,
             'label': label,
-            'is_selected': meal_time == value,
-            'query': _restaurant_filter_query(tag_ids, None if meal_time == value else value),
+            'is_selected': category == value,
+            'query': _place_filter_query(tag_ids, None if category == value else value),
         }
-        for value, label in Restaurant.MealTime.choices
+        for value, label in Place.Category.choices
     ]
 
     context = {
-        'restaurants': queryset,
+        'places': page_obj,
+        'page_obj': page_obj,
+        'prev_query': _place_filter_query(tag_ids, category, page_obj.previous_page_number()) if page_obj.has_previous() else '',
+        'next_query': _place_filter_query(tag_ids, category, page_obj.next_page_number()) if page_obj.has_next() else '',
         'tag_filters': tag_filters,
-        'meal_time_filters': meal_time_filters,
-        'has_any_filter': bool(tag_ids or meal_time),
+        'category_filters': category_filters,
+        'has_any_filter': bool(tag_ids or category),
         'kakao_js_api_key': settings.KAKAO_JS_API_KEY,
     }
     is_htmx_fragment_request = (
         request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request')
     )
-    template_name = 'site/partials/restaurants_content.html' if is_htmx_fragment_request else 'site/restaurants.html'
+    template_name = 'site/partials/places_content.html' if is_htmx_fragment_request else 'site/places.html'
     return render(request, template_name, context)
 
 
-def restaurant_suggest(request: HttpRequest) -> HttpResponse:
-    """방문자 맛집 제보 폼. GET은 로그인 여부와 관계없이 200을 반환하고(비로그인은
+def place_suggest(request: HttpRequest) -> HttpResponse:
+    """방문자 장소 제보 폼. GET은 로그인 여부와 관계없이 200을 반환하고(비로그인은
     템플릿에서 로그인 안내로 대체), 제출(POST)은 로그인 사용자만 처리해 검토 대기
-    큐(RestaurantSuggestion)에 저장한다. @login_required로 감싸면 비로그인 GET이
+    큐(PlaceSuggestion)에 저장한다. @login_required로 감싸면 비로그인 GET이
     로그인 페이지로 리다이렉트되어 "폼 대신 로그인 안내를 보여준다"는 요구사항과
     충돌하므로, 인증 분기를 뷰 안에서 직접 처리한다. 제출은 챗봇 엔드포인트와 동일한
     check_rate_limit 유틸로 IP당 분당 5회로 제한한다.
 
     저장 성공 후에는 PRG(Post/Redirect/Get) 패턴으로 리다이렉트한다 — 저장 후 같은
-    POST 응답을 그대로 렌더링하면 새로고침 시 동일한 RestaurantSuggestion이 중복
+    POST 응답을 그대로 렌더링하면 새로고침 시 동일한 PlaceSuggestion이 중복
     생성되므로, 성공 표시는 리다이렉트된 GET의 ?submitted=1 쿼리 파라미터로 전달한다."""
     if request.method == 'POST' and request.user.is_authenticated:
-        if not check_rate_limit(request, key='restaurant-suggest', limit=5, window_seconds=60):
-            form = RestaurantSuggestionForm(request.POST)
+        if not check_rate_limit(request, key='place-suggest', limit=5, window_seconds=60):
+            form = PlaceSuggestionForm(request.POST)
             return render(
-                request, 'site/restaurant_suggest.html',
+                request, 'site/place_suggest.html',
                 {'form': form, 'submitted': False, 'rate_limited': True},
                 status=429,
             )
 
-        form = RestaurantSuggestionForm(request.POST)
+        form = PlaceSuggestionForm(request.POST)
         if form.is_valid():
-            RestaurantSuggestion.objects.create(
+            PlaceSuggestion.objects.create(
                 restaurant_name=form.cleaned_data['restaurant_name'],
                 kakao_place_url=form.cleaned_data['kakao_place_url'],
                 message=form.cleaned_data['message'],
                 submitted_by=request.user,
             )
-            return redirect(f"{reverse('site:restaurant-suggest')}?submitted=1")
+            return redirect(f"{reverse('site:place-suggest')}?submitted=1")
     else:
-        form = RestaurantSuggestionForm()
+        form = PlaceSuggestionForm()
 
     submitted = request.GET.get('submitted') == '1'
-    return render(request, 'site/restaurant_suggest.html', {'form': form, 'submitted': submitted})
+    return render(request, 'site/place_suggest.html', {'form': form, 'submitted': submitted})
 
 
-def restaurant_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    """맛집 상세 페이지. 댓글·좋아요를 붙이기 위한 페이지."""
-    restaurant = get_object_or_404(Restaurant.objects.prefetch_related('tags'), pk=pk)
-    content_type = ContentType.objects.get_for_model(Restaurant)
-    comments = Comment.objects.filter(content_type=content_type, object_id=restaurant.pk).select_related('author')
-    like_count = Like.objects.filter(content_type=content_type, object_id=restaurant.pk).count()
+def place_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    """장소 상세 페이지. 댓글·좋아요를 붙이기 위한 페이지."""
+    place = get_object_or_404(Place.objects.prefetch_related('tags'), pk=pk)
+    content_type = ContentType.objects.get_for_model(Place)
+    comments = Comment.objects.filter(content_type=content_type, object_id=place.pk).select_related('author')
+    like_count = Like.objects.filter(content_type=content_type, object_id=place.pk).count()
     is_liked = (
         request.user.is_authenticated
-        and Like.objects.filter(content_type=content_type, object_id=restaurant.pk, user=request.user).exists()
+        and Like.objects.filter(content_type=content_type, object_id=place.pk, user=request.user).exists()
     )
     return render(
         request,
-        'site/restaurant_detail.html',
+        'site/place_detail.html',
         {
-            'restaurant': restaurant,
+            'place': place,
             'comments': comments,
             'like_count': like_count,
             'is_liked': is_liked,

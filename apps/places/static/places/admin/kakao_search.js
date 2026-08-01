@@ -10,8 +10,14 @@
     document.getElementById('id_road_address').value = result.road_address;
     document.getElementById('id_latitude').value = result.latitude;
     document.getElementById('id_longitude').value = result.longitude;
-    document.getElementById('id_category').value = result.category;
+    document.getElementById('id_kakao_category').value = result.category;
     document.getElementById('id_kakao_place_url').value = result.place_url;
+
+    var placeIdField = document.getElementById('id_kakao_place_id');
+    var placeIdMatch = result.place_url.match(/(\d+)\/?$/);
+    if (placeIdField && placeIdMatch) {
+      placeIdField.value = placeIdMatch[1];
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

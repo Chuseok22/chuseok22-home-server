@@ -119,3 +119,15 @@ def test_build_cron_trigger는_interval_hours가_24면_매일_0시_표현식으�
     fields = {f.name: str(f) for f in trigger.fields}
 
     assert fields['hour'] == '0'
+
+
+@pytest.mark.django_db
+def test_카카오_즐겨찾기_동기화_잡은_기본값이_일요일_새벽_5시30분이다() -> None:
+    definition = JOB_DEFINITIONS['sync_kakao_favorites']
+
+    config = get_or_seed_job_config('sync_kakao_favorites', definition)
+
+    assert config.schedule_mode == 'fixed_times'
+    assert config.fixed_hours == '5'
+    assert config.fixed_minute == 30
+    assert config.cron_day_of_week == 'sun'

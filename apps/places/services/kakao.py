@@ -44,7 +44,7 @@ def search_places(query: str) -> list[KakaoPlaceResult]:
                 name=doc['place_name'],
                 address=doc['address_name'],
                 road_address=doc['road_address_name'],
-                # Restaurant.latitude/longitude가 DecimalField(decimal_places=7)이므로,
+                # Place.latitude/longitude가 DecimalField(decimal_places=7)이므로,
                 # 카카오가 그 이상의 정밀도를 반환해도 Admin 저장 시 검증에 걸리지 않도록
                 # 여기서 미리 반올림해둔다.
                 latitude=round(float(doc['y']), 7),
