@@ -70,6 +70,9 @@ class Place(models.Model):
         max_length=32, unique=True, null=True, blank=True, verbose_name='카카오 장소 ID',
     )
     kakao_place_url = models.URLField(blank=True, verbose_name='카카오맵 링크')
+    kakao_item_updated_at = models.CharField(
+        max_length=32, blank=True, verbose_name='카카오 즐겨찾기 최종 수정 시각(원본)',
+    )
     kakao_category = models.CharField(max_length=100, blank=True, verbose_name='카카오 카테고리')
     tags = models.ManyToManyField(PlaceTag, blank=True, related_name='places', verbose_name='태그')
     meal_time = models.CharField(

@@ -97,3 +97,60 @@ def test_카카오_API_오류시_502를_반환한다(mock_search_places: MagicMo
 
 def test_동기화_폴더_admin에_등록되어_있다() -> None:
     assert site.is_registered(PlaceSyncFolder)
+
+
+@pytest.mark.django_db
+@patch('apps.places.admin.resolve_folder_id')
+def test_폴더_저장시_공유_링크가_folderid로_치환된다(mock_resolve: MagicMock) -> None:
+    mock_resolve.return_value = '10340963'
+    staff = User.objects.create_user(username='admin', is_staff=True, is_superuser=True)
+    client = Client()
+    client.force_login(staff)
+
+    client.post(reverse('admin:places_placesyncfolder_add'), {
+        'category': 'restaurant', 'kakao_folder_id': 'https://kko.to/KVWPW2bHLZ',
+        'title': '맛집', 'is_active': 'on',
+    })
+
+    folder = PlaceSyncFolder.objects.get(title='맛집')
+    assert folder.kakao_folder_id == '10340963'
+    mock_resolve.assert_called_once_with('https://kko.to/KVWPW2bHLZ')
+
+
+@pytest.mark.django_db
+@patch('apps.places.admin.resolve_folder_id')
+def test_폴더_URL_해석_실패시_폼_에러로_표시된다(mock_resolve: MagicMock) -> None:
+    from apps.places.services.kakao_favorite_sync import KakaoFavoriteSyncError
+
+    mock_resolve.side_effect = KakaoFavoriteSyncError('링크 해석 실패')
+    staff = User.objects.create_user(username='admin', is_staff=True, is_superuser=True)
+    client = Client()
+    client.force_login(staff)
+
+    response = client.post(reverse('admin:places_placesyncfolder_add'), {
+        'category': 'restaurant', 'kakao_folder_id': 'https://kko.to/invalid',
+        'title': '맛집', 'is_active': 'on',
+    })
+
+    assert response.status_code == 200
+    assert '링크 해석 실패' in response.content.decode()
+    assert not PlaceSyncFolder.objects.exists()
+
+
+@pytest.mark.django_db
+@patch('apps.places.admin.sync_folder')
+def test_즉시_동기화_액션은_선택된_폴더를_동기화한다(mock_sync_folder: MagicMock) -> None:
+    from apps.places.services.kakao_favorite_sync import SyncResult
+
+    mock_sync_folder.return_value = SyncResult(created_count=3, skipped_count=1, changed_places=[])
+    staff = User.objects.create_user(username='admin', is_staff=True, is_superuser=True)
+    client = Client()
+    client.force_login(staff)
+    folder = PlaceSyncFolder.objects.create(category=Place.Category.RESTAURANT, kakao_folder_id='1', title='맛집')
+
+    response = client.post(reverse('admin:places_placesyncfolder_changelist'), {
+        'action': 'sync_now', '_selected_action': [folder.pk],
+    }, follow=True)
+
+    assert response.status_code == 200
+    mock_sync_folder.assert_called_once_with(folder)

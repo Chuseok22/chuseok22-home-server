@@ -1,10 +1,12 @@
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.db.models import QuerySet
 from django.http import HttpRequest, JsonResponse
 from django.urls import path
 
 from apps.places.models import Place, PlaceSuggestion, PlaceTag, PlaceSyncFolder
 from apps.places.services.kakao import KakaoApiError, search_places
+from apps.places.services.kakao_favorite_sync import KakaoFavoriteSyncError, resolve_folder_id, sync_folder
 from apps.places.services.slug import generate_unique_slug
 
 
@@ -94,8 +96,37 @@ class PlaceSuggestionAdmin(admin.ModelAdmin):
     search_fields = ('restaurant_name', 'message')
 
 
+class PlaceSyncFolderForm(forms.ModelForm):
+    class Meta:
+        model = PlaceSyncFolder
+        fields = '__all__'
+
+    def clean_kakao_folder_id(self) -> str:
+        value = self.cleaned_data['kakao_folder_id']
+        try:
+            return resolve_folder_id(value)
+        except KakaoFavoriteSyncError as e:
+            raise forms.ValidationError(str(e)) from e
+
+
 @admin.register(PlaceSyncFolder)
 class PlaceSyncFolderAdmin(admin.ModelAdmin):
+    form = PlaceSyncFolderForm
     list_display = ('title', 'category', 'kakao_folder_id', 'is_active', 'last_synced_at')
     list_filter = ('category', 'is_active')
     readonly_fields = ('last_synced_at',)
+    actions = ['sync_now']
+
+    @admin.action(description='선택한 폴더 지금 동기화')
+    def sync_now(self, request: HttpRequest, queryset: QuerySet) -> None:
+        for folder in queryset:
+            try:
+                result = sync_folder(folder)
+            except KakaoFavoriteSyncError as e:
+                self.message_user(request, f'[{folder}] 동기화 실패: {e}', level=messages.ERROR)
+                continue
+            self.message_user(
+                request,
+                f'[{folder}] 신규 {result.created_count}건, 스킵 {result.skipped_count}건, '
+                f'변경 감지 {len(result.changed_places)}건',
+            )
