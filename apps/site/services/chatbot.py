@@ -9,12 +9,17 @@ from django.urls import reverse
 from apps.ai.services.prompt_template import CHATBOT_FEATURE, get_active_prompt
 from apps.ai.services.suh_aider_client import SuhAiderClient
 from apps.blog.models import Post
-from apps.profile.models import Profile, Skill
+from apps.profile.models import Activity, Career, Certification, Profile, PullRequestHighlight, Skill
 from apps.projects.models import Project
 
 _MAX_HISTORY_TURNS = 10
 _SEARCH_RESULT_LIMIT = 3
 _MIN_TOKEN_LENGTH = 2
+# 경력/자격증/대외활동/대표 PR은 Project/Post와 달리 토큰 검색으로 걸러지지 않고
+# Profile 섹션처럼 항상 포함한다("경력이 어떻게 되나요?" 같은 메타 질문은 키워드가
+# 데이터 자체에 들어있지 않아 검색으로 못 잡기 때문). 대신 프롬프트 크기가 무한정
+# 커지지 않도록 각 섹션을 상위 N개로 캡한다.
+_STATIC_SECTION_LIMIT = 5
 # 토큰 수가 많을수록 Project/Post/Skill 각각에서 OR로 묶인 icontains 절이 그만큼 늘어나므로,
 # 인증 없이 호출 가능한(rate limit은 있지만) 공개 엔드포인트에서 과도한 쿼리 비용이 발생하지
 # 않도록 검색에 사용할 토큰 수를 제한한다.
@@ -86,7 +91,16 @@ def _build_dynamic_context(user_message: str) -> tuple[str, list[ChatLink]]:
     tokens = _extract_tokens(user_message)
     project_text, project_links = _build_project_section(tokens)
     post_text, post_links = _build_post_section(tokens)
-    sections = [_build_profile_section(), project_text, post_text, _build_skill_section(tokens)]
+    sections = [
+        _build_profile_section(),
+        _build_career_section(),
+        _build_certification_section(),
+        _build_activity_section(),
+        _build_pull_request_highlight_section(),
+        project_text,
+        post_text,
+        _build_skill_section(tokens),
+    ]
     text = '\n\n'.join(filter(None, sections))
     links = _dedupe_links([*project_links, *post_links])
     return text, links
@@ -125,6 +139,66 @@ def _build_profile_section() -> str:
     if profile.blog_url:
         lines.append(f'블로그: {profile.blog_url}')
     return '[프로필]\n' + '\n'.join(lines)
+
+
+def _build_career_section() -> str:
+    careers = Career.objects.all()[:_STATIC_SECTION_LIMIT]
+    if not careers:
+        return ''
+    lines = [_format_career_line(career) for career in careers]
+    return '[경력]\n' + '\n'.join(lines)
+
+
+def _format_career_line(career: Career) -> str:
+    period_end = career.period_end.strftime('%Y.%m') if career.period_end else '현재'
+    period = f"{career.period_start.strftime('%Y.%m')}~{period_end}"
+    line = f'- [{career.get_category_display()}] {career.organization} — {career.role} ({period})'
+    if career.description:
+        line += f'\n  {career.description}'
+    return line
+
+
+def _build_certification_section() -> str:
+    certifications = Certification.objects.all()[:_STATIC_SECTION_LIMIT]
+    if not certifications:
+        return ''
+    lines = [
+        f"- {certification.name} ({certification.issuer}, {certification.acquired_date.strftime('%Y.%m')} 취득)"
+        for certification in certifications
+    ]
+    return '[자격증]\n' + '\n'.join(lines)
+
+
+def _build_activity_section() -> str:
+    activities = Activity.objects.all()[:_STATIC_SECTION_LIMIT]
+    if not activities:
+        return ''
+    lines = [_format_activity_line(activity) for activity in activities]
+    return '[대외활동]\n' + '\n'.join(lines)
+
+
+def _format_activity_line(activity: Activity) -> str:
+    line = f'- {activity.name}'
+    if activity.period:
+        line += f' ({activity.period})'
+    if activity.description:
+        line += f'\n  {activity.description}'
+    return line
+
+
+def _build_pull_request_highlight_section() -> str:
+    highlights = PullRequestHighlight.objects.all()[:_STATIC_SECTION_LIMIT]
+    if not highlights:
+        return ''
+    lines = [_format_pull_request_highlight_line(highlight) for highlight in highlights]
+    return '[대표 PR]\n' + '\n'.join(lines)
+
+
+def _format_pull_request_highlight_line(highlight: PullRequestHighlight) -> str:
+    line = f'- [{highlight.repo_name}] {highlight.title}'
+    if highlight.description:
+        line += f'\n  {highlight.description}'
+    return line
 
 
 def _build_project_section(tokens: list[str]) -> tuple[str, list[ChatLink]]:

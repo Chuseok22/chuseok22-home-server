@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import patch
 
 import pytest
@@ -6,7 +7,7 @@ from django.urls import reverse
 from apps.ai.services.prompt_template import CHATBOT_FEATURE
 from apps.ai.models import PromptTemplate
 from apps.blog.models import Category, Post, Tag
-from apps.profile.models import Profile, Skill
+from apps.profile.models import Activity, Career, Certification, Profile, PullRequestHighlight, Skill
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
 from apps.site.services.chatbot import (
     ChatbotConfigError,
@@ -432,3 +433,154 @@ def test_role과_highlights가_있으면_컨텍스트에_포함된다() -> None:
     system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
     assert '역할: 백엔드 설계 및 배포 자동화' in system_content
     assert '주요 성과: CI/CD 파이프라인 구축, 월 방문자 1만 달성' in system_content
+
+
+@pytest.mark.django_db
+def test_경력_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Career.objects.create(
+        category=Career.Category.WORK, organization='OO회사', role='백엔드 개발자',
+        period_start=date(2024, 1, 1), description='결제 시스템 개발',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('경력이 어떻게 되세요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '[경력]' in system_content
+    assert 'OO회사' in system_content
+    assert '결제 시스템 개발' in system_content
+
+
+@pytest.mark.django_db
+def test_경력_종료일이_없으면_현재로_표시된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Career.objects.create(
+        category=Career.Category.WORK, organization='OO회사', role='백엔드 개발자',
+        period_start=date(2024, 1, 1), period_end=None,
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('경력이 어떻게 되세요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '2024.01~현재' in system_content
+
+
+@pytest.mark.django_db
+def test_경력이_5개_초과면_상위_5개만_노출된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    for i in range(6):
+        Career.objects.create(
+            category=Career.Category.WORK, organization=f'회사{i}', role='개발자',
+            period_start=date(2024, 1, 1), order=i,
+        )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('경력이 어떻게 되세요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    for i in range(5):
+        assert f'회사{i}' in system_content
+    assert '회사5' not in system_content
+
+
+@pytest.mark.django_db
+def test_자격증_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Certification.objects.create(name='정보처리기사', issuer='한국산업인력공단', acquired_date=date(2023, 5, 1))
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('자격증 있으세요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '[자격증]' in system_content
+    assert '정보처리기사' in system_content
+    assert '한국산업인력공단' in system_content
+
+
+@pytest.mark.django_db
+def test_대외활동_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Activity.objects.create(name='OO 개발자 커뮤니티', period='2023~2024', description='정기 스터디 운영')
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('대외활동 하시나요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '[대외활동]' in system_content
+    assert 'OO 개발자 커뮤니티' in system_content
+    assert '정기 스터디 운영' in system_content
+
+
+@pytest.mark.django_db
+def test_대표_PR_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    PullRequestHighlight.objects.create(
+        title='버그 수정 PR', repo_name='chuseok22/some-repo',
+        pr_url='https://github.com/chuseok22/some-repo/pull/1', description='동시성 버그 수정',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('인상 깊은 PR 있어요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '[대표 PR]' in system_content
+    assert 'chuseok22/some-repo' in system_content
+    assert '버그 수정 PR' in system_content
+
+
+@pytest.mark.django_db
+def test_경력_자격증_대외활동_PR이_모두_있으면_이_순서로_배치된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+    Career.objects.create(
+        category=Career.Category.WORK, organization='OO회사', role='백엔드 개발자',
+        period_start=date(2024, 1, 1),
+    )
+    Certification.objects.create(name='정보처리기사', issuer='한국산업인력공단', acquired_date=date(2023, 5, 1))
+    Activity.objects.create(name='OO 커뮤니티')
+    PullRequestHighlight.objects.create(
+        title='버그 수정 PR', repo_name='chuseok22/some-repo',
+        pr_url='https://github.com/chuseok22/some-repo/pull/1',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('안녕', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert (
+        system_content.index('[프로필]')
+        < system_content.index('[경력]')
+        < system_content.index('[자격증]')
+        < system_content.index('[대외활동]')
+        < system_content.index('[대표 PR]')
+    )
