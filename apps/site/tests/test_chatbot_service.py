@@ -66,6 +66,48 @@ def test_프로필_정보는_항상_컨텍스트에_포함된다() -> None:
 
 
 @pytest.mark.django_db
+def test_프로필_연락처_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Profile.objects.create(
+        name='백지훈', tagline='백엔드 개발자',
+        email='bjh59629@gmail.com', github_url='https://github.com/Chuseok22',
+        linkedin_url='https://linkedin.com/in/chuseok22', blog_url='https://chuseok22.com',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('연락처 알려줘', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '이메일: bjh59629@gmail.com' in system_content
+    assert 'GitHub: https://github.com/Chuseok22' in system_content
+    assert 'LinkedIn: https://linkedin.com/in/chuseok22' in system_content
+    assert '블로그: https://chuseok22.com' in system_content
+
+
+@pytest.mark.django_db
+def test_프로필_연락처_정보가_비어있으면_컨텍스트에서_생략된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('연락처 알려줘', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '이메일:' not in system_content
+    assert 'GitHub:' not in system_content
+    assert 'LinkedIn:' not in system_content
+    assert '블로그:' not in system_content
+
+
+@pytest.mark.django_db
 def test_메시지_토큰과_일치하는_프로젝트가_컨텍스트에_포함된다() -> None:
     PromptTemplate.objects.create(
         feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',

@@ -116,6 +116,14 @@ def _build_profile_section() -> str:
     lines = [f'이름: {profile.name}', f'한 줄 소개: {profile.tagline}']
     if profile.bio:
         lines.append(f'소개: {profile.bio}')
+    if profile.email:
+        lines.append(f'이메일: {profile.email}')
+    if profile.github_url:
+        lines.append(f'GitHub: {profile.github_url}')
+    if profile.linkedin_url:
+        lines.append(f'LinkedIn: {profile.linkedin_url}')
+    if profile.blog_url:
+        lines.append(f'블로그: {profile.blog_url}')
     return '[프로필]\n' + '\n'.join(lines)
 
 
