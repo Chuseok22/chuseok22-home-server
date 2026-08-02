@@ -123,13 +123,25 @@ def _build_project_section(tokens: list[str]) -> tuple[str, list[ChatLink]]:
     if not tokens:
         return '', []
     query = reduce(or_, (Q(title__icontains=token) | Q(description__icontains=token) for token in tokens))
-    projects = Project.objects.filter(query)[:_SEARCH_RESULT_LIMIT]
+    projects = Project.objects.filter(query).order_by(
+        '-is_featured', 'category__order', 'order', '-created_at',
+    )[:_SEARCH_RESULT_LIMIT]
     if not projects:
         return '', []
-    lines = [f'- {project.title}: {project.description}' for project in projects]
+    lines = [_format_project_line(project) for project in projects]
     text = '[관련 프로젝트]\n' + '\n'.join(lines)
     links = [_project_recommendation_link(project) for project in projects]
     return text, links
+
+
+def _format_project_line(project: Project) -> str:
+    """프로젝트 한 개를 컨텍스트 텍스트로 만든다. role/highlights가 있으면 이어붙인다."""
+    lines = [f'- {project.title}: {project.description}']
+    if project.role:
+        lines.append(f'  역할: {project.role}')
+    if project.highlights:
+        lines.append(f'  주요 성과: {", ".join(project.highlights)}')
+    return '\n'.join(lines)
 
 
 def _build_post_section(tokens: list[str]) -> tuple[str, list[ChatLink]]:
