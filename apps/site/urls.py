@@ -16,8 +16,8 @@ urlpatterns = [
     path('lab/library/reserve/', views.lab_library_reserve, name='lab-library-reserve'),
     path('lab/student/', views.lab_student, name='lab-student'),
     path('lab/student/search/', views.lab_student_search, name='lab-student-search'),
-    path('restaurants/', views.restaurants, name='restaurants'),
-    path('restaurants/suggest/', views.restaurant_suggest, name='restaurant-suggest'),
-    path('restaurants/<int:pk>/', views.restaurant_detail, name='restaurant-detail'),
+    path('places/', views.places, name='places'),
+    path('places/suggest/', views.place_suggest, name='place-suggest'),
+    path('places/<int:pk>/', views.place_detail, name='place-detail'),
     path('chat/', views.chat, name='chat'),
 ]

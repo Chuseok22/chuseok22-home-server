@@ -1,0 +1,15 @@
+<article class="card bg-base-200">
+  <div class="card-body">
+    <h2 class="card-title">
+      <a href="{% url 'site:place-detail' place.pk %}" class="link link-hover">{{ place.name }}</a>
+    </h2>
+    <p class="text-sm opacity-70">{{ place.road_address|default:place.address }}</p>
+    <div class="flex gap-2 flex-wrap">
+      {% for tag in place.tags.all %}
+      <span class="badge-tag">{{ tag.name }}</span>
+      {% endfor %}
+    </div>
+    {% if place.personal_rating %}<p class="text-sm">평점: {{ place.personal_rating }}/5</p>{% endif %}
+    {% if place.personal_review %}<p class="text-sm">"{{ place.personal_review }}"</p>{% endif %}
+  </div>
+</article>

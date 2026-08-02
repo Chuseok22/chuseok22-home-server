@@ -55,6 +55,14 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 0,
         'default_day_of_week': '*',
     },
+    'sync_kakao_favorites': {
+        'label': '카카오맵 즐겨찾기 장소 동기화',
+        'command': 'sync_kakao_favorites',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '5',
+        'default_fixed_minute': 30,
+        'default_day_of_week': 'sun',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None

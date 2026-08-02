@@ -56,7 +56,7 @@ class LibraryReserveForm(LibraryReserveSlotForm):
         return attendees
 
 
-class RestaurantSuggestionForm(forms.Form):
+class PlaceSuggestionForm(forms.Form):
     restaurant_name = forms.CharField(max_length=100, label='상호명')
     kakao_place_url = forms.URLField(required=False, label='카카오맵 링크')
     message = forms.CharField(required=False, widget=forms.Textarea, label='추천 이유')
