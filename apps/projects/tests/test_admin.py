@@ -5,7 +5,7 @@ from django.test import Client
 from django.urls import reverse
 
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
-from apps.projects.admin import ExtraLinksField, NewlineSeparatedListField
+from apps.projects.admin import ExtraLinksField, NewlineSeparatedListField, ProjectAdmin
 
 
 def test_NewlineSeparatedListField_줄바꿈_텍스트를_리스트로_변환한다() -> None:
@@ -277,3 +277,40 @@ def test_extra_links에_형식이_잘못된_줄이_있으면_저장되지_않는
     assert response.status_code == 200
     assert '형식이 아닙니다' in response.content.decode()
     assert not Project.objects.filter(title='잘못된 링크 테스트').exists()
+
+
+@pytest.mark.django_db
+def test_is_featured가_추가_폼에서_저장된다(admin_client: Client) -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    url = reverse('admin:projects_project_add')
+    response = admin_client.post(url, {
+        'category': category.pk,
+        'title': '대표작 테스트',
+        'description': '설명',
+        'tags': '',
+        'status': status.pk,
+        'order': 0,
+        'is_featured': 'on',
+        'period': '',
+        'team_size': '',
+        'role': '',
+        'highlights': '',
+        'github_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
+        'title_href': '',
+        'extra_links': '',
+        '_save': 'Save',
+    })
+
+    assert response.status_code == 302
+    project = Project.objects.get(title='대표작 테스트')
+    assert project.is_featured is True
+
+
+@pytest.mark.django_db
+def test_is_featured가_목록_display와_filter에_노출된다() -> None:
+    assert 'is_featured' in ProjectAdmin.list_display
+    assert 'is_featured' in ProjectAdmin.list_filter

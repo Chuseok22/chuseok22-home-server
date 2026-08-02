@@ -338,3 +338,55 @@ def test_매칭되는_항목이_없으면_links는_빈_리스트다() -> None:
         reply = get_chat_reply('안녕하세요', [])
 
     assert reply.links == []
+
+
+@pytest.mark.django_db
+def test_대표작_프로젝트가_비대표작보다_먼저_정렬된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    # order 값을 다르게 둬서 결과가 created_at 타이밍에 의존하지 않도록 한다. is_featured
+    # 정렬이 없으면 Meta.ordering(order 오름차순)에 따라 order=0인 비대표작이 먼저 나와
+    # 확정적으로 RED가 되고, is_featured 정렬이 적용되면 order보다 -is_featured가 먼저
+    # 적용되어 order=1인 대표작이 먼저 나와 확정적으로 GREEN이 된다.
+    Project.objects.create(
+        category=category, title='순서상 앞선 비대표작 홈서버 프로젝트', description='설명',
+        status=status, order=0, is_featured=False,
+    )
+    Project.objects.create(
+        category=category, title='순서상 뒤인 대표작 홈서버 프로젝트', description='설명',
+        status=status, order=1, is_featured=True,
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('홈서버 프로젝트에 대해 알려줘', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert system_content.index('순서상 뒤인 대표작 홈서버 프로젝트') < system_content.index('순서상 앞선 비대표작 홈서버 프로젝트')
+
+
+@pytest.mark.django_db
+def test_role과_highlights가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    category = ProjectCategory.objects.create(name='개인 프로젝트')
+    status = ProjectStatus.objects.get(name='완료')
+    Project.objects.create(
+        category=category, title='홈서버 프로젝트', description='설명', status=status,
+        role='백엔드 설계 및 배포 자동화',
+        highlights=['CI/CD 파이프라인 구축', '월 방문자 1만 달성'],
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('홈서버 프로젝트에 대해 알려줘', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '역할: 백엔드 설계 및 배포 자동화' in system_content
+    assert '주요 성과: CI/CD 파이프라인 구축, 월 방문자 1만 달성' in system_content

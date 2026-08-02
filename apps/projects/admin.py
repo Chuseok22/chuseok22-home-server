@@ -126,15 +126,15 @@ class ProjectAdminForm(forms.ModelForm):
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
     form = ProjectAdminForm
-    list_display = ('title', 'category', 'status', 'order', 'updated_at')
-    list_filter = ('category', 'status')
+    list_display = ('title', 'category', 'status', 'is_featured', 'order', 'updated_at')
+    list_filter = ('category', 'status', 'is_featured')
     ordering = ('category__order', 'order')
     search_fields = ('title', 'description')
     list_editable = ('order',)
 
     fieldsets = (
         ('기본 정보', {
-            'fields': ('category', 'title', 'description', 'tags', 'status', 'order'),
+            'fields': ('category', 'title', 'description', 'tags', 'status', 'order', 'is_featured'),
         }),
         ('상세 정보', {
             'fields': ('period', 'team_size', 'role', 'highlights'),
