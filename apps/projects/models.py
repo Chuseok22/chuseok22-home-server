@@ -32,6 +32,7 @@ class Project(models.Model):
     tags = models.JSONField(default=list)
     status = models.ForeignKey(ProjectStatus, on_delete=models.PROTECT, related_name='projects')
     order = models.PositiveIntegerField(default=0)
+    is_featured = models.BooleanField(default=False, verbose_name='대표작 여부')
 
     period = models.CharField(max_length=50, blank=True)
     team_size = models.PositiveSmallIntegerField(null=True, blank=True)
