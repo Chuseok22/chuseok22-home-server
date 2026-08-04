@@ -56,7 +56,7 @@ class DreamsponAuth:
             logger.error('드림스폰 로그인 요청 실패: %s', e)
             return None
 
-        if not data.get('result') or data.get('checkyn') != 'Y':
+        if not isinstance(data, dict) or not data.get('result') or data.get('checkyn') != 'Y':
             logger.error('드림스폰 로그인 실패: 자격증명을 확인하세요.')
             return None
 

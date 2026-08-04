@@ -67,3 +67,19 @@ class TestDreamsponAuthLogin(TestCase):
             result = DreamsponAuth().login()
 
         self.assertIsNone(result)
+
+    def test_응답이_배열인_경우_None(self) -> None:
+        with patch('requests.Session.post') as mock_post:
+            mock_post.return_value.raise_for_status.return_value = None
+            mock_post.return_value.json.return_value = ['unexpected', 'array']
+            result = DreamsponAuth().login()
+
+        self.assertIsNone(result)
+
+    def test_응답이_null인_경우_None(self) -> None:
+        with patch('requests.Session.post') as mock_post:
+            mock_post.return_value.raise_for_status.return_value = None
+            mock_post.return_value.json.return_value = None
+            result = DreamsponAuth().login()
+
+        self.assertIsNone(result)
