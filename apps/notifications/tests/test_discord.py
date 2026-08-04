@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -92,6 +93,55 @@ class TestDiscordServiceFormatMessage(TestCase):
         self.assertIn('1305명', result)
         self.assertIn('알고리즘, 에너지', result)
         self.assertIn('https://dacon.io/competitions/official/236727/overview/', result)
+
+    def test_dreamspon_포맷(self) -> None:
+        item = DreamsponItem(
+            article_id='9130',
+            title='에디티지 신진 연구자 대상 에디티지 장학',
+            url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지',
+            hit_count=1294,
+            scholarship_type='포상/상금',
+            target='이공계열 신진 연구자',
+            recruit_count='총 16명',
+            benefit='최대 1,000만원',
+            application_start=date(2026, 5, 26),
+            application_end=date(2026, 8, 7),
+            tags=['#장학프로그램', '#기타지원'],
+        )
+        result = self.service._format_message(self.source, item)
+        self.assertIn('새 장학금 알림', result)
+        self.assertIn('에디티지 신진 연구자 대상 에디티지 장학', result)
+        self.assertIn('에디티지', result)
+        self.assertIn('🏷 장학종류: 포상/상금', result)
+        self.assertIn('이공계열 신진 연구자', result)
+        self.assertIn('총 16명', result)
+        self.assertIn('최대 1,000만원', result)
+        self.assertIn('📋 신청기간: 2026.05.26 ~ 2026.08.07', result)
+        self.assertIn('#장학프로그램, #기타지원', result)
+        self.assertIn('https://www.dreamspon.com/scholarship/view.html?idx=9130', result)
+
+    def test_dreamspon_마스킹_필드는_알림에_노출되지_않음(self) -> None:
+        # 비로그인/로그인 실패 시 크롤러가 마스킹 필드를 None으로 채운 아이템을 넘기더라도
+        # Discord 메시지에 '*' 마스킹 문자열이 섞여나가지 않아야 한다
+        item = DreamsponItem(
+            article_id='9130',
+            title='에디티지 신진 연구자 대상 에디티지 장학',
+            url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지',
+            hit_count=None,
+            scholarship_type=None,
+            target=None,
+            recruit_count=None,
+            benefit=None,
+            application_start=None,
+            application_end=None,
+            tags=[],
+        )
+        result = self.service._format_message(self.source, item)
+        # 마스킹 문자열(예: '*****')은 연속된 3개 이상의 '*'로 나타나며,
+        # 메시지 서식용 '**bold**' 마크다운(연속 2개)과는 구분된다
+        self.assertNotRegex(result, r'\*{3,}')
 
     def test_unknown_item_fallback(self) -> None:
         item = BaseNoticeItem(article_id='x', title='임시 제목', url='https://example.com')

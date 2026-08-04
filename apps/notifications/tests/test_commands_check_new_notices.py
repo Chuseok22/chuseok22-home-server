@@ -1,8 +1,10 @@
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
 from apps.notifications.crawlers.dacon import DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponItem
 from apps.notifications.management.commands.check_new_notices import Command
 from apps.notifications.models import Notice, NoticeSource
 
@@ -22,6 +24,16 @@ class TestCheckNewNoticesGetPublishedAt(TestCase):
         )
         result = self.command._get_published_at(item)
         self.assertIsNone(result)
+
+    def test_dreamspon_아이템은_신청_마감일이_게시일(self) -> None:
+        item = DreamsponItem(
+            article_id='9130', title='장학금', url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지', hit_count=1294, scholarship_type='포상/상금',
+            target='대학생', recruit_count='총 16명', benefit='최대 1,000만원',
+            application_start=date(2026, 5, 26), application_end=date(2026, 8, 7), tags=[],
+        )
+        result = self.command._get_published_at(item)
+        self.assertEqual(result, date(2026, 8, 7))
 
 
 class TestCheckNewNoticesProcessSource(TestCase):
@@ -78,3 +90,41 @@ class TestCheckNewNoticesProcessSource(TestCase):
         self.assertTrue(notice.is_notified)
         self.assertIsNotNone(notice.notified_at)
         mock_sleep.assert_called_once()
+
+    @patch('apps.notifications.management.commands.check_new_notices.time.sleep')
+    def test_상세_크롤링_후_게시일이_갱신되어_저장된다(self, mock_sleep) -> None:
+        """드림스폰처럼 목록 아이템만으로는 게시일(application_end)을 알 수 없는
+        타입은, 상세 크롤링 결과로 다시 계산한 게시일이 Notice에 저장돼야 한다."""
+        source = NoticeSource.objects.create(
+            name='일반장학금',
+            url='https://www.dreamspon.com/scholarship/list.html',
+            crawler_type='dreamspon',
+            discord_webhook_url='https://discord.com/api/webhooks/1/a',
+            is_active=True,
+        )
+        list_item = DreamsponItem(
+            article_id='9130', title='장학금', url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지', hit_count=1294, scholarship_type=None,
+            target=None, recruit_count=None, benefit=None,
+            application_start=None, application_end=None, tags=[],
+        )
+        detail_item = DreamsponItem(
+            article_id='9130', title='장학금', url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지', hit_count=None, scholarship_type='포상/상금',
+            target='대학생', recruit_count='총 16명', benefit='최대 1,000만원',
+            application_start=date(2026, 5, 26), application_end=date(2026, 8, 7), tags=[],
+        )
+        mock_crawler = MagicMock()
+        mock_crawler.crawl.return_value = [list_item]
+        mock_crawler.crawl_detail.return_value = detail_item
+        discord = MagicMock()
+        discord.send_notice.return_value = True
+
+        with patch(
+            'apps.notifications.management.commands.check_new_notices.get_crawler',
+            return_value=mock_crawler,
+        ):
+            self.command._process_source(source, discord)
+
+        notice = Notice.objects.get(source=source, article_id='9130')
+        self.assertEqual(notice.published_at, date(2026, 8, 7))

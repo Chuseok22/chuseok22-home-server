@@ -169,6 +169,10 @@ SEJONG_PASSWORD = env('SEJONG_PASSWORD', default='')
 # classic.sejong.ac.kr SSO 콜백 경로 — 브라우저 DevTools로 확인 후 .env에서 재정의 가능
 SEJONG_CLASSIC_SSO_CALLBACK_PATH = env('SEJONG_CLASSIC_SSO_CALLBACK_PATH', default='/_custom/sejong/sso/sso-return.jsp')
 
+# 드림스폰(dreamspon.com) 로그인 설정 — 일반장학금 상세 페이지는 로그인 후에만 전체 정보가 노출됨
+DREAMSPON_ID = env('DREAMSPON_ID', default='')
+DREAMSPON_PASSWORD = env('DREAMSPON_PASSWORD', default='')
+
 # GitHub 활동 수집 설정
 GITHUB_PAT = env('GITHUB_PAT', default='')
 GITHUB_USERNAME = env('GITHUB_USERNAME', default='')

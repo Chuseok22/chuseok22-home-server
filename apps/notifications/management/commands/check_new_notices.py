@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.notifications.crawlers import get_crawler
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -73,6 +74,12 @@ class Command(BaseCommand):
                 logger.error('상세 크롤링 실패 (url=%s): %s', item.url, e)
                 detail = None
             final_item = detail if detail is not None else item
+            # 목록 아이템만으로는 게시일을 알 수 없는 타입(예: 드림스폰)은 상세 크롤링
+            # 이후에야 정확한 날짜를 알 수 있으므로, 상세 결과 기준으로 다시 계산해 저장한다.
+            final_published_at = self._get_published_at(final_item)
+            if notice.published_at != final_published_at:
+                notice.published_at = final_published_at
+                notice.save(update_fields=['published_at'])
 
             new_count += 1
             success = discord.send_notice(webhook_url, source, final_item)
@@ -98,4 +105,6 @@ class Command(BaseCommand):
             return item.application_end
         if isinstance(item, DaconItem):
             return None
+        if isinstance(item, DreamsponItem):
+            return item.application_end
         return None

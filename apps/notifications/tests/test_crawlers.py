@@ -1,11 +1,13 @@
 from datetime import date, datetime
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import requests
 from django.test import TestCase
 from bs4 import BeautifulSoup
 
 from apps.notifications.crawlers.dacon import DaconCrawler, DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponCrawler, DreamsponItem
+from apps.notifications.crawlers.dreamspon_auth import DreamsponSession
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
 
@@ -228,3 +230,340 @@ class TestGetCrawlerDacon(TestCase):
         from apps.notifications.crawlers import get_crawler
         crawler = get_crawler('dacon', 'https://dacon.io/competitions')
         self.assertIsInstance(crawler, DaconCrawler)
+
+
+_DREAMSPON_SCHOLARSHIP_LIST_HTML = '''
+<div class="bo_table">
+<table>
+<thead><tr><th>장학명</th><th>기관명</th><th>모집현황</th><th>조회</th></tr></thead>
+<tbody>
+<tr class="">
+    <td class="td_subject">
+        <p class="title"><a href="/scholarship/view.html?idx=9130">에디티지 신진 연구자 대상 에디티지 장학</a></p>
+        <div class="hashtag">
+            <span>#장학프로그램</span>
+            <span>#기타지원</span>
+            <span>#일반인</span>
+        </div>
+    </td>
+    <td>에디티지</td>
+    <td class="td_day">
+        <span class="count"><span style='color:#404040;'>D-3</span></span>
+        <span class="state bgRed">마감임박</span>
+    </td>
+    <td class="hit">1294</td>
+</tr>
+<tr class="">
+    <td class="td_subject">
+        <p class="title"><a href="/scholarship/view.html?idx=9131">보령시 학자금대출 이자지원 (2026년 상반기)</a></p>
+        <div class="hashtag">
+            <span>#대출지원</span>
+            <span>#대학생</span>
+        </div>
+    </td>
+    <td>보령시</td>
+    <td class="td_day">
+        <span class="count"><span style='color:#404040;'>D-3</span></span>
+        <span class="state bgRed">마감임박</span>
+    </td>
+    <td class="hit">163</td>
+</tr>
+</tbody>
+</table>
+</div>
+'''
+
+_DREAMSCHOLARSHIP_LIST_HTML = '''
+<div class="bo_table">
+<table>
+<thead><tr><th>장학명</th><th>기관명</th><th>모집현황</th><th>조회</th></tr></thead>
+<tbody>
+<tr class="">
+    <td class="td_subject">
+        <p class="title"><a href="/dreamscholarship/view.html?idx=8706">13주년 기념 제아치과 치아교정 특별 할인 혜택(8월)</a></p>
+        <div class="hashtag">
+            <span>#서울대출신전문의</span>
+        </div>
+    </td>
+    <td>제아치과의원</td>
+    <td class="td_day">
+        <span class="count"><span style='color:#404040;'>D-27</span></span>
+        <span class="state bgBlue">모집중</span>
+    </td>
+    <td class="td_hit">22170</td>
+</tr>
+</tbody>
+</table>
+</div>
+'''
+
+
+class TestDreamsponCrawlerExtractArticleId(TestCase):
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+
+    def test_scholarship_url에서_idx_추출(self) -> None:
+        result = self.crawler._extract_article_id(
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(result, '9130')
+
+    def test_dreamscholarship_url에서_idx_추출(self) -> None:
+        result = self.crawler._extract_article_id(
+            'https://www.dreamspon.com/dreamscholarship/view.html?idx=8706',
+        )
+        self.assertEqual(result, '8706')
+
+    def test_idx_없는_경우(self) -> None:
+        result = self.crawler._extract_article_id('https://www.dreamspon.com/scholarship/list.html')
+        self.assertIsNone(result)
+
+
+class TestDreamsponCrawlerParseList(TestCase):
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+
+    def test_일반장학금_목록_파싱(self) -> None:
+        items = self.crawler._parse_list(_DREAMSPON_SCHOLARSHIP_LIST_HTML)
+        self.assertEqual(len(items), 2)
+
+        first = items[0]
+        self.assertIsInstance(first, DreamsponItem)
+        self.assertEqual(first.article_id, '9130')
+        self.assertEqual(first.title, '에디티지 신진 연구자 대상 에디티지 장학')
+        self.assertEqual(first.url, 'https://www.dreamspon.com/scholarship/view.html?idx=9130')
+        self.assertEqual(first.organization, '에디티지')
+        self.assertEqual(first.hit_count, 1294)
+        self.assertEqual(first.tags, ['#장학프로그램', '#기타지원', '#일반인'])
+        self.assertIsNone(first.scholarship_type)
+        self.assertIsNone(first.application_start)
+
+        second = items[1]
+        self.assertEqual(second.article_id, '9131')
+        self.assertEqual(second.organization, '보령시')
+        self.assertEqual(second.hit_count, 163)
+
+    def test_드림장학금_목록_파싱_td_hit_클래스도_지원(self) -> None:
+        items = self.crawler._parse_list(_DREAMSCHOLARSHIP_LIST_HTML)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].article_id, '8706')
+        self.assertEqual(items[0].organization, '제아치과의원')
+        self.assertEqual(items[0].hit_count, 22170)
+
+    def test_링크_없는_행_무시(self) -> None:
+        html = '<div class="bo_table"><table><tbody><tr><td class="td_subject"></td></tr></tbody></table></div>'
+        items = self.crawler._parse_list(html)
+        self.assertEqual(items, [])
+
+
+class TestDreamsponCrawlerCrawlRequestFailure(TestCase):
+    def test_요청_실패_시_빈_리스트(self) -> None:
+        crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+        with patch('apps.notifications.crawlers.dreamspon.requests.get') as mock_get:
+            mock_get.side_effect = requests.RequestException('연결 실패')
+            result = crawler.crawl()
+        self.assertEqual(result, [])
+
+
+_DREAMSPON_DETAIL_HTML_MASKED = '''
+<html><head>
+<meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+</head><body>
+<div class="infoTable basic-info">
+    <ul><li class="col">장학종류</li><li>*****</li></ul>
+    <ul><li class="col">선발인원</li><li>총 ****명 선발</li></ul>
+    <ul><li class="col">장학혜택</li><li><p>최대 *******만원</p></li></ul>
+    <ul><li class="col">선발대상</li><li>******</li></ul>
+    <ul><li class="col">신청기간</li><li class="day">******** ~ ********</li></ul>
+</div>
+</body></html>
+'''
+
+_DREAMSPON_DETAIL_HTML_LOGGED_IN = '''
+<html><head>
+<meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+</head><body>
+<div class="infoTable basic-info">
+    <ul><li class="col">장학종류</li><li>포상/상금</li></ul>
+    <ul><li class="col">선발인원</li><li>총 16명</li></ul>
+    <ul><li class="col">장학혜택</li><li><p>최대 1,000만원</p></li></ul>
+    <ul><li class="col">선발대상</li><li>이공계열 신진 연구자</li></ul>
+    <ul><li class="col">신청기간</li><li class="day">2026. 05. 26. ~ 2026. 08. 07.</li></ul>
+</div>
+<div id="tab2s" class="contbox">
+    <dl class="scholarship04 type3">
+        <dt>&middot;&nbsp;기관명</dt><dd>에디티지</dd>
+        <dt>&middot;&nbsp;기관분류</dt><dd>기타</dd>
+    </dl>
+</div>
+</body></html>
+'''
+
+
+class TestDreamsponCrawlerParseDetail(TestCase):
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+        self.url = 'https://www.dreamspon.com/scholarship/view.html?idx=9130'
+
+    def test_로그인_전_마스킹된_상세_파싱(self) -> None:
+        item = self.crawler._parse_detail(_DREAMSPON_DETAIL_HTML_MASKED, self.url)
+        self.assertIsInstance(item, DreamsponItem)
+        self.assertEqual(item.article_id, '9130')
+        self.assertEqual(item.title, '에디티지 신진 연구자 대상 에디티지 장학')
+        # 마스킹된 필드('*' 포함)는 실제 값 대신 None으로 폴백해 알림에 마스킹
+        # 문자열이 그대로 노출되지 않는다
+        self.assertIsNone(item.scholarship_type)
+        self.assertIsNone(item.target)
+        self.assertIsNone(item.recruit_count)
+        self.assertIsNone(item.benefit)
+        self.assertIsNone(item.application_start)
+        self.assertIsNone(item.application_end)
+
+    def test_로그인_후_상세_파싱(self) -> None:
+        item = self.crawler._parse_detail(_DREAMSPON_DETAIL_HTML_LOGGED_IN, self.url)
+        self.assertEqual(item.scholarship_type, '포상/상금')
+        self.assertEqual(item.target, '이공계열 신진 연구자')
+        self.assertEqual(item.recruit_count, '총 16명')
+        self.assertEqual(item.benefit, '최대 1,000만원')
+        self.assertEqual(item.application_start, date(2026, 5, 26))
+        self.assertEqual(item.application_end, date(2026, 8, 7))
+        self.assertEqual(item.organization, '에디티지')
+
+    def test_og_title_없으면_None(self) -> None:
+        html = '<html><head></head><body></body></html>'
+        item = self.crawler._parse_detail(html, self.url)
+        self.assertIsNone(item)
+
+    def test_article_id_추출_불가시_None(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_LOGGED_IN, 'https://www.dreamspon.com/scholarship/view.html',
+        )
+        self.assertIsNone(item)
+
+
+_DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK = '''
+<html><head>
+<meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+</head><body>
+<div class="infoTable basic-info"></div>
+</body></html>
+'''
+
+
+class TestDreamsponCrawlerDetailMergesListMetadata(TestCase):
+    """상세 페이지에는 기관명·태그가 없거나 비어 있을 수 있어, crawl()에서 캐시한
+    목록 값으로 보완되는지 검증한다 (상세 크롤링 성공 시 목록에서만 얻을 수 있는
+    정보가 사라지지 않아야 한다)."""
+
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+        self.crawler._parse_list(_DREAMSPON_SCHOLARSHIP_LIST_HTML)
+
+    def test_상세에_기관명_블록이_없으면_목록_값으로_보완(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.organization, '에디티지')
+
+    def test_상세에는_태그가_없어_목록_태그를_그대로_사용(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.tags, ['#장학프로그램', '#기타지원', '#일반인'])
+
+    def test_상세의_기관명이_있으면_상세_값을_우선한다(self) -> None:
+        html_with_different_org = '''
+        <html><head>
+        <meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+        </head><body>
+        <div class="infoTable basic-info"></div>
+        <div id="tab2s" class="contbox">
+            <dl class="scholarship04 type3">
+                <dt>&middot;&nbsp;기관명</dt><dd>상세페이지전용기관명</dd>
+            </dl>
+        </div>
+        </body></html>
+        '''
+        item = self.crawler._parse_detail(
+            html_with_different_org,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.organization, '상세페이지전용기관명')
+
+    def test_목록_캐시에_없는_article_id는_빈_태그로_폴백(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=99999',
+        )
+        self.assertIsNone(item.organization)
+        self.assertEqual(item.tags, [])
+
+
+class TestDreamsponCrawlerParseApplicationPeriod(TestCase):
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+
+    def test_정상_기간_파싱(self) -> None:
+        result = self.crawler._parse_application_period('2026. 05. 26. ~ 2026. 08. 07.')
+        self.assertEqual(result, (date(2026, 5, 26), date(2026, 8, 7)))
+
+    def test_마스킹된_문자열은_None(self) -> None:
+        result = self.crawler._parse_application_period('******** ~ ********')
+        self.assertEqual(result, (None, None))
+
+    def test_None_입력(self) -> None:
+        result = self.crawler._parse_application_period(None)
+        self.assertEqual(result, (None, None))
+
+
+class TestDreamsponCrawlerGetSession(TestCase):
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+
+    def test_로그인_성공시_세션_캐싱(self) -> None:
+        mock_session = MagicMock()
+        with patch('apps.notifications.crawlers.dreamspon.DreamsponAuth') as mock_auth_cls:
+            mock_auth_cls.return_value.login.return_value = DreamsponSession(session=mock_session)
+            first = self.crawler._get_session()
+            second = self.crawler._get_session()
+
+        self.assertIs(first, mock_session)
+        self.assertIs(second, mock_session)
+        mock_auth_cls.return_value.login.assert_called_once()
+
+    def test_자격증명_미설정시_None_반환_및_재시도_안함(self) -> None:
+        with patch('apps.notifications.crawlers.dreamspon.DreamsponAuth') as mock_auth_cls:
+            mock_auth_cls.side_effect = ValueError('no creds')
+            first = self.crawler._get_session()
+            second = self.crawler._get_session()
+
+        self.assertIsNone(first)
+        self.assertIsNone(second)
+        self.assertEqual(mock_auth_cls.call_count, 1)
+
+    def test_로그인_실패시_None(self) -> None:
+        with patch('apps.notifications.crawlers.dreamspon.DreamsponAuth') as mock_auth_cls:
+            mock_auth_cls.return_value.login.return_value = None
+            result = self.crawler._get_session()
+
+        self.assertIsNone(result)
+
+
+class TestDreamsponCrawlerCrawlDetailRequestFailure(TestCase):
+    def test_상세_요청_실패시_None(self) -> None:
+        crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+        with patch.object(crawler, '_get_session', return_value=None):
+            with patch('apps.notifications.crawlers.dreamspon.requests.get') as mock_get:
+                mock_get.side_effect = requests.RequestException('연결 실패')
+                result = crawler.crawl_detail('https://www.dreamspon.com/scholarship/view.html?idx=9130')
+
+        self.assertIsNone(result)
+
+
+class TestGetCrawlerDreamspon(TestCase):
+    def test_dreamspon_크롤러_반환(self) -> None:
+        from apps.notifications.crawlers import get_crawler
+        crawler = get_crawler('dreamspon', 'https://www.dreamspon.com/scholarship/list.html')
+        self.assertIsInstance(crawler, DreamsponCrawler)
