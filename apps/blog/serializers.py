@@ -24,3 +24,29 @@ class CategoryListSerializer(serializers.Serializer):
 
     def get_parent_name(self, obj: Category) -> str | None:
         return obj.parent.name if obj.parent else None
+
+
+class BlogIngestImageUploadSerializer(serializers.Serializer):
+    """블로그 ingest용 이미지/파일 업로드 요청 검증. 파일 1~10개."""
+
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        min_length=1,
+        max_length=10,
+    )
+
+
+class BlogIngestImageUploadResultSerializer(serializers.Serializer):
+    """이미지/파일 업로드 결과 응답 아이템. 파일 단위로 성공/실패를 구분한다."""
+
+    filename = serializers.CharField()
+    success = serializers.BooleanField()
+    url = serializers.CharField(allow_blank=True)
+    markdown = serializers.CharField(allow_blank=True)
+    error_message = serializers.CharField(allow_blank=True)
+
+
+class BlogIngestImageUploadResponseSerializer(serializers.Serializer):
+    """이미지/파일 업로드 API의 응답 스키마 문서화용. 실제 응답 본문({"results": [...]})과 구조를 맞추기 위해 존재하며 런타임에는 인스턴스화하지 않는다."""
+
+    results = BlogIngestImageUploadResultSerializer(many=True)

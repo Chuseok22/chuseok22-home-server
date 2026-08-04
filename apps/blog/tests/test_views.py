@@ -4,6 +4,11 @@ from django.urls import reverse
 
 from apps.blog.models import Category, Post, Tag
 
+import io
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
+
 
 @pytest.mark.django_db
 def test_올바른_키로_요청하면_초안이_생성된다(client: Client, settings) -> None:
@@ -176,3 +181,106 @@ def test_ingest는_대소문자만_다른_태그를_기존_태그로_재사용�
     )
 
     assert Tag.objects.count() == 1
+
+
+def _make_image_upload(name: str = 'photo.png') -> SimpleUploadedFile:
+    buffer = io.BytesIO()
+    Image.new('RGB', (10, 10), color='red').save(buffer, format='PNG')
+    buffer.seek(0)
+    return SimpleUploadedFile(name, buffer.read(), content_type='image/png')
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_1개면_200과_webp_url을_반환한다(client: Client, settings, tmp_path) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    settings.MEDIA_ROOT = tmp_path
+    url = reverse('blog-ingest-image-upload')
+
+    response = client.post(
+        url,
+        data={'files': [_make_image_upload()]},
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 200
+    results = response.json()['results']
+    assert len(results) == 1
+    assert results[0]['success'] is True
+    assert results[0]['url'].endswith('.webp')
+    assert results[0]['markdown'] == f"![업로드 이미지]({results[0]['url']})"
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_여러_개면_순서대로_결과가_대응된다(client: Client, settings, tmp_path) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    settings.MEDIA_ROOT = tmp_path
+    url = reverse('blog-ingest-image-upload')
+
+    response = client.post(
+        url,
+        data={'files': [_make_image_upload('a.png'), _make_image_upload('b.png')]},
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 200
+    results = response.json()['results']
+    assert len(results) == 2
+    assert all(r['success'] is True for r in results)
+    assert results[0]['filename'] == 'a.png'
+    assert results[1]['filename'] == 'b.png'
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_일부_파일이_지원하지_않는_형식이면_부분_성공을_반환한다(client: Client, settings, tmp_path) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    settings.MEDIA_ROOT = tmp_path
+    url = reverse('blog-ingest-image-upload')
+    bad_file = SimpleUploadedFile('notes.txt', b'plain text', content_type='text/plain')
+
+    response = client.post(
+        url,
+        data={'files': [_make_image_upload('good.png'), bad_file]},
+        HTTP_X_BLOG_INGEST_KEY='secret-key',
+    )
+
+    assert response.status_code == 200
+    results = response.json()['results']
+    assert len(results) == 2
+    assert results[0]['success'] is True
+    assert results[1]['success'] is False
+    assert '.txt' in results[1]['error_message']
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_파일이_없으면_400이다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    url = reverse('blog-ingest-image-upload')
+
+    response = client.post(url, data={}, HTTP_X_BLOG_INGEST_KEY='secret-key')
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_10개_초과면_400이다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    url = reverse('blog-ingest-image-upload')
+    uploads = [_make_image_upload(f'{i}.png') for i in range(11)]
+
+    response = client.post(url, data={'files': uploads}, HTTP_X_BLOG_INGEST_KEY='secret-key')
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_이미지_업로드는_키가_틀리면_403이다(client: Client, settings) -> None:
+    settings.BLOG_INGEST_API_KEY = 'secret-key'
+    url = reverse('blog-ingest-image-upload')
+
+    response = client.post(
+        url,
+        data={'files': [_make_image_upload()]},
+        HTTP_X_BLOG_INGEST_KEY='wrong-key',
+    )
+
+    assert response.status_code == 403
