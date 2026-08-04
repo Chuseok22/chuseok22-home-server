@@ -1,8 +1,10 @@
 from typing import ClassVar
 
+from django.core.files.uploadedfile import UploadedFile
 from django.urls import reverse
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -10,8 +12,14 @@ from rest_framework.views import APIView
 
 from apps.blog.models import Category, Post
 from apps.blog.permissions import HasBlogIngestKey
-from apps.blog.serializers import BlogIngestSerializer, CategoryListSerializer
+from apps.blog.serializers import (
+    BlogIngestImageUploadResponseSerializer,
+    BlogIngestImageUploadSerializer,
+    BlogIngestSerializer,
+    CategoryListSerializer,
+)
 from apps.blog.services.category import CategoryNotFoundError, get_category_by_name
+from apps.blog.services.media_storage import MediaUploadResult, save_uploaded_media
 from apps.blog.services.slug import generate_unique_slug
 from apps.blog.services.tags import get_or_create_tags
 
@@ -98,3 +106,52 @@ class BlogCategoryListView(APIView):
         categories = Category.objects.select_related('parent').all()
         serializer = CategoryListSerializer(categories, many=True)
         return Response(serializer.data)
+
+
+class BlogIngestImageUploadView(APIView):
+    """블로그 ingest용 이미지/파일 업로드 엔드포인트. 기존 admin 업로드와 동일한 저장 로직(save_uploaded_media)을 재사용한다."""
+
+    authentication_classes: ClassVar[list] = []
+    permission_classes: ClassVar[list] = [HasBlogIngestKey]
+    parser_classes: ClassVar[list] = [MultiPartParser, FormParser]
+    throttle_classes: ClassVar[list] = [ScopedRateThrottle]
+    throttle_scope = 'blog_ingest_upload'
+
+    @extend_schema(
+        summary='블로그 글 이미지/파일 업로드 (Ingest)',
+        description=(
+            '외부에서 블로그 글 본문(`content`)에 삽입할 이미지·동영상·PDF를 업로드한다. '
+            '`X-Blog-Ingest-Key` 헤더의 전용 API 키로만 인증하며(JWT 미사용), 한 요청에 파일 1~10개를 함께 보낼 수 있다. '
+            '이미지는 webp로 변환되어 저장되고(애니메이션 GIF는 원본 유지), 동영상(mp4/mov/webm)·PDF는 원본 그대로 저장된다. '
+            '파일당 최대 50MB이며, 일부 파일이 형식·크기 문제로 실패해도 나머지는 정상 저장된다(부분 성공 허용). '
+            '요청 형식이 유효하면(파일 1~10개) 개별 파일 성공/실패와 무관하게 항상 200을 반환하며, '
+            '`results[].markdown` 필드를 그대로 `content`에 이어붙이면 된다.'
+        ),
+        request=BlogIngestImageUploadSerializer,
+        responses={
+            200: BlogIngestImageUploadResponseSerializer,
+            400: OpenApiResponse(description='파일 누락 또는 10개 초과'),
+            403: OpenApiResponse(description='API 키 누락 또는 불일치'),
+        },
+        tags=['blog'],
+    )
+    def post(self, request: Request) -> Response:
+        serializer = BlogIngestImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        results = [
+            _to_upload_result(uploaded_file, save_uploaded_media(uploaded_file))
+            for uploaded_file in serializer.validated_data['files']
+        ]
+        return Response({'results': results}, status=200)
+
+
+def _to_upload_result(uploaded_file: UploadedFile, result: MediaUploadResult) -> dict[str, bool | str]:
+    return {
+        'filename': uploaded_file.name,
+        'success': result.success,
+        'url': result.url,
+        'markdown': result.markdown,
+        'error_message': result.error_message,
+    }

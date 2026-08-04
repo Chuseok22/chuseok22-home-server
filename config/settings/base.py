@@ -132,6 +132,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
     'DEFAULT_THROTTLE_RATES': {
         'blog_ingest': '30/day',
+        'blog_ingest_upload': '100/day',
     },
 }
 
