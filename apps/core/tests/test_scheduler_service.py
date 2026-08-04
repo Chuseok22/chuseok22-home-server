@@ -77,3 +77,42 @@ def test_활성화로_저장하면_resume이_호출된다() -> None:
 
     mock_scheduler.resume_job.assert_called_once_with('check_new_notices')
     mock_scheduler.pause_job.assert_not_called()
+
+
+def test_run_job_now는_정의되지_않은_job_id면_실패_메시지를_반환한다() -> None:
+    from apps.core.services.scheduler_service import run_job_now
+
+    success, message = run_job_now('존재하지_않는_job')
+
+    assert success is False
+    assert '정의되지 않은' in message
+
+
+def test_run_job_now는_이미_실행_중이면_실패_메시지를_반환한다() -> None:
+    from apps.core.services.scheduler_service import run_job_now
+
+    with patch('apps.core.services.scheduler_service.run_job', return_value=None):
+        success, message = run_job_now('check_new_notices')
+
+    assert success is False
+    assert '이미 실행 중' in message
+
+
+def test_run_job_now는_성공하면_성공_메시지를_반환한다() -> None:
+    from apps.core.services.scheduler_service import run_job_now
+
+    with patch('apps.core.services.scheduler_service.run_job', return_value=True):
+        success, message = run_job_now('check_new_notices')
+
+    assert success is True
+    assert '정상적으로' in message
+
+
+def test_run_job_now는_실행_실패하면_실패_메시지를_반환한다() -> None:
+    from apps.core.services.scheduler_service import run_job_now
+
+    with patch('apps.core.services.scheduler_service.run_job', return_value=False):
+        success, message = run_job_now('check_new_notices')
+
+    assert success is False
+    assert '오류' in message

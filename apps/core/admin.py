@@ -3,6 +3,7 @@ from typing import Any
 from apscheduler.jobstores.base import JobLookupError
 from django import forms
 from django.contrib import admin, messages
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 
 from apps.core.models import (
@@ -12,7 +13,7 @@ from apps.core.models import (
     WEEKDAY_TOKENS,
 )
 from apps.core.scheduler import JOB_DEFINITIONS, get_scheduler
-from apps.core.services.scheduler_service import update_job_schedule
+from apps.core.services.scheduler_service import run_job_now, update_job_schedule
 
 WEEKDAY_LABELS = [(token, label) for token, label in CRON_DAY_OF_WEEK_CHOICES if token != '*']
 
@@ -120,6 +121,7 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
     form = ScheduledJobConfigForm
     list_display = ('label', 'is_enabled', 'schedule_summary', 'updated_at')
     readonly_fields = ('job_id', 'updated_at')
+    actions = ['run_now']
 
     @admin.display(description='작업')
     def label(self, obj: ScheduledJobConfig) -> str:
@@ -134,6 +136,13 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
             core = f'{hours}시 :{obj.fixed_minute:02d}'
         day_label = '매일' if obj.cron_day_of_week == '*' else obj.cron_day_of_week
         return f'{core}, {day_label}'
+
+    @admin.action(description='즉시 실행')
+    def run_now(self, request: HttpRequest, queryset: QuerySet[ScheduledJobConfig]) -> None:
+        for config in queryset:
+            success, message = run_job_now(config.job_id)
+            level = messages.SUCCESS if success else messages.WARNING
+            self.message_user(request, f'[{self.label(config)}] {message}', level=level)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         # job_id는 JOB_DEFINITIONS와 1:1로 시딩되는 값이라 임의 생성을 막는다.

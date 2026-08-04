@@ -1,5 +1,6 @@
 import atexit
 import logging
+import threading
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -66,6 +67,8 @@ JOB_DEFINITIONS = {
 }
 
 _scheduler: BackgroundScheduler | None = None
+_running_job_ids: set[str] = set()
+_run_lock = threading.Lock()
 
 
 def get_scheduler() -> BackgroundScheduler | None:
@@ -115,11 +118,60 @@ def build_cron_trigger(config: ScheduledJobConfig) -> CronTrigger:
     )
 
 
-def _run_job(command: str) -> None:
+def is_job_running(job_id: str) -> bool:
+    """job_id가 현재 실행 중인지 확인한다."""
+    with _run_lock:
+        return job_id in _running_job_ids
+
+
+def try_start_job(job_id: str) -> bool:
+    """job_id 실행을 시도한다.
+
+    이미 실행 중이면 False를 반환하고, 아니면 실행 중 상태로 표시한 뒤 True를 반환한다.
+    """
+    with _run_lock:
+        if job_id in _running_job_ids:
+            return False
+        _running_job_ids.add(job_id)
+        return True
+
+
+def finish_job(job_id: str) -> None:
+    """job_id의 실행 중 상태를 해제한다."""
+    with _run_lock:
+        _running_job_ids.discard(job_id)
+
+
+def _run_job(command: str) -> bool:
     try:
         call_command(command)
+        return True
     except Exception as e:  # 잡 함수 예외가 스케줄러를 죽이지 않도록 방어
         logger.error('%s 실행 실패: %s', command, e, exc_info=True)
+        return False
+
+
+def run_job(job_id: str) -> bool | None:
+    """job_id에 해당하는 명령을 동시 실행 가드와 함께 실행한다.
+
+    스케줄러의 자동 트리거(start_scheduler에서 등록)와 관리자의 즉시 실행
+    (scheduler_service.run_job_now)이 모두 이 함수를 거친다 — 그래야 두 경로가
+    같은 job_id에 대해 동시에 도는 것을 하나의 락으로 막을 수 있다. 이미 실행 중이면
+    이번 요청은 조용히 건너뛴다(None 반환). job_id가 JOB_DEFINITIONS에 없는 경우(예:
+    DjangoJobStore에 예전 job_id가 남아있는 등)를 대비해 방어적으로 처리한다 — 여기서
+    KeyError를 그대로 던지면 APScheduler 백그라운드 스레드로 예외가 전파될 수 있다.
+    """
+    definition = JOB_DEFINITIONS.get(job_id)
+    if definition is None:
+        logger.error('JOB_DEFINITIONS에 등록되지 않은 job_id: %s', job_id)
+        return False
+    if not try_start_job(job_id):
+        logger.info('%s 이(가) 이미 실행 중이라 이번 요청을 건너뜁니다', job_id)
+        return None
+    try:
+        return _run_job(definition['command'])
+    finally:
+        finish_job(job_id)
 
 
 def start_scheduler() -> None:
@@ -138,8 +190,8 @@ def start_scheduler() -> None:
     for job_id, definition in JOB_DEFINITIONS.items():
         config = get_or_seed_job_config(job_id, definition)
         scheduler.add_job(
-            _run_job,
-            args=[definition['command']],
+            run_job,
+            args=[job_id],
             trigger=build_cron_trigger(config),
             id=job_id,
             replace_existing=True,
