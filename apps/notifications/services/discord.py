@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponItem
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -38,6 +39,8 @@ class DiscordService:
             return self._format_contest(source, item)
         if isinstance(item, DaconItem):
             return self._format_dacon(source, item)
+        if isinstance(item, DreamsponItem):
+            return self._format_dreamspon(source, item)
         return f'🔔 새 알림\n**[{source.name}]**\n📌 {item.title}\n🔗 {item.url}'
 
     def _format_sejong_notice(self, source: NoticeSource, item: SejongNoticeItem) -> str:
@@ -105,6 +108,32 @@ class DiscordService:
             lines.append(f'📋 상태: {item.status}')
         if item.participant_count is not None:
             lines.append(f'👥 참가자: {item.participant_count}명')
+        if item.tags:
+            lines.append(f'📂 태그: {", ".join(item.tags)}')
+        lines.append(f'🔗 {item.url}')
+        return '\n'.join(lines)
+
+    def _format_dreamspon(self, source: NoticeSource, item: DreamsponItem) -> str:
+        lines = [
+            '💰 새 장학금 알림\n',
+            f'**[{source.name}]**',
+            f'📌 {item.title}',
+        ]
+        if item.organization:
+            lines.append(f'🏢 기관명: {item.organization}')
+        if item.scholarship_type:
+            lines.append(f'🏷 장학종류: {item.scholarship_type}')
+        if item.target:
+            lines.append(f'👥 선발대상: {item.target}')
+        if item.recruit_count:
+            lines.append(f'👤 선발인원: {item.recruit_count}')
+        if item.benefit:
+            lines.append(f'🎁 장학혜택: {item.benefit}')
+        if item.application_start or item.application_end:
+            lines.append(
+                f'📋 신청기간: {self._fmt_period_date(item.application_start, item.application_end)}'
+                f'{self._dday_date(item.application_end)}'
+            )
         if item.tags:
             lines.append(f'📂 태그: {", ".join(item.tags)}')
         lines.append(f'🔗 {item.url}')
