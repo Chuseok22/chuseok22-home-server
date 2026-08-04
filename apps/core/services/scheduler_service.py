@@ -1,5 +1,5 @@
 from apps.core.models import ScheduledJobConfig
-from apps.core.scheduler import build_cron_trigger, get_scheduler
+from apps.core.scheduler import JOB_DEFINITIONS, build_cron_trigger, get_scheduler, run_job
 
 
 def update_job_schedule(
@@ -32,3 +32,21 @@ def update_job_schedule(
         scheduler.resume_job(job_id)
     else:
         scheduler.pause_job(job_id)
+
+
+def run_job_now(job_id: str) -> tuple[bool, str]:
+    """job_id에 해당하는 자동화 잡을 스케줄과 무관하게 즉시 1회 실행한다.
+
+    실제 동시 실행 가드는 apps.core.scheduler.run_job()이 담당한다 — 스케줄러가 자동
+    트리거한 실행과 여기서 즉시 실행하는 것이 모두 같은 함수를 거치므로 서로 겹치지
+    않는다.
+    """
+    if job_id not in JOB_DEFINITIONS:
+        return False, '정의되지 않은 작업입니다.'
+
+    result = run_job(job_id)
+    if result is None:
+        return False, '이미 실행 중입니다.'
+    if result:
+        return True, '정상적으로 실행되었습니다.'
+    return False, '실행 중 오류가 발생했습니다. 서버 로그를 확인해주세요.'
