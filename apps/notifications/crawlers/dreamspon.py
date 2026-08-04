@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup, Tag
 
+from .dreamspon_auth import DreamsponAuth
 from .base import BaseCrawler, BaseNoticeItem
 
 logger = logging.getLogger(__name__)
@@ -109,3 +110,115 @@ class DreamsponCrawler(BaseCrawler):
     def _parse_hit_count(self, td: Tag) -> int | None:
         digits = re.sub(r'[^0-9]', '', td.get_text(strip=True))
         return int(digits) if digits else None
+
+    def __init__(self, list_url: str) -> None:
+        super().__init__(list_url)
+        self._session: requests.Session | None = None
+        self._login_attempted = False
+
+    def crawl_detail(self, url: str) -> DreamsponItem | None:
+        """상세 페이지에서 전체 필드를 채운 DreamsponItem을 반환한다.
+
+        로그인 세션이 있으면 인증된 상태로, 없으면(자격증명 미설정/로그인 실패)
+        비로그인 상태로 요청한다 — 비로그인이어도 목록 정보 기반 폴백은
+        check_new_notices.py에서 이 메서드가 None을 반환할 때 처리한다.
+        """
+        session = self._get_session()
+        requester = session if session is not None else requests
+        try:
+            response = requester.get(url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error('드림스폰 상세 페이지 요청 실패 (%s): %s', url, e)
+            return None
+
+        return self._parse_detail(response.text, url)
+
+    def _get_session(self) -> requests.Session | None:
+        """로그인 세션을 반환한다. 최초 1회만 로그인을 시도하고, 실패해도 재시도하지 않는다."""
+        if self._session is not None:
+            return self._session
+        if self._login_attempted:
+            return None
+
+        self._login_attempted = True
+        try:
+            auth = DreamsponAuth()
+        except ValueError as e:
+            logger.warning('드림스폰 로그인 자격증명 미설정, 비로그인으로 진행: %s', e)
+            return None
+
+        result = auth.login()
+        if result is None:
+            return None
+
+        self._session = result.session
+        return self._session
+
+    def _parse_detail(self, html: str, url: str) -> DreamsponItem | None:
+        soup = BeautifulSoup(html, 'lxml')
+
+        article_id = self._extract_article_id(url)
+        if not article_id:
+            return None
+
+        title = self._parse_title(soup)
+        if not title:
+            return None
+
+        fields = self._parse_info_table(soup)
+        app_start, app_end = self._parse_application_period(fields.get('신청기간'))
+
+        return DreamsponItem(
+            article_id=article_id,
+            title=title,
+            url=url,
+            organization=self._parse_organization(soup),
+            hit_count=None,
+            scholarship_type=fields.get('장학종류'),
+            target=fields.get('선발대상'),
+            recruit_count=fields.get('선발인원'),
+            benefit=fields.get('장학혜택'),
+            application_start=app_start,
+            application_end=app_end,
+            tags=[],
+        )
+
+    def _parse_title(self, soup: BeautifulSoup) -> str:
+        meta = soup.find('meta', attrs={'property': 'og:title'})
+        if not meta or not meta.get('content'):
+            return ''
+        return re.sub(r',\s*드림스폰\s*$', '', meta['content']).strip()
+
+    def _parse_info_table(self, soup: BeautifulSoup) -> dict[str, str]:
+        fields: dict[str, str] = {}
+        for ul in soup.select('div.infoTable.basic-info ul'):
+            li_tags = ul.find_all('li')
+            if len(li_tags) < 2:
+                continue
+            label = li_tags[0].get_text(strip=True)
+            value = li_tags[1].get_text(strip=True)
+            fields[label] = value
+        return fields
+
+    def _parse_organization(self, soup: BeautifulSoup) -> str | None:
+        for dt in soup.select('dl.scholarship04.type3 dt'):
+            if '기관명' in dt.get_text(strip=True):
+                dd = dt.find_next_sibling('dd')
+                return dd.get_text(strip=True) if dd else None
+        return None
+
+    def _parse_application_period(self, text: str | None) -> tuple[date | None, date | None]:
+        if not text:
+            return None, None
+        match = re.search(
+            r'(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*~\s*(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?',
+            text,
+        )
+        if not match:
+            return None, None
+        y1, m1, d1, y2, m2, d2 = match.groups()
+        try:
+            return date(int(y1), int(m1), int(d1)), date(int(y2), int(m2), int(d2))
+        except ValueError:
+            return None, None
