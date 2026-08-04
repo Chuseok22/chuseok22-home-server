@@ -113,9 +113,11 @@ class TestDiscordServiceFormatMessage(TestCase):
         self.assertIn('새 장학금 알림', result)
         self.assertIn('에디티지 신진 연구자 대상 에디티지 장학', result)
         self.assertIn('에디티지', result)
+        self.assertIn('🏷 장학종류: 포상/상금', result)
         self.assertIn('이공계열 신진 연구자', result)
         self.assertIn('총 16명', result)
         self.assertIn('최대 1,000만원', result)
+        self.assertIn('📋 신청기간: 2026.05.26 ~ 2026.08.07', result)
         self.assertIn('#장학프로그램, #기타지원', result)
         self.assertIn('https://www.dreamspon.com/scholarship/view.html?idx=9130', result)
 
