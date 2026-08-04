@@ -120,8 +120,11 @@ class DreamsponCrawler(BaseCrawler):
         """상세 페이지에서 전체 필드를 채운 DreamsponItem을 반환한다.
 
         로그인 세션이 있으면 인증된 상태로, 없으면(자격증명 미설정/로그인 실패)
-        비로그인 상태로 요청한다 — 비로그인이어도 목록 정보 기반 폴백은
-        check_new_notices.py에서 이 메서드가 None을 반환할 때 처리한다.
+        비로그인 상태로 요청한다. 비로그인 상태에서도 이 메서드는 None이 아닌
+        정상 아이템을 반환한다 — 다만 dreamspon.com이 비로그인 시 장학종류·선발대상·
+        선발인원·장학혜택·신청기간 값을 '*' 마스킹 문자열로 내려주므로, _parse_detail에서
+        마스킹된 값을 감지해 해당 필드를 None으로 치환한다. None을 반환하는 경우는
+        요청 자체가 실패했거나(crawl_detail) og:title/article_id를 파싱할 수 없을 때뿐이다.
         """
         session = self._get_session()
         requester = session if session is not None else requests
@@ -175,10 +178,10 @@ class DreamsponCrawler(BaseCrawler):
             url=url,
             organization=self._parse_organization(soup),
             hit_count=None,
-            scholarship_type=fields.get('장학종류'),
-            target=fields.get('선발대상'),
-            recruit_count=fields.get('선발인원'),
-            benefit=fields.get('장학혜택'),
+            scholarship_type=self._unmask(fields.get('장학종류')),
+            target=self._unmask(fields.get('선발대상')),
+            recruit_count=self._unmask(fields.get('선발인원')),
+            benefit=self._unmask(fields.get('장학혜택')),
             application_start=app_start,
             application_end=app_end,
             tags=[],
@@ -200,6 +203,15 @@ class DreamsponCrawler(BaseCrawler):
             value = li_tags[1].get_text(strip=True)
             fields[label] = value
         return fields
+
+    def _unmask(self, value: str | None) -> str | None:
+        """비로그인 상태의 dreamspon.com이 값을 '*' 문자로 가려서 내려주는 경우
+        (예: '*****', '총 ****명 선발') 그대로 노출하면 알림에 마스킹 문자열이
+        그대로 섞여나가므로, '*'가 포함된 값은 미확보로 간주해 None으로 치환한다.
+        """
+        if value is None or '*' in value:
+            return None
+        return value
 
     def _parse_organization(self, soup: BeautifulSoup) -> str | None:
         for dt in soup.select('dl.scholarship04.type3 dt'):

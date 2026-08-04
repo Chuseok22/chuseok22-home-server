@@ -410,8 +410,12 @@ class TestDreamsponCrawlerParseDetail(TestCase):
         self.assertIsInstance(item, DreamsponItem)
         self.assertEqual(item.article_id, '9130')
         self.assertEqual(item.title, '에디티지 신진 연구자 대상 에디티지 장학')
-        self.assertEqual(item.scholarship_type, '*****')
-        # 마스킹된 신청기간은 날짜로 파싱되지 않고 None으로 폴백한다
+        # 마스킹된 필드('*' 포함)는 실제 값 대신 None으로 폴백해 알림에 마스킹
+        # 문자열이 그대로 노출되지 않는다
+        self.assertIsNone(item.scholarship_type)
+        self.assertIsNone(item.target)
+        self.assertIsNone(item.recruit_count)
+        self.assertIsNone(item.benefit)
         self.assertIsNone(item.application_start)
         self.assertIsNone(item.application_end)
 
