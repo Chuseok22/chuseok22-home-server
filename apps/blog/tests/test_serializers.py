@@ -1,4 +1,6 @@
-from apps.blog.serializers import BlogIngestSerializer
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from apps.blog.serializers import BlogIngestImageUploadSerializer, BlogIngestSerializer
 
 
 def test_필수_필드만_있어도_유효하다() -> None:
@@ -58,3 +60,43 @@ def test_모든_필드를_채우면_그대로_반영된다() -> None:
     assert serializer.is_valid(), serializer.errors
     assert serializer.validated_data['tags'] == ['django', 'api-design']
     assert serializer.validated_data['repo_url'] == 'https://github.com/example/waitee-app'
+
+
+def test_이미지_업로드_시리얼라이저는_파일_1개면_유효하다() -> None:
+    upload = SimpleUploadedFile('photo.png', b'fake-image-bytes', content_type='image/png')
+
+    serializer = BlogIngestImageUploadSerializer(data={'files': [upload]})
+
+    assert serializer.is_valid(), serializer.errors
+    assert len(serializer.validated_data['files']) == 1
+
+
+def test_이미지_업로드_시리얼라이저는_파일이_없으면_무효하다() -> None:
+    serializer = BlogIngestImageUploadSerializer(data={})
+
+    assert not serializer.is_valid()
+    assert 'files' in serializer.errors
+
+
+def test_이미지_업로드_시리얼라이저는_10개_초과면_무효하다() -> None:
+    uploads = [
+        SimpleUploadedFile(f'photo{i}.png', b'fake-image-bytes', content_type='image/png')
+        for i in range(11)
+    ]
+
+    serializer = BlogIngestImageUploadSerializer(data={'files': uploads})
+
+    assert not serializer.is_valid()
+    assert 'files' in serializer.errors
+
+
+def test_이미지_업로드_시리얼라이저는_10개면_유효하다() -> None:
+    uploads = [
+        SimpleUploadedFile(f'photo{i}.png', b'fake-image-bytes', content_type='image/png')
+        for i in range(10)
+    ]
+
+    serializer = BlogIngestImageUploadSerializer(data={'files': uploads})
+
+    assert serializer.is_valid(), serializer.errors
+    assert len(serializer.validated_data['files']) == 10
