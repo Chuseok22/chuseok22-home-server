@@ -269,3 +269,75 @@ def test_GitHub_잡이_아니면_API_한도_안내가_노출되지_않는다(adm
     response = admin_client.get(url)
 
     assert 'GitHub API 한도' not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_즉시_실행_액션은_성공_시_SUCCESS_메시지를_표시한다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(job_id='check_new_notices', fixed_hours='8')
+    url = reverse('admin:core_scheduledjobconfig_changelist')
+
+    with patch('apps.core.admin.run_job_now', return_value=(True, '정상적으로 실행되었습니다.')):
+        response = admin_client.post(url, {
+            'action': 'run_now',
+            '_selected_action': [str(config.pk)],
+        }, follow=True)
+
+    assert response.status_code == 200
+    messages_list = [m.message for m in response.context['messages']]
+    assert any('정상적으로 실행되었습니다' in m for m in messages_list)
+
+
+@pytest.mark.django_db
+def test_즉시_실행_액션은_실패_시_WARNING_메시지를_표시한다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(job_id='check_new_notices', fixed_hours='8')
+    url = reverse('admin:core_scheduledjobconfig_changelist')
+
+    with patch('apps.core.admin.run_job_now', return_value=(False, '이미 실행 중입니다.')):
+        response = admin_client.post(url, {
+            'action': 'run_now',
+            '_selected_action': [str(config.pk)],
+        }, follow=True)
+
+    assert response.status_code == 200
+    messages_list = [m.message for m in response.context['messages']]
+    assert any('이미 실행 중입니다' in m for m in messages_list)
+
+
+@pytest.mark.django_db
+def test_즉시_실행_액션은_비활성화된_job도_실행한다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', fixed_hours='8', is_enabled=False,
+    )
+    url = reverse('admin:core_scheduledjobconfig_changelist')
+
+    with patch('apps.core.admin.run_job_now', return_value=(True, '정상적으로 실행되었습니다.')) as mock_run:
+        admin_client.post(url, {
+            'action': 'run_now',
+            '_selected_action': [str(config.pk)],
+        }, follow=True)
+
+    mock_run.assert_called_once_with('check_new_notices')
+
+
+@pytest.mark.django_db
+def test_즉시_실행_액션은_여러_row_선택_시_각각_개별_메시지를_표시한다(admin_client: Client) -> None:
+    # admin changelist queryset의 실제 순회 순서(기본 -pk 내림차순)에 의존하지 않도록,
+    # job_id 기준으로 결과를 분기하는 side_effect를 사용한다.
+    config1 = ScheduledJobConfig.objects.create(job_id='check_new_notices', fixed_hours='8')
+    config2 = ScheduledJobConfig.objects.create(job_id='fetch_github_activities', interval_hours=3)
+    url = reverse('admin:core_scheduledjobconfig_changelist')
+
+    def fake_run_job_now(job_id: str) -> tuple[bool, str]:
+        if job_id == 'check_new_notices':
+            return True, '정상적으로 실행되었습니다.'
+        return False, '이미 실행 중입니다.'
+
+    with patch('apps.core.admin.run_job_now', side_effect=fake_run_job_now):
+        response = admin_client.post(url, {
+            'action': 'run_now',
+            '_selected_action': [str(config1.pk), str(config2.pk)],
+        }, follow=True)
+
+    messages_list = [m.message for m in response.context['messages']]
+    assert any('공지사항 크롤링' in m and '정상적으로' in m for m in messages_list)
+    assert any('GitHub 활동 수집' in m and '이미 실행 중' in m for m in messages_list)
