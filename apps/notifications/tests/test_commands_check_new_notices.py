@@ -1,8 +1,10 @@
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 
 from apps.notifications.crawlers.dacon import DaconItem
+from apps.notifications.crawlers.dreamspon import DreamsponItem
 from apps.notifications.management.commands.check_new_notices import Command
 from apps.notifications.models import Notice, NoticeSource
 
@@ -22,6 +24,16 @@ class TestCheckNewNoticesGetPublishedAt(TestCase):
         )
         result = self.command._get_published_at(item)
         self.assertIsNone(result)
+
+    def test_dreamspon_아이템은_신청_마감일이_게시일(self) -> None:
+        item = DreamsponItem(
+            article_id='9130', title='장학금', url='https://www.dreamspon.com/scholarship/view.html?idx=9130',
+            organization='에디티지', hit_count=1294, scholarship_type='포상/상금',
+            target='대학생', recruit_count='총 16명', benefit='최대 1,000만원',
+            application_start=date(2026, 5, 26), application_end=date(2026, 8, 7), tags=[],
+        )
+        result = self.command._get_published_at(item)
+        self.assertEqual(result, date(2026, 8, 7))
 
 
 class TestCheckNewNoticesProcessSource(TestCase):
