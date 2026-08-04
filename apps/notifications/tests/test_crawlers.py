@@ -441,6 +441,66 @@ class TestDreamsponCrawlerParseDetail(TestCase):
         self.assertIsNone(item)
 
 
+_DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK = '''
+<html><head>
+<meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+</head><body>
+<div class="infoTable basic-info"></div>
+</body></html>
+'''
+
+
+class TestDreamsponCrawlerDetailMergesListMetadata(TestCase):
+    """상세 페이지에는 기관명·태그가 없거나 비어 있을 수 있어, crawl()에서 캐시한
+    목록 값으로 보완되는지 검증한다 (상세 크롤링 성공 시 목록에서만 얻을 수 있는
+    정보가 사라지지 않아야 한다)."""
+
+    def setUp(self) -> None:
+        self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')
+        self.crawler._parse_list(_DREAMSPON_SCHOLARSHIP_LIST_HTML)
+
+    def test_상세에_기관명_블록이_없으면_목록_값으로_보완(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.organization, '에디티지')
+
+    def test_상세에는_태그가_없어_목록_태그를_그대로_사용(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.tags, ['#장학프로그램', '#기타지원', '#일반인'])
+
+    def test_상세의_기관명이_있으면_상세_값을_우선한다(self) -> None:
+        html_with_different_org = '''
+        <html><head>
+        <meta property="og:title" content="에디티지 신진 연구자 대상 에디티지 장학, 드림스폰"/>
+        </head><body>
+        <div class="infoTable basic-info"></div>
+        <div id="tab2s" class="contbox">
+            <dl class="scholarship04 type3">
+                <dt>&middot;&nbsp;기관명</dt><dd>상세페이지전용기관명</dd>
+            </dl>
+        </div>
+        </body></html>
+        '''
+        item = self.crawler._parse_detail(
+            html_with_different_org,
+            'https://www.dreamspon.com/scholarship/view.html?idx=9130',
+        )
+        self.assertEqual(item.organization, '상세페이지전용기관명')
+
+    def test_목록_캐시에_없는_article_id는_빈_태그로_폴백(self) -> None:
+        item = self.crawler._parse_detail(
+            _DREAMSPON_DETAIL_HTML_NO_ORG_BLOCK,
+            'https://www.dreamspon.com/scholarship/view.html?idx=99999',
+        )
+        self.assertIsNone(item.organization)
+        self.assertEqual(item.tags, [])
+
+
 class TestDreamsponCrawlerParseApplicationPeriod(TestCase):
     def setUp(self) -> None:
         self.crawler = DreamsponCrawler('https://www.dreamspon.com/scholarship/list.html')

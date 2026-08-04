@@ -85,7 +85,7 @@ class DreamsponCrawler(BaseCrawler):
                 if span.get_text(strip=True)
             ]
 
-            items.append(DreamsponItem(
+            list_item = DreamsponItem(
                 article_id=article_id,
                 title=title,
                 url=url,
@@ -98,7 +98,9 @@ class DreamsponCrawler(BaseCrawler):
                 application_start=None,
                 application_end=None,
                 tags=tags,
-            ))
+            )
+            items.append(list_item)
+            self._list_items_by_id[article_id] = list_item
 
         return items
 
@@ -115,6 +117,9 @@ class DreamsponCrawler(BaseCrawler):
         super().__init__(list_url)
         self._session: requests.Session | None = None
         self._login_attempted = False
+        # crawl()에서 채워지는, 목록 페이지에서만 얻을 수 있는 필드(기관명·태그)를
+        # 상세 크롤링 시 복원하기 위한 캐시 — crawl_detail()은 article_id로 이 캐시를 조회한다.
+        self._list_items_by_id: dict[str, DreamsponItem] = {}
 
     def crawl_detail(self, url: str) -> DreamsponItem | None:
         """상세 페이지에서 전체 필드를 채운 DreamsponItem을 반환한다.
@@ -172,11 +177,18 @@ class DreamsponCrawler(BaseCrawler):
         fields = self._parse_info_table(soup)
         app_start, app_end = self._parse_application_period(fields.get('신청기간'))
 
+        # 상세 페이지에는 기관명이 없거나(재단정보 탭 미기재) 태그 자체가 없어,
+        # 목록 크롤링 시 캐시해 둔 값으로 보완한다 — 그렇지 않으면 상세 크롤링 성공 시
+        # Discord 알림에서 목록에만 있던 기관명·태그가 사라진다.
+        list_item = self._list_items_by_id.get(article_id)
+        organization = self._parse_organization(soup) or (list_item.organization if list_item else None)
+        tags = list_item.tags if list_item else []
+
         return DreamsponItem(
             article_id=article_id,
             title=title,
             url=url,
-            organization=self._parse_organization(soup),
+            organization=organization,
             hit_count=None,
             scholarship_type=self._unmask(fields.get('장학종류')),
             target=self._unmask(fields.get('선발대상')),
@@ -184,7 +196,7 @@ class DreamsponCrawler(BaseCrawler):
             benefit=self._unmask(fields.get('장학혜택')),
             application_start=app_start,
             application_end=app_end,
-            tags=[],
+            tags=tags,
         )
 
     def _parse_title(self, soup: BeautifulSoup) -> str:
