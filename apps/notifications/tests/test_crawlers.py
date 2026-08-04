@@ -496,3 +496,10 @@ class TestDreamsponCrawlerCrawlDetailRequestFailure(TestCase):
                 result = crawler.crawl_detail('https://www.dreamspon.com/scholarship/view.html?idx=9130')
 
         self.assertIsNone(result)
+
+
+class TestGetCrawlerDreamspon(TestCase):
+    def test_dreamspon_크롤러_반환(self) -> None:
+        from apps.notifications.crawlers import get_crawler
+        crawler = get_crawler('dreamspon', 'https://www.dreamspon.com/scholarship/list.html')
+        self.assertIsInstance(crawler, DreamsponCrawler)
