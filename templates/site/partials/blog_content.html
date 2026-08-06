@@ -80,6 +80,24 @@
     <div id="blog-list-skeleton" class="htmx-indicator-block absolute inset-0 bg-base-100" aria-hidden="true">
       {% include 'site/partials/list_skeleton.html' %}
     </div>
+    <div class="flex gap-2 mb-4">
+      <a
+        href="{% querystring sort='latest' %}"
+        hx-get="{% querystring sort='latest' %}"
+        hx-target="#blog-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm {% if current_sort == 'latest' %}btn-primary{% else %}btn-ghost{% endif %}"
+      >최신순</a>
+      <a
+        href="{% querystring sort='views' %}"
+        hx-get="{% querystring sort='views' %}"
+        hx-target="#blog-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm {% if current_sort == 'views' %}btn-primary{% else %}btn-ghost{% endif %}"
+      >조회순</a>
+    </div>
     <div class="flex flex-col divide-y divide-base-300">
       {% for post in posts %}
       <article class="py-4 first:pt-0 last:pb-0">

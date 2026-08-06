@@ -2004,3 +2004,57 @@ def test_blog_목록에_게시일이_YYYY_MM_DD_형식으로_표시된다() -> N
     body = response.content.decode()
 
     assert '2026-08-01' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록에_정렬_탭_링크가_표시된다() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert '최신순' in body
+    assert '조회순' in body
+    assert 'sort=views' in body
+
+
+@pytest.mark.django_db
+def test_blog_목록은_활성_정렬_탭에_강조_클래스를_적용한다() -> None:
+    import re
+
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'sort': 'views'})
+    body = response.content.decode()
+
+    views_tab_match = re.search(r'class="btn btn-sm ([^"]*)"[^>]*>조회순', body)
+    latest_tab_match = re.search(r'class="btn btn-sm ([^"]*)"[^>]*>최신순', body)
+
+    assert views_tab_match is not None and 'btn-primary' in views_tab_match.group(1)
+    assert latest_tab_match is not None and 'btn-primary' not in latest_tab_match.group(1)
+
+
+@pytest.mark.django_db
+def test_blog_목록_정렬_탭은_현재_카테고리를_유지한다() -> None:
+    import re
+
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    Post.objects.create(
+        title='글', slug='post-1', content='본문', category=category,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': 'dev'})
+    body = response.content.decode()
+
+    match = re.search(r'hx-get="([^"]*sort=views[^"]*)"', body)
+    assert match is not None
+    assert 'category=dev' in match.group(1)
