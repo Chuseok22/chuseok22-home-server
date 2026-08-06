@@ -108,6 +108,12 @@
       autofocus: true,
       spellChecker: false,
       sideBySideFullscreen: false,
+      // side-by-side 모드에서 두 패널 높이를 고정해야 CodeMirror 내부 스크롤이 생기고,
+      // EasyMDE의 기본 스크롤 동기화(syncSideBySidePreviewScroll, 기본값 true)가 그 내부
+      // 스크롤 이벤트를 듣고 우측 미리보기를 따라 움직인다. maxHeight를 지정하지 않으면
+      // 패널이 본문 길이만큼 계속 늘어나며 페이지 자체가 스크롤되어 동기화가 동작하지 않는다.
+      // 520px는 툴바 높이를 제외하고 약 20줄 안팎이 한 화면에 보이는 값으로 임의 선택.
+      maxHeight: '520px',
       toolbar: ['upload-image', '|', 'side-by-side'],
       uploadImage: true,
       imageAccept: '*/*', // 기본값(png/jpeg/gif/avif)은 webp·mp4·pdf 선택을 막으므로 전체 허용으로 넓힌다
