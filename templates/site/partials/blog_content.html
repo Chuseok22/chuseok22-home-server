@@ -6,8 +6,8 @@
 >
   <div class="flex md:hidden gap-2 overflow-x-auto pb-2 -mx-4 px-4">
     <a
-      href="{% url 'site:blog-list' %}"
-      hx-get="{% url 'site:blog-list' %}"
+      href="{% querystring category=None %}"
+      hx-get="{% querystring category=None %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -15,8 +15,8 @@
     >전체 ({{ total_post_count }})</a>
     {% for item in sidebar_items %}
     <a
-      href="{% url 'site:blog-list' %}?category={{ item.slug }}"
-      hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+      href="{% querystring category=item.slug %}"
+      hx-get="{% querystring category=item.slug %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -24,8 +24,8 @@
     >{{ item.name }} ({{ item.post_count }})</a>
     {% for child in item.children %}
     <a
-      href="{% url 'site:blog-list' %}?category={{ child.slug }}"
-      hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+      href="{% querystring category=child.slug %}"
+      hx-get="{% querystring category=child.slug %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -38,8 +38,8 @@
     <ul class="menu menu-sm p-0">
       <li>
         <a
-          href="{% url 'site:blog-list' %}"
-          hx-get="{% url 'site:blog-list' %}"
+          href="{% querystring category=None %}"
+          hx-get="{% querystring category=None %}"
           hx-target="#blog-content"
           hx-swap="outerHTML"
           hx-push-url="true"
@@ -49,8 +49,8 @@
       {% for item in sidebar_items %}
       <li>
         <a
-          href="{% url 'site:blog-list' %}?category={{ item.slug }}"
-          hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+          href="{% querystring category=item.slug %}"
+          hx-get="{% querystring category=item.slug %}"
           hx-target="#blog-content"
           hx-swap="outerHTML"
           hx-push-url="true"
@@ -61,8 +61,8 @@
           {% for child in item.children %}
           <li>
             <a
-              href="{% url 'site:blog-list' %}?category={{ child.slug }}"
-              hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+              href="{% querystring category=child.slug %}"
+              hx-get="{% querystring category=child.slug %}"
               hx-target="#blog-content"
               hx-swap="outerHTML"
               hx-push-url="true"

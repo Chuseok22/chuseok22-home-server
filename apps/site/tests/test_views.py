@@ -2058,3 +2058,43 @@ def test_blog_목록_정렬_탭은_현재_카테고리를_유지한다() -> None
     match = re.search(r'hx-get="([^"]*sort=views[^"]*)"', body)
     assert match is not None
     assert 'category=dev' in match.group(1)
+
+
+@pytest.mark.django_db
+def test_blog_목록_카테고리_링크는_현재_정렬을_유지한다() -> None:
+    import re
+
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    Post.objects.create(
+        title='글', slug='post-1', content='본문', category=category,
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'sort': 'views'})
+    body = response.content.decode()
+
+    match = re.search(r'hx-get="([^"]*category=dev[^"]*)"', body)
+    assert match is not None
+    assert 'sort=views' in match.group(1)
+
+
+@pytest.mark.django_db
+def test_blog_목록_전체_링크는_카테고리를_제거하되_정렬은_유지한다() -> None:
+    import re
+
+    from django.test import Client
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': 'dev', 'sort': 'views'})
+    body = response.content.decode()
+
+    match = re.search(r'hx-get="([^"]*)"[^>]*>전체', body)
+    assert match is not None
+    assert 'sort=views' in match.group(1)
+    assert 'category=dev' not in match.group(1)
