@@ -1188,6 +1188,8 @@ def test_blog_detail은_조회수를_화면에_표시한다() -> None:
 
 @pytest.mark.django_db
 def test_blog_list은_각_포스트의_조회수를_표시한다() -> None:
+    import re
+
     from django.test import Client
 
     from apps.blog.models import Post
@@ -1199,14 +1201,14 @@ def test_blog_list은_각_포스트의_조회수를_표시한다() -> None:
 
     client = Client()
     response = client.get(reverse('site:blog-list'))
-    body = response.content.decode()
 
-    assert 'class="opacity-50 text-xs mt-1 flex items-center gap-2"' in body
-    assert '>5</span>' in body
+    assert re.search(r'<p class="opacity-50 text-xs mt-1 flex items-center gap-2">.*?>5</span>', response.content.decode(), re.DOTALL)
 
 
 @pytest.mark.django_db
 def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
+    import re
+
     from django.test import Client
 
     from apps.blog.models import Post
@@ -1218,10 +1220,8 @@ def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
 
     client = Client()
     response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
-    body = response.content.decode()
 
-    assert 'class="opacity-50 text-xs mt-1 flex items-center gap-2"' in body
-    assert '>7</span>' in body
+    assert re.search(r'<p class="opacity-50 text-xs mt-1 flex items-center gap-2">.*?>7</span>', response.content.decode(), re.DOTALL)
 
 
 @pytest.mark.django_db
