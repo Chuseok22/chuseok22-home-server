@@ -61,7 +61,9 @@ from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
 
 _BLOG_SORT_OPTIONS = {
-    'latest': '-published_at',
+    # published_at은 null 허용 필드라 공개 글이라도 값이 없을 수 있다.
+    # NULL을 기본(DESC=NULLS FIRST) 규칙대로 두면 날짜 없는 글이 "최신"으로 보여 nulls_last로 맨 뒤로 보낸다.
+    'latest': F('published_at').desc(nulls_last=True),
     'views': '-views_count',
 }
 _DEFAULT_BLOG_SORT = 'latest'

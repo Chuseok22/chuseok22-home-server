@@ -2098,3 +2098,45 @@ def test_blog_목록_전체_링크는_카테고리를_제거하되_정렬은_유
     assert match is not None
     assert 'sort=views' in match.group(1)
     assert 'category=dev' not in match.group(1)
+
+
+@pytest.mark.django_db
+def test_blog_목록은_게시일이_없는_공개_글을_최신순_정렬에서_마지막에_배치한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    dated = Post.objects.create(
+        title='날짜 있는 글', slug='dated-post', content='본문',
+        is_published=True, published_at=timezone.now() - timezone.timedelta(days=5),
+    )
+    undated = Post.objects.create(
+        title='날짜 없는 글', slug='undated-post', content='본문',
+        is_published=True, published_at=None,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    posts = list(response.context['posts'])
+
+    assert posts == [dated, undated]
+
+
+@pytest.mark.django_db
+def test_blog_목록은_게시일이_없는_공개_글의_날짜를_표시하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='날짜 없는 글 2', slug='undated-post-2', content='본문',
+        is_published=True, published_at=None,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert '날짜 없는 글 2' in body
+    assert '<span></span>' not in body
