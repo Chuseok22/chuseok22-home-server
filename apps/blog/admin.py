@@ -63,8 +63,16 @@ class PostAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     class Media:
-        js = ('blog/admin/post_media_upload.js', 'blog/admin/post_split_preview.js')
-        css = {'all': ('blog/admin/post_split_preview.css',)}
+        js = (
+            'https://cdn.jsdelivr.net/npm/easymde@2.21.0/dist/easymde.min.js',
+            'blog/admin/post_markdown_editor.js',
+        )
+        css = {
+            'all': (
+                'https://cdn.jsdelivr.net/npm/easymde@2.21.0/dist/easymde.min.css',
+                'blog/admin/post_markdown_editor.css',
+            )
+        }
 
     def get_urls(self) -> list:
         custom_urls = [
