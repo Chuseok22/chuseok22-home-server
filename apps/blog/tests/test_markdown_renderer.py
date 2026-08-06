@@ -8,10 +8,47 @@ def test_render_markdown_헤딩_변환() -> None:
     assert '<p>본문입니다.</p>' in result
 
 
-def test_render_markdown_코드_블록_변환() -> None:
+def test_render_markdown_언어_지정_코드블록은_pygments로_하이라이팅된다() -> None:
     result = render_markdown('```python\nprint(1)\n```')
 
-    assert '<pre><code>print(1)' in result
+    assert 'class="codehilite"' in result
+    assert 'data-lang="python"' in result
+    assert '<span class="nb">print</span>' in result
+
+
+def test_render_markdown_특수문자가_포함된_언어명도_인식한다() -> None:
+    result = render_markdown('```c++\nint x = 1;\n```')
+
+    assert 'data-lang="c++"' in result
+
+
+def test_render_markdown_언어_미지정_코드블록은_data_lang_text로_표시된다() -> None:
+    result = render_markdown('```\nplain\n```')
+
+    assert 'data-lang="text"' in result
+
+
+def test_render_markdown_mermaid_블록은_다이어그램용_pre로_분리된다() -> None:
+    result = render_markdown('```mermaid\nflowchart LR\n    A --> B\n```')
+
+    assert '<pre class="mermaid">flowchart LR' in result
+    assert 'A --&gt; B' in result
+    assert 'codehilite' not in result
+
+
+def test_render_markdown_일반_코드블록과_mermaid_블록이_섞여있어도_각각_분리된다() -> None:
+    result = render_markdown('```python\nprint(1)\n```\n\n```mermaid\nflowchart LR\n    A --> B\n```')
+
+    assert 'data-lang="python"' in result
+    assert '<pre class="mermaid">flowchart LR' in result
+
+
+def test_render_markdown_raw_codehilite_div가_본문에_있어도_깨지지_않는다() -> None:
+    """1차 초안에서 500 에러를 냈던 케이스: 우연히 같은 클래스명의 raw HTML이 섞여 있는 경우."""
+    result = render_markdown('본문\n\n<div class="codehilite">raw</div>\n\n```python\nprint(1)\n```')
+
+    assert 'data-lang="python"' in result
+    assert '<div class="codehilite">raw</div>' in result
 
 
 def test_render_markdown_테이블_변환() -> None:
@@ -32,3 +69,14 @@ def test_video_태그는_허용된_속성만_남기고_렌더링된다() -> None
 
     assert '<video controls src="/media/blog/uploads/x.mp4">' in result
     assert 'onerror' not in result
+
+
+def test_render_markdown_div_태그는_class_속성만_허용된다() -> None:
+    result = render_markdown('<div class="codehilite" onclick="alert(1)">텍스트</div>')
+
+    assert 'onclick' not in result
+    assert 'class="codehilite"' in result
+
+
+def test_render_markdown_빈_문자열은_빈_문자열을_반환한다() -> None:
+    assert render_markdown('') == ''
