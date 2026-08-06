@@ -16,7 +16,7 @@ _ALLOWED_TAGS = [
 
 _ALLOWED_ATTRIBUTES = {
     'a': ['href', 'title'],
-    'img': ['src', 'alt', 'title'],
+    'img': ['src', 'alt', 'title', 'width'],
     'video': ['src', 'controls'],
     'source': ['src', 'type'],
 }
