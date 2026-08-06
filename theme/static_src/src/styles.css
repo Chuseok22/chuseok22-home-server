@@ -291,7 +291,9 @@ body.home-page .prose {
 }
 
 [data-theme='dark'] #post-toc-desktop-wrapper {
-  border-color: #52565f;
+  border-top-color: #52565f;
+  border-right-color: #52565f;
+  border-bottom-color: #52565f;
 }
 
 /* TOC(목차) 링크 공통. blog-post-toc.js가 헤딩을 스캔해 생성한다. border-left를 항상 투명하게
