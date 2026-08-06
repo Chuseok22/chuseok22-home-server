@@ -5,13 +5,6 @@
     "MAX_THINKING_TOKENS": "10000",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50"
   },
-  "permissions": {
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Read(./secrets/**)"
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {
