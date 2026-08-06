@@ -1188,8 +1188,6 @@ def test_blog_detail은_조회수를_화면에_표시한다() -> None:
 
 @pytest.mark.django_db
 def test_blog_list은_각_포스트의_조회수를_표시한다() -> None:
-    import re
-
     from django.test import Client
 
     from apps.blog.models import Post
@@ -1201,14 +1199,14 @@ def test_blog_list은_각_포스트의_조회수를_표시한다() -> None:
 
     client = Client()
     response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
 
-    assert re.search(r'<p class="opacity-50 text-xs mt-1 flex items-center gap-1">.*?5</p>', response.content.decode(), re.DOTALL)
+    assert 'class="opacity-50 text-xs mt-1 flex items-center gap-2"' in body
+    assert '>5</span>' in body
 
 
 @pytest.mark.django_db
 def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
-    import re
-
     from django.test import Client
 
     from apps.blog.models import Post
@@ -1220,8 +1218,10 @@ def test_blog_list은_htmx_요청에도_조회수를_표시한다() -> None:
 
     client = Client()
     response = client.get(reverse('site:blog-list'), HTTP_HX_REQUEST='true')
+    body = response.content.decode()
 
-    assert re.search(r'<p class="opacity-50 text-xs mt-1 flex items-center gap-1">.*?7</p>', response.content.decode(), re.DOTALL)
+    assert 'class="opacity-50 text-xs mt-1 flex items-center gap-2"' in body
+    assert '>7</span>' in body
 
 
 @pytest.mark.django_db
@@ -1982,3 +1982,25 @@ def test_blog_목록은_category와_sort를_함께_적용한다() -> None:
 
     assert '다른 카테고리 글' not in body
     assert posts[0] == dev_high
+
+
+@pytest.mark.django_db
+def test_blog_목록에_게시일이_YYYY_MM_DD_형식으로_표시된다() -> None:
+    import datetime as dt
+
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='날짜 표시 글', slug='dated-post', content='본문',
+        is_published=True,
+        published_at=timezone.make_aware(dt.datetime(2026, 8, 1, 12, 0)),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+    body = response.content.decode()
+
+    assert '2026-08-01' in body

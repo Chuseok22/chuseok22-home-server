@@ -87,7 +87,10 @@
           {{ post.title }}
         </a>
         <p class="opacity-70 text-sm">{{ post.summary }}</p>
-        <p class="opacity-50 text-xs mt-1 flex items-center gap-1"><img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/eye.svg" alt="" class="w-4 h-4 shrink-0">{{ post.views_count }}</p>
+        <p class="opacity-50 text-xs mt-1 flex items-center gap-2">
+          <span>{{ post.published_at|date:"Y-m-d" }}</span>
+          <span class="flex items-center gap-1"><img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/eye.svg" alt="" class="w-4 h-4 shrink-0">{{ post.views_count }}</span>
+        </p>
         {% if post.tags.all %}
         <div class="not-prose flex gap-2 flex-wrap mt-3">
           {% for tag in post.tags.all %}
