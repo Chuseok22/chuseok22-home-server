@@ -1880,3 +1880,105 @@ def test_lab_index는_알리미_아이콘이_없으면_아이콘_영역을_렌�
     assert response.status_code == 200
     assert '아이콘 없는 소스' in body
     assert '<span class="text-xl" aria-hidden="true"></span>' not in body
+
+
+@pytest.mark.django_db
+def test_blog_목록은_기본적으로_게시일_내림차순으로_정렬된다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    older = Post.objects.create(
+        title='오래된 글', slug='older-post', content='본문',
+        is_published=True, published_at=timezone.now() - timezone.timedelta(days=2),
+    )
+    newer = Post.objects.create(
+        title='최신 글', slug='newer-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'))
+
+    assert list(response.context['posts']) == [newer, older]
+    assert response.context['current_sort'] == 'latest'
+
+
+@pytest.mark.django_db
+def test_blog_목록은_sort_views_파라미터로_조회수_내림차순_정렬한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    low_views = Post.objects.create(
+        title='조회수 낮은 글', slug='low-views-post', content='본문',
+        is_published=True, published_at=timezone.now(), views_count=1,
+    )
+    high_views = Post.objects.create(
+        title='조회수 높은 글', slug='high-views-post', content='본문',
+        is_published=True, published_at=timezone.now() - timezone.timedelta(days=1), views_count=10,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'sort': 'views'})
+
+    assert list(response.context['posts']) == [high_views, low_views]
+    assert response.context['current_sort'] == 'views'
+
+
+@pytest.mark.django_db
+def test_blog_목록은_유효하지_않은_sort_값이면_기본_정렬로_폴백한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    older = Post.objects.create(
+        title='오래된 글', slug='older-post', content='본문',
+        is_published=True, published_at=timezone.now() - timezone.timedelta(days=2),
+    )
+    newer = Post.objects.create(
+        title='최신 글', slug='newer-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'sort': 'foo'})
+
+    assert response.status_code == 200
+    assert list(response.context['posts']) == [newer, older]
+    assert response.context['current_sort'] == 'latest'
+
+
+@pytest.mark.django_db
+def test_blog_목록은_category와_sort를_함께_적용한다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Category, Post
+
+    category = Category.objects.create(name='개발', slug='dev')
+    other_category = Category.objects.create(name='일상', slug='life')
+
+    Post.objects.create(
+        title='개발 글 - 조회수 낮음', slug='dev-low', content='본문', category=category,
+        is_published=True, published_at=timezone.now(), views_count=1,
+    )
+    dev_high = Post.objects.create(
+        title='개발 글 - 조회수 높음', slug='dev-high', content='본문', category=category,
+        is_published=True, published_at=timezone.now() - timezone.timedelta(days=1), views_count=10,
+    )
+    Post.objects.create(
+        title='다른 카테고리 글', slug='life-post', content='본문', category=other_category,
+        is_published=True, published_at=timezone.now(), views_count=99,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-list'), {'category': 'dev', 'sort': 'views'})
+    body = response.content.decode()
+    posts = list(response.context['posts'])
+
+    assert '다른 카테고리 글' not in body
+    assert posts[0] == dev_high
