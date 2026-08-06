@@ -37,10 +37,12 @@ _ALLOWED_ATTRIBUTES = {
 # 언어명 문자 집합은 python-markdown fenced_code 확장이 실제로 허용하는 [\w#.+-]와 동일하게
 # 맞춘다(예: c++, c#, objective-c 같은 언어명도 인식해야 하므로 \w만으로는 부족하다).
 # fence는 반드시 줄 시작(^, MULTILINE)에 오고, 여는 fence 길이(백틱 3개 이상)를 (?P=fence)로
-# 그대로 되받아 닫는 fence가 정확히 일치해야만 블록이 끝나도록 강제한다 — 그래야 4개 이상
-# 백틱으로 감싼 블록 안에 예시로 들어간 3개 백틱(``` ... ```)이 조기 종료를 유발하지 않는다.
+# 그대로 되받아 닫는 fence가 최소한 그만큼은 되어야만 블록이 끝나도록 강제한다(CommonMark의
+# "닫는 fence는 여는 fence 이상 길이여야 한다" 규칙과 동일) — 그래야 4개 이상 백틱으로 감싼
+# 블록 안에 예시로 들어간 3개 백틱(``` ... ```)이 조기 종료를 유발하지 않는다. `*로 (?P=fence)
+# 뒤에 추가 백틱을 허용해, 닫는 fence가 여는 fence보다 긴 경우도 인식한다.
 _FENCED_CODE_BLOCK_PATTERN = re.compile(
-    r'^(?P<fence>`{3,})(?P<lang>[\w#.+-]*)[ \t]*\n(?P<code>.*?)\n(?P=fence)[ \t]*$',
+    r'^(?P<fence>`{3,})(?P<lang>[\w#.+-]*)[ \t]*\n(?P<code>.*?)\n(?P=fence)`*[ \t]*$',
     re.DOTALL | re.MULTILINE,
 )
 _PYGMENTS_FORMATTER = HtmlFormatter(style='github-dark', cssclass='codehilite')

@@ -76,6 +76,14 @@ def test_render_markdown_4개_이상_백틱_fence는_본문의_3개_백틱을_�
     assert 'print(1)' in result
 
 
+def test_render_markdown_닫는_fence가_여는_fence보다_길어도_인식한다() -> None:
+    """PR 재리뷰에서 지적된 케이스: CommonMark 규칙상 닫는 fence는 여는 fence 이상의 길이면
+    되므로(정확히 같을 필요 없음), 여는 4개·닫는 5개 백틱 조합도 정상 인식해야 한다."""
+    result = render_markdown('````python\nprint(1)\n`````')
+
+    assert 'data-lang="python"' in result
+
+
 def test_render_markdown_본문에_플레이스홀더와_같은_문단이_있어도_교체되지_않는다() -> None:
     """PR 코드 리뷰에서 지적된 케이스: 이전 구현은 순번 기반 플레이스홀더 키(BLOCKPLACEHOLDER0 등)를
     사용해, 본문에 우연히 같은 문자열의 단락이 있으면 그 단락까지 하이라이트 HTML로 잘못
