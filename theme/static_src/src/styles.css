@@ -324,3 +324,17 @@ body.home-page .prose {
   color: var(--home-accent, #0f9aa3);
   opacity: 1;
 }
+
+/* 목차 항목이 뷰포트보다 길어질 때, sticky 상단 고정 위치를 유지한 채 목차 내부에서만
+   스크롤되도록 한다. max-height는 sticky의 대상인 wrapper(aside) 자체에 걸어야 한다 —
+   wrapper는 top-8(2rem) 오프셋 + padding(상하 2rem, Task 2) + "목차" 라벨 + gap을 포함하므로
+   nav에만 걸면 wrapper 전체 높이가 뷰포트를 넘어 하단이 잘린다. wrapper가 이미 flex-col이므로
+   nav에는 overflow-y: auto + min-height: 0만 주면 flex가 남는 공간만큼 자동으로 줄여준다. */
+#post-toc-desktop-wrapper {
+  max-height: calc(100vh - 4rem);
+}
+
+#post-toc-desktop {
+  min-height: 0;
+  overflow-y: auto;
+}
