@@ -65,6 +65,27 @@ def test_render_markdown_raw_codehilite_div가_본문에_있어도_깨지지_않
     assert '<div class="codehilite">raw</div>' in result
 
 
+def test_render_markdown_4개_이상_백틱_fence는_본문의_3개_백틱을_조기_종료로_보지_않는다() -> None:
+    """PR 코드 리뷰에서 지적된 케이스: 4개 이상 백틱 fence 안에 예시로 3개 백틱 코드블록이
+    들어 있으면, 여는 fence와 다른 길이의 백틱을 닫는 fence로 오인해 블록이 조기 종료되면
+    안 된다."""
+    result = render_markdown('````markdown\n예시: ```python\nprint(1)\n``` 코드블록\n````')
+
+    assert 'data-lang="markdown"' in result
+    assert '```python' in result
+    assert 'print(1)' in result
+
+
+def test_render_markdown_본문에_플레이스홀더와_같은_문단이_있어도_교체되지_않는다() -> None:
+    """PR 코드 리뷰에서 지적된 케이스: 이전 구현은 순번 기반 플레이스홀더 키(BLOCKPLACEHOLDER0 등)를
+    사용해, 본문에 우연히 같은 문자열의 단락이 있으면 그 단락까지 하이라이트 HTML로 잘못
+    치환됐다. 지금은 예측 불가능한 키를 쓰므로 이런 문단은 그대로 보존돼야 한다."""
+    result = render_markdown('BLOCKPLACEHOLDER0\n\n```python\nprint(1)\n```')
+
+    assert '<p>BLOCKPLACEHOLDER0</p>' in result
+    assert 'data-lang="python"' in result
+
+
 def test_render_markdown_테이블_변환() -> None:
     result = render_markdown('| a | b |\n|---|---|\n| 1 | 2 |')
 
