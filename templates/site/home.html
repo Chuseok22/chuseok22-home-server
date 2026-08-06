@@ -1,4 +1,5 @@
 {% extends "site/base.html" %}
+{% load static %}
 {% load humanize %}
 {% load profile_tags %}
 
@@ -229,4 +230,5 @@
     </div>
   </aside>
 </div>
+<script src="{% static 'site/js/markdown-code-blocks.js' %}" defer></script>
 {% endblock %}

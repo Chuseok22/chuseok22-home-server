@@ -1883,6 +1883,62 @@ def test_lab_index는_알리미_아이콘이_없으면_아이콘_영역을_렌�
 
 
 @pytest.mark.django_db
+def test_blog_detail은_mermaid_블록이_있으면_has_mermaid를_true로_전달한다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    post = Post.objects.create(
+        title='다이어그램 글', slug='mermaid-post',
+        content='# 제목\n\n```mermaid\nflowchart LR\n    A --> B\n```',
+        is_published=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', args=[post.slug]))
+
+    assert response.context['has_mermaid'] is True
+    assert 'mermaid@' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_detail은_mermaid_블록이_없으면_has_mermaid를_false로_전달한다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    post = Post.objects.create(
+        title='일반 글', slug='no-mermaid-post', content='# 제목\n\n일반 본문', is_published=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', args=[post.slug]))
+
+    assert response.context['has_mermaid'] is False
+    assert 'mermaid@' not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_blog_detail은_toc_레이아웃과_스크립트를_포함한다() -> None:
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    post = Post.objects.create(
+        title='TOC 테스트', slug='toc-test', content='# 제목\n\n본문', is_published=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', args=[post.slug]))
+    body = response.content.decode()
+
+    assert 'id="post-toc-desktop-wrapper"' in body
+    assert 'id="post-toc-mobile-wrapper"' in body
+    assert 'markdown-code-blocks.js' in body
+    assert 'blog-post-toc.js' in body
+
+
+@pytest.mark.django_db
 def test_blog_목록은_기본적으로_게시일_내림차순으로_정렬된다() -> None:
     from django.test import Client
     from django.utils import timezone

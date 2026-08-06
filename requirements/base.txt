@@ -13,6 +13,7 @@ lxml==5.3.*
 django-apscheduler==0.7.*
 markdown==3.7.*
 bleach==6.4.*
+Pygments==2.20.*
 django-tailwind==3.8.*
 django-allauth==65.3.*
 Pillow==11.*

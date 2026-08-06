@@ -91,3 +91,33 @@ def test_home_page_prose_영역도_홈_전용_토큰_색상을_사용한다() ->
     assert 'body.home-page .prose {' in content
     assert '--tw-prose-body: var(--home-ink);' in content
     assert '--tw-prose-headings: var(--home-ink);' in content
+
+
+def test_pygments_github_dark_스타일이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.codehilite .k {' in content
+    assert 'color: #FF7B72' in content
+
+
+def test_코드블록_헤더_스타일이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.code-block-header' in content
+    assert '.code-block-lang' in content
+    assert '.code-block-copy' in content
+
+
+def test_toc_링크_스타일이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.toc-link' in content
+    assert '.toc-link.active' in content
+
+
+def test_코드블록_복사_버튼은_키보드_포커스_표시를_가진다() -> None:
+    """.code-block-copy는 all: unset으로 기본 포커스 outline이 사라지므로,
+    :focus-visible로 별도 복원해야 한다."""
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.code-block-copy:focus-visible' in content
