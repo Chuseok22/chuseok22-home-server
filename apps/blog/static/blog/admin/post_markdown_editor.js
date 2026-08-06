@@ -66,6 +66,11 @@
       return;
     }
 
+    if (typeof EasyMDE === 'undefined') {
+      console.warn('EasyMDE 로드에 실패했습니다. CDN 연결 상태를 확인하세요.');
+      return;
+    }
+
     // 현재 페이지가 .../<id>/change/ 또는 .../add/ 이므로, 같은 ModelAdmin 하위의
     // 형제 경로로 업로드·미리보기 엔드포인트를 계산한다. id를 남겨두면 Django admin의
     // 레거시 경로(<path:object_id>/)에 잘못 매칭되어 리다이렉트가 발생하므로 함께 제거한다.
@@ -166,7 +171,12 @@
           () => schedulePreviewFetch(plainText, previewEl, requestToken),
           300,
         );
-        return previewEl.innerHTML;
+        // 실제 HTML을 그대로 반환하면 EasyMDE가 매 키 입력마다 동일한 innerHTML을
+        // 재할당해 미리보기 DOM을 통째로 리렌더링한다(이미지·동영상 노드 재생성 포함).
+        // 실제 갱신은 위 디바운스된 fetch 콜백에서 처리하므로 여기서는 null을 반환해
+        // EasyMDE가 innerHTML을 건드리지 않게 한다(느슨한 비교 대상이라 undefined가
+        // 아닌 명시적 null이어야 한다).
+        return null;
       },
     });
 
