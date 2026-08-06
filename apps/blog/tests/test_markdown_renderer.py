@@ -28,6 +28,20 @@ def test_render_markdown_언어_미지정_코드블록은_data_lang_text로_표�
     assert 'data-lang="text"' in result
 
 
+def test_render_markdown_crlf_줄바꿈_코드블록도_하이라이팅된다() -> None:
+    """Django Admin의 textarea 제출은 줄바꿈을 \\r\\n으로 정규화한다 — 정규화 없이는
+    fenced code block 추출 정규식이 매칭에 실패해 하이라이팅이 조용히 건너뛰어진다."""
+    result = render_markdown('```python\r\nprint(1)\r\n```')
+
+    assert 'data-lang="python"' in result
+
+
+def test_render_markdown_crlf_줄바꿈_mermaid_블록도_인식된다() -> None:
+    result = render_markdown('```mermaid\r\nflowchart LR\r\n    A --> B\r\n```')
+
+    assert '<pre class="mermaid">flowchart LR' in result
+
+
 def test_render_markdown_mermaid_블록은_다이어그램용_pre로_분리된다() -> None:
     result = render_markdown('```mermaid\nflowchart LR\n    A --> B\n```')
 

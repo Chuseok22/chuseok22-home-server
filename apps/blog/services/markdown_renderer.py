@@ -61,6 +61,12 @@ def render_markdown(text: str) -> str:
     매칭할 필요가 없어 순서 불일치로 인한 오류(예: 본문에 우연히 같은 클래스명의 raw HTML이
     섞여 있는 경우) 걱정 없이 안전하게 대응할 수 있다.
     """
+    # python-markdown은 markdown.markdown() 내부에서 CRLF를 자동 정규화하지만, 이 함수의
+    # fenced code block 추출은 그보다 먼저 실행되므로 별도로 정규화해야 한다. Django Admin의
+    # <textarea> 제출은 줄바꿈을 \r\n으로 정규화하므로, 정규화하지 않으면 정규식의 \n 매칭이
+    # 실패해 코드블록 하이라이팅이 조용히 건너뛰어진다.
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+
     placeholders: dict[str, str] = {}
 
     def _extract_fenced_block(match: re.Match[str]) -> str:
