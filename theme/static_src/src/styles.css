@@ -274,6 +274,12 @@ body.home-page .prose {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* all: unset이 기본 포커스 outline도 제거하므로, 키보드 사용자를 위해 별도로 복원한다. */
+.code-block-copy:focus-visible {
+  outline: 2px solid #79C0FF;
+  outline-offset: 2px;
+}
+
 /* TOC(목차) 링크. blog-post-toc.js가 헤딩을 스캔해 생성한다. */
 .toc-link {
   display: block;

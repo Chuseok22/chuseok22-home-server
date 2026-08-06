@@ -86,9 +86,12 @@
 
     setupScrollSpy(headings, desktopLinks);
 
+    toggleButton.setAttribute('aria-controls', mobileNav.id);
+    toggleButton.setAttribute('aria-expanded', 'false');
     toggleButton.addEventListener('click', () => {
       mobileNav.classList.toggle('hidden');
       mobileNav.classList.toggle('flex');
+      toggleButton.setAttribute('aria-expanded', String(!mobileNav.classList.contains('hidden')));
     });
   }
 

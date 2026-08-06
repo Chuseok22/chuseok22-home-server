@@ -113,3 +113,11 @@ def test_toc_링크_스타일이_정의되어_있다() -> None:
 
     assert '.toc-link' in content
     assert '.toc-link.active' in content
+
+
+def test_코드블록_복사_버튼은_키보드_포커스_표시를_가진다() -> None:
+    """.code-block-copy는 all: unset으로 기본 포커스 outline이 사라지므로,
+    :focus-visible로 별도 복원해야 한다."""
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.code-block-copy:focus-visible' in content

@@ -12,9 +12,14 @@
       if (!navigator.clipboard) {
         return;
       }
+      const original = button.textContent;
       navigator.clipboard.writeText(pre.textContent).then(() => {
-        const original = button.textContent;
         button.textContent = '복사됨';
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1200);
+      }).catch(() => {
+        button.textContent = '복사 실패';
         window.setTimeout(() => {
           button.textContent = original;
         }, 1200);
