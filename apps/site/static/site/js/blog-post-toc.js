@@ -1,5 +1,5 @@
 (function () {
-  const HEADING_SELECTOR = 'h1, h2, h3';
+  const HEADING_SELECTOR = 'h2, h3';
 
   function slugify(text) {
     const slug = text
