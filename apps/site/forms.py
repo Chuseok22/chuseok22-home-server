@@ -60,3 +60,11 @@ class PlaceSuggestionForm(forms.Form):
     restaurant_name = forms.CharField(max_length=100, label='상호명')
     kakao_place_url = forms.URLField(required=False, label='카카오맵 링크')
     message = forms.CharField(required=False, widget=forms.Textarea, label='추천 이유')
+
+
+class PostEditForm(forms.Form):
+    """블로그 글 인라인 수정 폼. BlogIngestSerializer(apps/blog/serializers.py)와 동일한 길이 제약을 맞춘다."""
+
+    title = forms.CharField(max_length=200)
+    summary = forms.CharField(max_length=300, required=False)
+    content = forms.CharField(max_length=50000)

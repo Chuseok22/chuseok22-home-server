@@ -19,6 +19,7 @@ from apps.blog.services.category import (
     get_category_sidebar_items,
 )
 from apps.blog.services.markdown_renderer import render_markdown
+from apps.blog.services.post_editor import update_post_content
 from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.core.services.rate_limit import check_rate_limit
 from apps.engagement.models import Comment, Like
@@ -52,6 +53,7 @@ from apps.site.forms import (
     LibraryReserveForm,
     LibraryReserveSlotForm,
     PlaceSuggestionForm,
+    PostEditForm,
     StudentSearchForm,
 )
 from apps.site.models import Tool
@@ -177,6 +179,26 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
             'is_liked': is_liked,
         },
     )
+
+
+@owner_required
+@require_POST
+def blog_post_edit(request: HttpRequest, slug: str) -> JsonResponse:
+    """발행된 블로그 글의 제목·요약·본문을 인라인으로 수정한다 (소유자 전용).
+    성공/실패 모두 JSON으로 응답하며, 프런트엔드는 성공 시 페이지를 새로고침해
+    목차·코드블록 복사버튼·mermaid까지 서버 렌더링 결과로 갱신한다."""
+    post = get_object_or_404(Post, slug=slug, is_published=True)
+    form = PostEditForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()}, status=400)
+
+    update_post_content(
+        post,
+        title=form.cleaned_data['title'],
+        summary=form.cleaned_data['summary'],
+        content=form.cleaned_data['content'],
+    )
+    return JsonResponse({'success': True})
 
 
 _PLACES_PER_PAGE = 30

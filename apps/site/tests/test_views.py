@@ -858,6 +858,150 @@ def test_비공개_포스트_상세는_404() -> None:
 
 
 @pytest.mark.django_db
+def test_블로그_수정은_미인증_사용자에게_403() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='원본 제목', slug='edit-target', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_is_staff_아닌_로그인_사용자는_블로그_수정이_403() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-guest', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(guest)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-guest'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_소유자는_블로그_글을_수정할_수_있다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-owner', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-owner'}), {
+        'title': '수정된 제목', 'summary': '수정된 요약', 'content': '수정된 본문',
+    })
+
+    assert response.status_code == 200
+    assert response.json() == {'success': True}
+    post = Post.objects.get(slug='edit-target-owner')
+    assert post.title == '수정된 제목'
+    assert post.summary == '수정된 요약'
+    assert post.content == '수정된 본문'
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_제목이_비어있으면_400을_반환하고_원본을_유지한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-invalid', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-invalid'}), {
+        'title': '', 'summary': '', 'content': '수정된 본문',
+    })
+
+    assert response.status_code == 400
+    data = response.json()
+    assert data['success'] is False
+    assert 'title' in data['errors']
+    post = Post.objects.get(slug='edit-target-invalid')
+    assert post.title == '원본 제목'
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_GET_요청을_거부한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-get', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.get(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-get'}))
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_비공개_글이면_404() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(title='비공개 글', slug='edit-target-draft', content='본문', is_published=False)
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-draft'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
 def test_lab_목록은_소유자전용_도구를_잠금_표시한다() -> None:
     from django.test import Client
 
