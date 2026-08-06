@@ -50,6 +50,7 @@
         }
         links.forEach((link) => link.classList.remove('active'));
         activeLink.classList.add('active');
+        activeLink.scrollIntoView({ block: 'nearest' });
       });
     }, { rootMargin: '0px 0px -70% 0px' });
 
