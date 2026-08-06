@@ -142,6 +142,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
     Post.objects.filter(pk=post.pk).update(views_count=F('views_count') + 1)
     post.views_count += 1
     content_html = render_markdown(post.content)
+    has_mermaid = 'class="mermaid"' in content_html
     content_type = ContentType.objects.get_for_model(Post)
     comments = Comment.objects.filter(content_type=content_type, object_id=post.pk).select_related('author')
     like_count = Like.objects.filter(content_type=content_type, object_id=post.pk).count()
@@ -155,6 +156,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
         {
             'post': post,
             'content_html': content_html,
+            'has_mermaid': has_mermaid,
             'comments': comments,
             'like_count': like_count,
             'is_liked': is_liked,
