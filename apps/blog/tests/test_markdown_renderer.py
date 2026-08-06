@@ -123,3 +123,9 @@ def test_render_markdown_div_태그는_class_속성만_허용된다() -> None:
 
 def test_render_markdown_빈_문자열은_빈_문자열을_반환한다() -> None:
     assert render_markdown('') == ''
+
+
+def test_img_width_속성은_허용되어_남는다() -> None:
+    result = render_markdown('<img src="/media/blog/uploads/x.webp" alt="업로드 이미지" width="60%">')
+
+    assert '<img src="/media/blog/uploads/x.webp" alt="업로드 이미지" width="60%">' in result

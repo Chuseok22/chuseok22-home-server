@@ -60,6 +60,14 @@ from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
 # apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
 
+_BLOG_SORT_OPTIONS = {
+    # published_at은 null 허용 필드라 공개 글이라도 값이 없을 수 있다.
+    # NULL을 기본(DESC=NULLS FIRST) 규칙대로 두면 날짜 없는 글이 "최신"으로 보여 nulls_last로 맨 뒤로 보낸다.
+    'latest': F('published_at').desc(nulls_last=True),
+    'views': '-views_count',
+}
+_DEFAULT_BLOG_SORT = 'latest'
+
 
 def home(request: HttpRequest) -> HttpResponse:
     """포트폴리오 랜딩 페이지. 프로필 소개·기술스택·이력·PR/프로젝트 하이라이트와
@@ -119,14 +127,21 @@ def projects(request: HttpRequest) -> HttpResponse:
 
 def blog_list(request: HttpRequest) -> HttpResponse:
     """공개된 블로그 포스트 목록. ?category=<slug>로 카테고리 필터링,
+    ?sort=latest(기본값)|views로 정렬,
     HX-Request 헤더가 있으면 사이드바+목록 프래그먼트만 반환한다.
     단, HX-History-Restore-Request(htmx 히스토리 캐시 미스로 인한 재요청)인 경우는
     htmx가 풀 페이지 응답을 기대하므로 예외로 취급한다."""
     category_slug = request.GET.get('category') or None
+    sort = request.GET.get('sort')
+    if sort not in _BLOG_SORT_OPTIONS:
+        sort = _DEFAULT_BLOG_SORT
+
+    posts = filter_published_posts_by_category_slug(category_slug).order_by(_BLOG_SORT_OPTIONS[sort])
     context = {
-        'posts': filter_published_posts_by_category_slug(category_slug),
+        'posts': posts,
         'sidebar_items': get_category_sidebar_items(),
         'selected_category_slug': category_slug,
+        'current_sort': sort,
         'total_post_count': Post.objects.filter(is_published=True).count(),
     }
     is_htmx_fragment_request = (

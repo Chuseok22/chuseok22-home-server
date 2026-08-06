@@ -1,0 +1,174 @@
+/* Django Admin 5.1의 다크모드는 OS 설정(prefers-color-scheme)을 따르는 "자동" 모드와,
+   사용자가 우측 상단 토글로 OS 설정과 무관하게 강제 선택하는 명시적 모드(data-theme="dark"/"light")를
+   모두 지원한다(django/contrib/admin/static/admin/css/dark_mode.css와 동일한 패턴).
+   자동 모드에서는 data-theme="light"가 명시적으로 선택된 경우 OS가 dark여도 라이트를 유지해야 하므로
+   :not([data-theme="light"])로 배제하고, data-theme="dark"가 명시적으로 선택된 경우는 OS 설정과
+   무관하게 항상 다크를 적용해야 하므로 미디어 쿼리 밖에 별도로 둔다. */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .CodeMirror {
+    background: #1b1b1b;
+    color: #e5e5e5;
+    border-color: #444;
+  }
+
+  html:not([data-theme="light"]) .CodeMirror-cursor {
+    border-left-color: #e5e5e5;
+  }
+
+  html:not([data-theme="light"]) .CodeMirror-selected {
+    background: #2a3f5a;
+  }
+
+  html:not([data-theme="light"]) .editor-toolbar {
+    background: #1b1b1b;
+    border-color: #444;
+  }
+
+  html:not([data-theme="light"]) .editor-toolbar button {
+    color: #e5e5e5;
+  }
+
+  html:not([data-theme="light"]) .editor-toolbar button:hover,
+  html:not([data-theme="light"]) .editor-toolbar button.active {
+    background: #2a2a2a;
+    border-color: #555;
+  }
+
+  html:not([data-theme="light"]) .editor-statusbar {
+    color: #999;
+  }
+
+  html:not([data-theme="light"]) .editor-preview {
+    background: #1b1b1b;
+    color: #e5e5e5;
+    border-color: #444;
+  }
+
+  html:not([data-theme="light"]) .editor-preview pre,
+  html:not([data-theme="light"]) .editor-preview code {
+    background: #2a2a2a;
+  }
+
+  html:not([data-theme="light"]) .editor-preview blockquote {
+    border-left: 3px solid #555;
+    color: #aaa;
+  }
+
+  html:not([data-theme="light"]) .editor-preview table th,
+  html:not([data-theme="light"]) .editor-preview table td {
+    border: 1px solid #444;
+  }
+
+  html:not([data-theme="light"]) .blog-image-size-popup {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+
+  html:not([data-theme="light"]) .blog-image-size-popup button {
+    background: #1b1b1b;
+    border-color: #555;
+    color: #e5e5e5;
+  }
+
+  html:not([data-theme="light"]) .blog-image-size-popup button:hover {
+    background: #333;
+  }
+}
+
+html[data-theme="dark"] .CodeMirror {
+  background: #1b1b1b;
+  color: #e5e5e5;
+  border-color: #444;
+}
+
+html[data-theme="dark"] .CodeMirror-cursor {
+  border-left-color: #e5e5e5;
+}
+
+html[data-theme="dark"] .CodeMirror-selected {
+  background: #2a3f5a;
+}
+
+html[data-theme="dark"] .editor-toolbar {
+  background: #1b1b1b;
+  border-color: #444;
+}
+
+html[data-theme="dark"] .editor-toolbar button {
+  color: #e5e5e5;
+}
+
+html[data-theme="dark"] .editor-toolbar button:hover,
+html[data-theme="dark"] .editor-toolbar button.active {
+  background: #2a2a2a;
+  border-color: #555;
+}
+
+html[data-theme="dark"] .editor-statusbar {
+  color: #999;
+}
+
+html[data-theme="dark"] .editor-preview {
+  background: #1b1b1b;
+  color: #e5e5e5;
+  border-color: #444;
+}
+
+html[data-theme="dark"] .editor-preview pre,
+html[data-theme="dark"] .editor-preview code {
+  background: #2a2a2a;
+}
+
+html[data-theme="dark"] .editor-preview blockquote {
+  border-left: 3px solid #555;
+  color: #aaa;
+}
+
+html[data-theme="dark"] .editor-preview table th,
+html[data-theme="dark"] .editor-preview table td {
+  border: 1px solid #444;
+}
+
+html[data-theme="dark"] .blog-image-size-popup {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+html[data-theme="dark"] .blog-image-size-popup button {
+  background: #1b1b1b;
+  border-color: #555;
+  color: #e5e5e5;
+}
+
+html[data-theme="dark"] .blog-image-size-popup button:hover {
+  background: #333;
+}
+
+.editor-preview img,
+.editor-preview video {
+  max-width: 100%;
+}
+
+.blog-image-size-popup {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.blog-image-size-popup button {
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f5f5f5;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.blog-image-size-popup button:hover {
+  background: #e8e8e8;
+}

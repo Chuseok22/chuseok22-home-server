@@ -6,8 +6,8 @@
 >
   <div class="flex md:hidden gap-2 overflow-x-auto pb-2 -mx-4 px-4">
     <a
-      href="{% url 'site:blog-list' %}"
-      hx-get="{% url 'site:blog-list' %}"
+      href="{% querystring category=None %}"
+      hx-get="{% querystring category=None %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -15,8 +15,8 @@
     >전체 ({{ total_post_count }})</a>
     {% for item in sidebar_items %}
     <a
-      href="{% url 'site:blog-list' %}?category={{ item.slug }}"
-      hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+      href="{% querystring category=item.slug %}"
+      hx-get="{% querystring category=item.slug %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -24,8 +24,8 @@
     >{{ item.name }} ({{ item.post_count }})</a>
     {% for child in item.children %}
     <a
-      href="{% url 'site:blog-list' %}?category={{ child.slug }}"
-      hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+      href="{% querystring category=child.slug %}"
+      hx-get="{% querystring category=child.slug %}"
       hx-target="#blog-content"
       hx-swap="outerHTML"
       hx-push-url="true"
@@ -38,8 +38,8 @@
     <ul class="menu menu-sm p-0">
       <li>
         <a
-          href="{% url 'site:blog-list' %}"
-          hx-get="{% url 'site:blog-list' %}"
+          href="{% querystring category=None %}"
+          hx-get="{% querystring category=None %}"
           hx-target="#blog-content"
           hx-swap="outerHTML"
           hx-push-url="true"
@@ -49,8 +49,8 @@
       {% for item in sidebar_items %}
       <li>
         <a
-          href="{% url 'site:blog-list' %}?category={{ item.slug }}"
-          hx-get="{% url 'site:blog-list' %}?category={{ item.slug }}"
+          href="{% querystring category=item.slug %}"
+          hx-get="{% querystring category=item.slug %}"
           hx-target="#blog-content"
           hx-swap="outerHTML"
           hx-push-url="true"
@@ -61,8 +61,8 @@
           {% for child in item.children %}
           <li>
             <a
-              href="{% url 'site:blog-list' %}?category={{ child.slug }}"
-              hx-get="{% url 'site:blog-list' %}?category={{ child.slug }}"
+              href="{% querystring category=child.slug %}"
+              hx-get="{% querystring category=child.slug %}"
               hx-target="#blog-content"
               hx-swap="outerHTML"
               hx-push-url="true"
@@ -80,6 +80,24 @@
     <div id="blog-list-skeleton" class="htmx-indicator-block absolute inset-0 bg-base-100" aria-hidden="true">
       {% include 'site/partials/list_skeleton.html' %}
     </div>
+    <div class="flex gap-2 mb-4">
+      <a
+        href="{% querystring sort='latest' %}"
+        hx-get="{% querystring sort='latest' %}"
+        hx-target="#blog-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm {% if current_sort == 'latest' %}btn-primary{% else %}btn-ghost{% endif %}"
+      >최신순</a>
+      <a
+        href="{% querystring sort='views' %}"
+        hx-get="{% querystring sort='views' %}"
+        hx-target="#blog-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm {% if current_sort == 'views' %}btn-primary{% else %}btn-ghost{% endif %}"
+      >조회순</a>
+    </div>
     <div class="flex flex-col divide-y divide-base-300">
       {% for post in posts %}
       <article class="py-4 first:pt-0 last:pb-0">
@@ -87,7 +105,10 @@
           {{ post.title }}
         </a>
         <p class="opacity-70 text-sm">{{ post.summary }}</p>
-        <p class="opacity-50 text-xs mt-1 flex items-center gap-1"><img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/eye.svg" alt="" class="w-4 h-4 shrink-0">{{ post.views_count }}</p>
+        <p class="opacity-50 text-xs mt-1 flex items-center gap-2">
+          {% if post.published_at %}<span>{{ post.published_at|date:"Y-m-d" }}</span>{% endif %}
+          <span class="flex items-center gap-1"><img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/eye.svg" alt="" class="w-4 h-4 shrink-0">{{ post.views_count }}</span>
+        </p>
         {% if post.tags.all %}
         <div class="not-prose flex gap-2 flex-wrap mt-3">
           {% for tag in post.tags.all %}
