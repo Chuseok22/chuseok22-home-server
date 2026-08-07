@@ -93,6 +93,11 @@
       summaryInput.value = summaryInput.defaultValue;
       if (easyMDE) {
         easyMDE.value(contentTextarea.defaultValue);
+      } else {
+        // EasyMDE CDN 로드 실패로 원본 textarea를 그대로 쓰는 폴백 경로에서도
+        // 취소 시 편집 내용을 원래 값으로 되돌려야, 다음 저장에서 취소했던
+        // 내용이 실수로 반영되는 것을 막을 수 있다.
+        contentTextarea.value = contentTextarea.defaultValue;
       }
     }
 
