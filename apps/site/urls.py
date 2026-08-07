@@ -10,6 +10,7 @@ urlpatterns = [
     path('blog/', views.blog_list, name='blog-list'),
     path('blog/<slug:slug>/', views.blog_detail, name='blog-detail'),
     path('blog/<slug:slug>/edit/', views.blog_post_edit, name='blog-post-edit'),
+    path('blog/edit/upload-image/', views.blog_post_upload_image, name='blog-post-upload-image'),
     path('lab/', views.lab_index, name='lab-index'),
     path('lab/library/', views.lab_library, name='lab-library'),
     path('lab/library/rooms/', views.lab_library_rooms, name='lab-library-rooms'),

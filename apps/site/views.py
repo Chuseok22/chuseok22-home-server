@@ -19,6 +19,7 @@ from apps.blog.services.category import (
     get_category_sidebar_items,
 )
 from apps.blog.services.markdown_renderer import render_markdown
+from apps.blog.services.media_storage import save_uploaded_media
 from apps.blog.services.post_editor import update_post_content
 from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.core.services.rate_limit import check_rate_limit
@@ -199,6 +200,21 @@ def blog_post_edit(request: HttpRequest, slug: str) -> JsonResponse:
         content=form.cleaned_data['content'],
     )
     return JsonResponse({'success': True})
+
+
+@owner_required
+@require_POST
+def blog_post_upload_image(request: HttpRequest) -> JsonResponse:
+    """블로그 글 인라인 수정 중 이미지 업로드 (소유자 전용). 특정 글에 종속되지 않는 공용
+    엔드포인트이며, Admin의 PostAdmin.upload_media_view와 동일하게 media_storage 서비스를 재사용한다."""
+    if 'file' not in request.FILES:
+        return JsonResponse({'success': False, 'error_message': '업로드할 파일이 없습니다.'}, status=400)
+
+    result = save_uploaded_media(request.FILES['file'])
+    if not result.success:
+        return JsonResponse({'success': False, 'error_message': result.error_message}, status=400)
+
+    return JsonResponse({'success': True, 'url': result.url, 'markdown': result.markdown})
 
 
 _PLACES_PER_PAGE = 30

@@ -1002,6 +1002,76 @@ def test_블로그_수정은_비공개_글이면_404() -> None:
 
 
 @pytest.mark.django_db
+def test_블로그_이미지_업로드는_미인증_사용자에게_403() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_is_staff_아닌_로그인_사용자는_블로그_이미지_업로드가_403() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+
+    client = Client()
+    client.force_login(guest)
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_소유자는_블로그_이미지를_업로드하고_마크다운을_응답받는다(settings, tmp_path) -> None:
+    import io
+
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    settings.MEDIA_ROOT = tmp_path
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+
+    buffer = io.BytesIO()
+    Image.new('RGB', (5, 5), color='blue').save(buffer, format='PNG')
+    buffer.seek(0)
+    upload = SimpleUploadedFile('photo.png', buffer.read(), content_type='image/png')
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-upload-image'), {'file': upload})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['success'] is True
+    assert data['url'].endswith('.webp')
+    assert '![업로드 이미지]' in data['markdown']
+
+
+@pytest.mark.django_db
+def test_블로그_이미지_업로드는_파일이_없으면_400을_반환한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 400
+    assert response.json()['success'] is False
+
+
+@pytest.mark.django_db
 def test_lab_목록은_소유자전용_도구를_잠금_표시한다() -> None:
     from django.test import Client
 
