@@ -168,6 +168,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
         request.user.is_authenticated
         and Like.objects.filter(content_type=content_type, object_id=post.pk, user=request.user).exists()
     )
+    is_owner = request.user.is_authenticated and request.user.is_staff
     return render(
         request,
         'site/blog_detail.html',
@@ -178,6 +179,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
             'comments': comments,
             'like_count': like_count,
             'is_liked': is_liked,
+            'is_owner': is_owner,
         },
     )
 

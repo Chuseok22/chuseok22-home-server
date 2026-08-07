@@ -2410,3 +2410,74 @@ def test_blog_목록은_게시일이_없는_공개_글의_날짜를_표시하지
 
     assert '날짜 없는 글 2' in body
     assert '<span></span>' not in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_소유자에게_수정_UI를_보여준다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='owner-view-post', summary='원본 요약', content='# 원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'owner-view-post'}))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'id="post-edit-toggle"' in body
+    assert 'id="post-edit-form"' in body
+    assert '# 원본 본문' in body  # textarea 안에 원본 마크다운(렌더링 전 원문)이 그대로 있어야 함
+    assert f"data-edit-url=\"{reverse('site:blog-post-edit', kwargs={'slug': 'owner-view-post'})}\"" in body
+    assert f"data-upload-url=\"{reverse('site:blog-post-upload-image')}\"" in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_비소유자에게_수정_UI를_숨긴다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='원본 제목', slug='non-owner-view-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'non-owner-view-post'}))
+    body = response.content.decode()
+
+    assert 'id="post-edit-toggle"' not in body
+    assert 'id="post-edit-form"' not in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_is_staff_아닌_로그인_사용자에게도_수정_UI를_숨긴다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+    Post.objects.create(
+        title='원본 제목', slug='guest-view-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(guest)
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'guest-view-post'}))
+    body = response.content.decode()
+
+    assert 'id="post-edit-toggle"' not in body
