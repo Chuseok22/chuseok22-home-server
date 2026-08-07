@@ -858,6 +858,220 @@ def test_비공개_포스트_상세는_404() -> None:
 
 
 @pytest.mark.django_db
+def test_블로그_수정은_미인증_사용자에게_403() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='원본 제목', slug='edit-target', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_is_staff_아닌_로그인_사용자는_블로그_수정이_403() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-guest', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(guest)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-guest'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_소유자는_블로그_글을_수정할_수_있다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-owner', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-owner'}), {
+        'title': '수정된 제목', 'summary': '수정된 요약', 'content': '수정된 본문',
+    })
+
+    assert response.status_code == 200
+    assert response.json() == {'success': True}
+    post = Post.objects.get(slug='edit-target-owner')
+    assert post.title == '수정된 제목'
+    assert post.summary == '수정된 요약'
+    assert post.content == '수정된 본문'
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_제목이_비어있으면_400을_반환하고_원본을_유지한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-invalid', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-invalid'}), {
+        'title': '', 'summary': '', 'content': '수정된 본문',
+    })
+
+    assert response.status_code == 400
+    data = response.json()
+    assert data['success'] is False
+    assert 'title' in data['errors']
+    post = Post.objects.get(slug='edit-target-invalid')
+    assert post.title == '원본 제목'
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_GET_요청을_거부한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='edit-target-get', content='원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.get(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-get'}))
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_블로그_수정은_비공개_글이면_404() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(title='비공개 글', slug='edit-target-draft', content='본문', is_published=False)
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-edit', kwargs={'slug': 'edit-target-draft'}), {
+        'title': '새 제목', 'summary': '', 'content': '새 본문',
+    })
+
+    assert response.status_code == 404
+
+
+@pytest.mark.django_db
+def test_블로그_이미지_업로드는_미인증_사용자에게_403() -> None:
+    from django.test import Client
+
+    client = Client()
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_is_staff_아닌_로그인_사용자는_블로그_이미지_업로드가_403() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+
+    client = Client()
+    client.force_login(guest)
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_소유자는_블로그_이미지를_업로드하고_마크다운을_응답받는다(settings, tmp_path) -> None:
+    import io
+
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+    from PIL import Image
+
+    settings.MEDIA_ROOT = tmp_path
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+
+    buffer = io.BytesIO()
+    Image.new('RGB', (5, 5), color='blue').save(buffer, format='PNG')
+    buffer.seek(0)
+    upload = SimpleUploadedFile('photo.png', buffer.read(), content_type='image/png')
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-upload-image'), {'file': upload})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data['success'] is True
+    assert data['url'].endswith('.webp')
+    assert '![업로드 이미지]' in data['markdown']
+
+
+@pytest.mark.django_db
+def test_블로그_이미지_업로드는_파일이_없으면_400을_반환한다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+
+    client = Client()
+    client.force_login(owner)
+    response = client.post(reverse('site:blog-post-upload-image'), {})
+
+    assert response.status_code == 400
+    assert response.json()['success'] is False
+
+
+@pytest.mark.django_db
 def test_lab_목록은_소유자전용_도구를_잠금_표시한다() -> None:
     from django.test import Client
 
@@ -2196,3 +2410,74 @@ def test_blog_목록은_게시일이_없는_공개_글의_날짜를_표시하지
 
     assert '날짜 없는 글 2' in body
     assert '<span></span>' not in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_소유자에게_수정_UI를_보여준다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    Post.objects.create(
+        title='원본 제목', slug='owner-view-post', summary='원본 요약', content='# 원본 본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(owner)
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'owner-view-post'}))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'id="post-edit-toggle"' in body
+    assert 'id="post-edit-form"' in body
+    assert '# 원본 본문' in body  # textarea 안에 원본 마크다운(렌더링 전 원문)이 그대로 있어야 함
+    assert f"data-edit-url=\"{reverse('site:blog-post-edit', kwargs={'slug': 'owner-view-post'})}\"" in body
+    assert f"data-upload-url=\"{reverse('site:blog-post-upload-image')}\"" in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_비소유자에게_수정_UI를_숨긴다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    Post.objects.create(
+        title='원본 제목', slug='non-owner-view-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'non-owner-view-post'}))
+    body = response.content.decode()
+
+    assert 'id="post-edit-toggle"' not in body
+    assert 'id="post-edit-form"' not in body
+
+
+@pytest.mark.django_db
+def test_blog_상세는_is_staff_아닌_로그인_사용자에게도_수정_UI를_숨긴다() -> None:
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.blog.models import Post
+
+    User = get_user_model()
+    guest = User.objects.create_user(username='guest', is_staff=False)
+    Post.objects.create(
+        title='원본 제목', slug='guest-view-post', content='본문',
+        is_published=True, published_at=timezone.now(),
+    )
+
+    client = Client()
+    client.force_login(guest)
+    response = client.get(reverse('site:blog-detail', kwargs={'slug': 'guest-view-post'}))
+    body = response.content.decode()
+
+    assert 'id="post-edit-toggle"' not in body

@@ -1,0 +1,34 @@
+{% if is_owner %}
+<div class="not-prose mt-4">
+  <button type="button" id="post-edit-toggle" class="btn btn-sm btn-outline">수정</button>
+</div>
+
+<form
+  id="post-edit-form"
+  class="hidden not-prose flex flex-col gap-3 mt-4"
+  data-edit-url="{% url 'site:blog-post-edit' post.slug %}"
+  data-upload-url="{% url 'site:blog-post-upload-image' %}"
+>
+  <div id="post-edit-errors" class="hidden alert alert-error text-sm"></div>
+
+  <label class="form-control">
+    <span class="label-text">제목</span>
+    <input type="text" id="post-edit-title" class="input input-bordered" value="{{ post.title }}" maxlength="200" required>
+  </label>
+
+  <label class="form-control">
+    <span class="label-text">요약</span>
+    <input type="text" id="post-edit-summary" class="input input-bordered" value="{{ post.summary }}" maxlength="300">
+  </label>
+
+  <div class="form-control">
+    <span class="label-text">본문</span>
+    <textarea id="post-edit-content">{{ post.content }}</textarea>
+  </div>
+
+  <div class="flex gap-2">
+    <button type="button" id="post-edit-save" class="btn btn-primary btn-sm">저장</button>
+    <button type="button" id="post-edit-cancel" class="btn btn-ghost btn-sm">취소</button>
+  </div>
+</form>
+{% endif %}
