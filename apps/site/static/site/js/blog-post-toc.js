@@ -1,5 +1,5 @@
 (function () {
-  const HEADING_SELECTOR = 'h1, h2, h3';
+  const HEADING_SELECTOR = 'h2, h3';
 
   function slugify(text) {
     const slug = text
@@ -35,7 +35,20 @@
     return link;
   }
 
-  function setupScrollSpy(headings, links) {
+  function scrollLinkIntoContainerView(link, container) {
+    const linkTop = link.offsetTop;
+    const linkBottom = linkTop + link.offsetHeight;
+    const visibleTop = container.scrollTop;
+    const visibleBottom = visibleTop + container.clientHeight;
+
+    if (linkTop < visibleTop) {
+      container.scrollTop = linkTop;
+    } else if (linkBottom > visibleBottom) {
+      container.scrollTop = linkBottom - container.clientHeight;
+    }
+  }
+
+  function setupScrollSpy(headings, links, container) {
     const linkByHeadingId = new Map();
     headings.forEach((heading, index) => linkByHeadingId.set(heading.id, links[index]));
 
@@ -50,6 +63,7 @@
         }
         links.forEach((link) => link.classList.remove('active'));
         activeLink.classList.add('active');
+        scrollLinkIntoContainerView(activeLink, container);
       });
     }, { rootMargin: '0px 0px -70% 0px' });
 
@@ -84,7 +98,7 @@
       return desktopLink;
     });
 
-    setupScrollSpy(headings, desktopLinks);
+    setupScrollSpy(headings, desktopLinks, desktopNav);
 
     toggleButton.setAttribute('aria-controls', mobileNav.id);
     toggleButton.setAttribute('aria-expanded', 'false');

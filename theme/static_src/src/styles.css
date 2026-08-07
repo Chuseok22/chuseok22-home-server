@@ -280,22 +280,61 @@ body.home-page .prose {
   outline-offset: 2px;
 }
 
-/* TOC(목차) 링크. blog-post-toc.js가 헤딩을 스캔해 생성한다. */
-.toc-link {
-  display: block;
-  padding: 0.15rem 0;
-  opacity: 0.7;
-  text-decoration: none;
-  font-size: 0.85rem;
+/* TOC(목차) 사이드바 패널. 본문과 시각적으로 분리하기 위해 테두리 + 좌측 accent 레일을 사용한다.
+   blog_detail.html은 body.home-page 스코프 밖이라 --home-* 변수가 정의되지 않으므로, .toc-link.active와
+   동일하게 fallback 값(#0f9aa3)에 의존한다. */
+#post-toc-desktop-wrapper {
+  padding: 1rem 1.1rem;
+  border: 1px solid #dcdde0;
+  border-left: 3px solid var(--home-accent, #0f9aa3);
+  border-radius: 0.65rem;
 }
 
-.toc-link.toc-h3 {
-  padding-left: 0.75rem;
-  font-size: 0.8rem;
+[data-theme='dark'] #post-toc-desktop-wrapper {
+  border-top-color: #52565f;
+  border-right-color: #52565f;
+  border-bottom-color: #52565f;
+}
+
+/* TOC(목차) 링크 공통. blog-post-toc.js가 헤딩을 스캔해 생성한다. border-left를 항상 투명하게
+   예약해 두어 active 상태가 될 때 폭이 바뀌며 레이아웃이 흔들리지 않게 한다. */
+.toc-link {
+  display: block;
+  padding: 0.3rem 0 0.3rem 0.6rem;
+  border-left: 2px solid transparent;
+  text-decoration: none;
+  transition: border-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+.toc-h2 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.toc-h3 {
+  padding-left: 1.5rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  opacity: 0.6;
 }
 
 .toc-link.active {
-  opacity: 1;
-  font-weight: 600;
+  border-left-color: var(--home-accent, #0f9aa3);
   color: var(--home-accent, #0f9aa3);
+  opacity: 1;
+}
+
+/* 목차 항목이 뷰포트보다 길어질 때, sticky 상단 고정 위치를 유지한 채 목차 내부에서만
+   스크롤되도록 한다. max-height는 sticky의 대상인 wrapper(aside) 자체에 걸어야 한다 —
+   wrapper는 top-8(2rem) 오프셋 + padding(상하 2rem, Task 2) + "목차" 라벨 + gap을 포함하므로
+   nav에만 걸면 wrapper 전체 높이가 뷰포트를 넘어 하단이 잘린다. wrapper가 이미 flex-col이므로
+   nav에는 overflow-y: auto + min-height: 0만 주면 flex가 남는 공간만큼 자동으로 줄여준다. */
+#post-toc-desktop-wrapper {
+  max-height: calc(100vh - 4rem);
+}
+
+#post-toc-desktop {
+  min-height: 0;
+  overflow-y: auto;
 }
