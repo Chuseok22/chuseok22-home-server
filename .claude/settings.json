@@ -12,7 +12,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{hookSpecificOutput: {hookEventName: \"PreToolUse\", updatedInput: {command: (\"source /Users/chuseok22/Workspace/playground/chuseok22-home/chuseok22-home-server/.venv/bin/activate && \" + .tool_input.command)}}}'",
+            "command": "jq -c '{hookSpecificOutput: {hookEventName: \"PreToolUse\", updatedInput: {command: (\"export VIRTUAL_ENV=\\\"$PWD/.venv\\\" PATH=\\\"$PWD/.venv/bin:$PATH\\\" && \" + .tool_input.command)}}}'",
             "statusMessage": "venv 활성화 중..."
           }
         ]

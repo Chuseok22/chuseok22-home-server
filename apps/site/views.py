@@ -19,6 +19,8 @@ from apps.blog.services.category import (
     get_category_sidebar_items,
 )
 from apps.blog.services.markdown_renderer import render_markdown
+from apps.blog.services.media_storage import save_uploaded_media
+from apps.blog.services.post_editor import update_post_content
 from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.core.services.rate_limit import check_rate_limit
 from apps.engagement.models import Comment, Like
@@ -52,6 +54,7 @@ from apps.site.forms import (
     LibraryReserveForm,
     LibraryReserveSlotForm,
     PlaceSuggestionForm,
+    PostEditForm,
     StudentSearchForm,
 )
 from apps.site.models import Tool
@@ -165,6 +168,7 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
         request.user.is_authenticated
         and Like.objects.filter(content_type=content_type, object_id=post.pk, user=request.user).exists()
     )
+    is_owner = request.user.is_authenticated and request.user.is_staff
     return render(
         request,
         'site/blog_detail.html',
@@ -175,8 +179,44 @@ def blog_detail(request: HttpRequest, slug: str) -> HttpResponse:
             'comments': comments,
             'like_count': like_count,
             'is_liked': is_liked,
+            'is_owner': is_owner,
         },
     )
+
+
+@owner_required
+@require_POST
+def blog_post_edit(request: HttpRequest, slug: str) -> JsonResponse:
+    """발행된 블로그 글의 제목·요약·본문을 인라인으로 수정한다 (소유자 전용).
+    성공/실패 모두 JSON으로 응답하며, 프런트엔드는 성공 시 페이지를 새로고침해
+    목차·코드블록 복사버튼·mermaid까지 서버 렌더링 결과로 갱신한다."""
+    post = get_object_or_404(Post, slug=slug, is_published=True)
+    form = PostEditForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({'success': False, 'errors': form.errors.get_json_data()}, status=400)
+
+    update_post_content(
+        post,
+        title=form.cleaned_data['title'],
+        summary=form.cleaned_data['summary'],
+        content=form.cleaned_data['content'],
+    )
+    return JsonResponse({'success': True})
+
+
+@owner_required
+@require_POST
+def blog_post_upload_image(request: HttpRequest) -> JsonResponse:
+    """블로그 글 인라인 수정 중 이미지 업로드 (소유자 전용). 특정 글에 종속되지 않는 공용
+    엔드포인트이며, Admin의 PostAdmin.upload_media_view와 동일하게 media_storage 서비스를 재사용한다."""
+    if 'file' not in request.FILES:
+        return JsonResponse({'success': False, 'error_message': '업로드할 파일이 없습니다.'}, status=400)
+
+    result = save_uploaded_media(request.FILES['file'])
+    if not result.success:
+        return JsonResponse({'success': False, 'error_message': result.error_message}, status=400)
+
+    return JsonResponse({'success': True, 'url': result.url, 'markdown': result.markdown})
 
 
 _PLACES_PER_PAGE = 30
