@@ -128,3 +128,49 @@ class TestCheckNewNoticesProcessSource(TestCase):
 
         notice = Notice.objects.get(source=source, article_id='9130')
         self.assertEqual(notice.published_at, date(2026, 8, 7))
+
+
+class TestCheckNewNoticesExcludesGithubTrending(TestCase):
+    def test_github_trending_소스는_처리되지_않는다(self) -> None:
+        """check_new_notices는 github_trending 출처를 제외하고 처리한다.
+        github_trending은 별도의 dedicated report 커맨드에서만 처리되어야 한다."""
+        # github_trending 출처 생성
+        github_trending_source = NoticeSource.objects.create(
+            name='GitHub 트렌딩',
+            url='https://github.com/trending',
+            crawler_type='github_trending',
+            discord_webhook_url='https://discord.com/api/webhooks/1/a',
+            is_active=True,
+        )
+
+        # 다른 출처도 생성 (비교용)
+        dacon_source = NoticeSource.objects.create(
+            name='테스트 소스',
+            url='https://example.com',
+            crawler_type='dacon',
+            discord_webhook_url='https://discord.com/api/webhooks/1/b',
+            is_active=True,
+        )
+
+        command = Command()
+        discord = MagicMock()
+
+        mock_crawler = MagicMock()
+        mock_crawler.crawl.return_value = []
+        mock_crawler.crawl_detail.return_value = None
+
+        with patch(
+            'apps.notifications.management.commands.check_new_notices.get_crawler',
+            return_value=mock_crawler,
+        ) as mock_get_crawler:
+            command.handle()
+
+        # get_crawler는 dacon 소스에만 호출되어야 하고, github_trending에는 호출되면 안 됨
+        # dacon_source를 위해 최소 1회는 호출되어야 함
+        assert mock_get_crawler.called, "get_crawler should be called for dacon source"
+
+        # github_trending 소스 URL을 가지고 호출되지 않았는지 확인
+        crawler_calls = [call[0] for call in mock_get_crawler.call_args_list]
+        crawler_urls = [url for _, url in crawler_calls]
+        assert github_trending_source.url not in crawler_urls, \
+            "github_trending source should not be processed"
