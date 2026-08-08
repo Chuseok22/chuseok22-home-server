@@ -169,17 +169,20 @@
     <section class="section-box" x-data="{ openId: null }" @keydown.escape.window="openId = null">
       <span class="eyebrow">Certifications</span>
       <h2 class="text-xl font-bold mb-4">자격증</h2>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-3 sm:grid-cols-2">
         {% for cert in certifications %}
         {% if cert.badge_image %}
         <button type="button" @click="openId = {{ cert.id }}" class="card bg-base-100 border border-base-300 text-left hover:bg-base-300 transition-colors">
         {% else %}
         <div class="card bg-base-100 border border-base-300 text-left">
         {% endif %}
-          <div class="card-body items-center text-center">
-            <h3 class="card-title text-sm">{{ cert.name }}</h3>
-            <p class="text-xs opacity-70">{{ cert.acquired_date|date:'Y.m.d' }}</p>
-            <p class="text-xs opacity-70">{{ cert.issuer }}</p>
+          <div class="card-body flex-row items-center gap-3 p-4">
+            <span class="text-2xl" aria-hidden="true">📜</span>
+            <div>
+              <h3 class="card-title text-sm">{{ cert.name }}</h3>
+              <p class="text-xs opacity-70">{{ cert.issuer }}</p>
+              <p class="text-xs opacity-70">{{ cert.acquired_date|date:'Y.m.d' }}</p>
+            </div>
           </div>
         {% if cert.badge_image %}</button>{% else %}</div>{% endif %}
         {% endfor %}

@@ -2775,3 +2775,21 @@ def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링�
     body = response.content.decode()
 
     assert '<a href="https://example.com/activity" target="_blank" rel="noopener" class="link link-hover">활동_링크_테스트</a>' in body
+
+
+@pytest.mark.django_db
+def test_home_자격증_카드는_고정_아이콘과_2열_grid를_사용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Certification
+
+    Certification.objects.create(
+        name='SQLD', issuer='한국데이터산업진흥원', acquired_date='2023-06-02', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'grid gap-3 sm:grid-cols-2' in body
+    assert '<span class="text-2xl" aria-hidden="true">📜</span>' in body
