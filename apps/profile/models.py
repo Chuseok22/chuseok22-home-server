@@ -42,9 +42,11 @@ class Skill(models.Model):
 
     class Category(models.TextChoices):
         BACKEND = 'backend', 'Backend'
+        MOBILE = 'mobile', 'Mobile'
         FRONTEND = 'frontend', 'Frontend'
         DATABASE = 'database', 'Database'
         INFRA = 'infra', 'Infra'
+        AI = 'ai', 'AI'
         TOOL = 'tool', 'Tool'
         ETC = 'etc', 'ETC'
 

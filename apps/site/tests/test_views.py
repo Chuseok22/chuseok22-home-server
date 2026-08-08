@@ -226,6 +226,24 @@ def test_home_은_기술스택_카테고리를_정의_순서대로_보여준다(
 
 
 @pytest.mark.django_db
+def test_home_은_기술스택_카테고리에_Mobile과_AI를_포함한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.MOBILE, name='Capacitor', order=0)
+    Skill.objects.create(category=Skill.Category.AI, name='Gemini', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    categories = list(response.context['skills_by_category'].keys())
+
+    assert 'mobile' in categories
+    assert 'ai' in categories
+    assert categories.index('mobile') < categories.index('ai')
+
+
+@pytest.mark.django_db
 def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한다() -> None:
     from django.test import Client
 
