@@ -21,10 +21,14 @@ _REQUEST_TIMEOUT = 10
 # 여유를 두고, 초과 시 400 응답으로 발송 자체가 실패해 is_notified가 갱신되지 않고
 # 매 실행마다 재시도되는 것을 막기 위해 이 길이로 자른다.
 _MAX_CONTENT_LENGTH = 1900
-# Embed description(카드당) 안전 길이 — 10개 카드를 담아도 Discord의 embeds 합산 제한(6000자)에
-# 여유 있게 들어가도록 보수적으로 제한한다. AI 요약 길이는 프롬프트로만 유도될 뿐 강제되지
-# 않으므로, 길이 초과로 400 응답을 받아 그날 리포트 전체가 유실되는 것을 막기 위함이다.
-_EMBED_DESCRIPTION_MAX_CHARS = 400
+# Embed description(카드당) 안전 길이 — Discord는 메시지 내 embeds 전체의 title+description+
+# field(name/value) 합산이 6000자를 넘으면 메시지 전체를 400으로 거부한다. title(f'{rank}. 📦
+# {repo.owner_repo}')은 GitHub 저장소명 규칙상 owner(최대 39자)/repo(최대 100자)로 최악의 경우
+# 약 146자, field 4개(언어/오늘 획득/누적 star/fork 라벨+값)는 약 90자이므로, 카드 10개를 담을 때
+# description을 300자로 제한하면 (146 + 300 + 90) * 10 ≈ 5,360자로 6000자 한도 내에 여유 있게
+# 들어간다. AI 요약 길이는 프롬프트로만 유도될 뿐 강제되지 않으므로, 길이 초과로 400 응답을
+# 받아 그날 리포트 전체가 유실되는 것을 막기 위함이다.
+_EMBED_DESCRIPTION_MAX_CHARS = 300
 
 
 class DiscordService:

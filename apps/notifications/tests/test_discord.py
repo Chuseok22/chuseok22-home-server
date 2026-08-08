@@ -307,7 +307,7 @@ class TestDiscordServiceSendDigest(TestCase):
 
         embed = self.service._build_repo_embed(3, long_repo)
 
-        self.assertLessEqual(len(embed['description']), 400)
+        self.assertLessEqual(len(embed['description']), 300)
         self.assertTrue(embed['description'].endswith('…'))
 
     def test_build_repo_embed_설명_없으면_플레이스홀더(self) -> None:
@@ -323,6 +323,28 @@ class TestDiscordServiceSendDigest(TestCase):
         embed = self.service._build_repo_embed(1, empty_repo)
 
         self.assertEqual(embed['description'], '설명 없음')
+
+    def test_send_digest는_10개_embed_합산_문자수가_discord_제한을_넘지_않는다(self) -> None:
+        """Discord는 메시지 내 embeds 전체의 title+description+field 합산이 6000자를 넘으면
+        메시지 전체를 거부한다. owner/repo가 GitHub 최대 길이(owner 39자/repo 100자)이고
+        AI 요약도 잘리기 전까지 길게 채워지는 최악의 경우에도, 카드 10개 합산이 6000자 이내에
+        들어와야 한다."""
+        worst_case_repo = TrendingRepoEntry(
+            owner_repo='a' * 39 + '/' + 'b' * 100,
+            url='https://github.com/worst-case',
+            language='SomeVeryLongLanguageName',
+            stars_today=999_999_999, total_stars=999_999_999, total_forks=999_999_999,
+            summary_ko='가' * 500,
+        )
+
+        embeds = [self.service._build_repo_embed(rank, worst_case_repo) for rank in range(1, 11)]
+
+        total_chars = sum(
+            len(embed['title']) + len(embed['description'])
+            + sum(len(f['name']) + len(f['value']) for f in embed['fields'])
+            for embed in embeds
+        )
+        self.assertLessEqual(total_chars, 6000)
 
     def test_send_digest_성공(self) -> None:
         with patch('apps.notifications.services.discord.requests.post') as mock_post:
