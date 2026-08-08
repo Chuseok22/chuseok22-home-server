@@ -128,14 +128,18 @@ class GithubTrendingCrawler(BaseCrawler):
         return int(digits) if digits else 0
 
     def _summarize(self, owner_repo: str, fallback_description: str) -> str:
-        readme = self._fetch_readme(owner_repo)
-        source_text = readme if readme else fallback_description
-        if not source_text:
-            return fallback_description
-
+        # 활성 프롬프트가 없으면 어차피 AI 요약을 시도할 수 없으므로, README 조회(외부 API
+        # 호출)를 먼저 하지 않고 이 시점에 바로 폴백한다. seed 커맨드 실행 전 배포 직후처럼
+        # 활성 프롬프트가 없는 기간에 매 실행마다 저장소 10개의 README를 조회해놓고 결과를
+        # 버리는 낭비를 막는다.
         template = get_active_prompt(GITHUB_TRENDING_SUMMARY_FEATURE)
         if template is None:
             logger.error('GitHub 트렌딩 요약용 활성 프롬프트가 설정되지 않았습니다.')
+            return fallback_description
+
+        readme = self._fetch_readme(owner_repo)
+        source_text = readme if readme else fallback_description
+        if not source_text:
             return fallback_description
 
         messages = [

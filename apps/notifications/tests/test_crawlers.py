@@ -831,6 +831,9 @@ class TestGithubTrendingCrawlerSummarize(TestCase):
         result = self.crawler._summarize('owner/repo', '원본 설명')
 
         self.assertEqual(result, '원본 설명')
+        # 활성 프롬프트가 없으면 어차피 AI 요약을 시도할 수 없으므로, README 조회(GitHub API
+        # 호출) 자체를 하지 않아야 한다.
+        mock_fetch_readme.assert_not_called()
 
 
 class TestGetCrawlerGithubTrending(TestCase):
