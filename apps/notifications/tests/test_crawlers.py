@@ -11,6 +11,9 @@ from apps.notifications.crawlers.dreamspon_auth import DreamsponSession
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
 from apps.notifications.crawlers.github_trending import GithubTrendingCrawler, TrendingRepoEntry
+from apps.ai.models import PromptTemplate
+from apps.ai.services.prompt_template import GITHUB_TRENDING_SUMMARY_FEATURE
+from apps.ai.services.suh_aider_client import SuhAiderClientError
 
 
 class TestLinkareerCrawlerExtractArticleId(TestCase):
@@ -685,12 +688,14 @@ class TestGithubTrendingCrawlerCrawl(TestCase):
     def setUp(self) -> None:
         self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
 
+    @patch.object(GithubTrendingCrawler, '_summarize')
     @patch('apps.notifications.crawlers.github_trending.requests.get')
-    def test_요청_성공시_다이제스트_아이템_1개_반환(self, mock_get) -> None:
+    def test_요청_성공시_다이제스트_아이템_1개_반환(self, mock_get, mock_summarize) -> None:
         mock_response = MagicMock()
         mock_response.text = _GITHUB_TRENDING_HTML
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
+        mock_summarize.side_effect = lambda owner_repo, fallback_description: fallback_description
 
         items = self.crawler.crawl()
 
@@ -699,6 +704,7 @@ class TestGithubTrendingCrawlerCrawl(TestCase):
         self.assertEqual(len(digest.repos), 2)
         self.assertEqual(digest.url, 'https://github.com/trending?since=daily')
         self.assertIn('GitHub 트렌딩 TOP 2', digest.title)
+        self.assertEqual(mock_summarize.call_count, 2)
 
     @patch('apps.notifications.crawlers.github_trending.requests.get')
     def test_요청_실패시_빈_리스트(self, mock_get) -> None:
@@ -718,3 +724,110 @@ class TestGithubTrendingCrawlerCrawl(TestCase):
         items = self.crawler.crawl()
 
         self.assertEqual(items, [])
+
+    @patch.object(GithubTrendingCrawler, '_summarize', return_value='AI 요약 결과')
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_crawl은_파싱된_각_저장소에_summarize_결과를_적용한다(self, mock_get, mock_summarize) -> None:
+        mock_response = MagicMock()
+        mock_response.text = _GITHUB_TRENDING_HTML
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        items = self.crawler.crawl()
+
+        digest = items[0]
+        self.assertTrue(all(repo.summary_ko == 'AI 요약 결과' for repo in digest.repos))
+
+
+class TestGithubTrendingCrawlerFetchReadme(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_readme_조회_성공(self, mock_get) -> None:
+        mock_response = MagicMock()
+        mock_response.text = '# README 원문'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.crawler._fetch_readme('owner/repo')
+
+        self.assertEqual(result, '# README 원문')
+        called_url = mock_get.call_args.args[0]
+        self.assertEqual(called_url, 'https://api.github.com/repos/owner/repo/readme')
+        called_headers = mock_get.call_args.kwargs['headers']
+        self.assertEqual(called_headers['Accept'], 'application/vnd.github.raw')
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_readme_조회_실패시_None(self, mock_get) -> None:
+        mock_get.side_effect = requests.RequestException('404')
+
+        result = self.crawler._fetch_readme('owner/repo')
+
+        self.assertIsNone(result)
+
+
+class TestGithubTrendingCrawlerSummarize(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+        PromptTemplate.objects.create(
+            feature=GITHUB_TRENDING_SUMMARY_FEATURE, name='테스트 프롬프트',
+            system_prompt='한국어로 요약해줘', model='functiongemma', is_active=True,
+        )
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_readme_있고_ai_성공시_요약문_반환(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.return_value = '한국어 요약 결과'
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '한국어 요약 결과')
+        mock_client_cls.return_value.chat.assert_called_once()
+        _, kwargs = mock_client_cls.return_value.chat.call_args
+        self.assertEqual(kwargs['model'], 'functiongemma')
+        self.assertEqual(kwargs['messages'][0], {'role': 'system', 'content': '한국어로 요약해줘'})
+        self.assertEqual(kwargs['messages'][1]['content'], '# 원문 README')
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value=None)
+    def test_readme_없으면_원본_설명으로_ai_요약_시도(self, mock_fetch_readme) -> None:
+        with patch('apps.notifications.crawlers.github_trending.SuhAiderClient') as mock_client_cls:
+            mock_client_cls.return_value.chat.return_value = '설명 기반 요약'
+            result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '설명 기반 요약')
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value=None)
+    def test_readme도_설명도_없으면_폴백_설명_그대로(self, mock_fetch_readme) -> None:
+        result = self.crawler._summarize('owner/repo', '')
+        self.assertEqual(result, '')
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_1회_실패_후_재시도_성공(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.side_effect = [
+            SuhAiderClientError('일시 오류'), '재시도 성공 요약',
+        ]
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '재시도 성공 요약')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_2회_모두_실패시_폴백_설명(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.side_effect = SuhAiderClientError('영구 오류')
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_활성_프롬프트_없으면_폴백_설명(self, mock_fetch_readme) -> None:
+        PromptTemplate.objects.filter(feature=GITHUB_TRENDING_SUMMARY_FEATURE).update(is_active=False)
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')

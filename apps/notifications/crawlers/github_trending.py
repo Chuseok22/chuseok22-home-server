@@ -1,10 +1,15 @@
+import dataclasses
 import logging
 import re
 from dataclasses import dataclass, field
 
 import requests
 from bs4 import BeautifulSoup, Tag
+from django.conf import settings
 from django.utils import timezone
+
+from apps.ai.services.prompt_template import GITHUB_TRENDING_SUMMARY_FEATURE, get_active_prompt
+from apps.ai.services.suh_aider_client import SuhAiderClient, SuhAiderClientError
 
 from .base import BaseCrawler, BaseNoticeItem
 
@@ -15,6 +20,8 @@ _HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
 }
 _TOP_N = 10
+_README_MAX_CHARS = 6000
+_AI_RETRY_COUNT = 2
 
 
 @dataclass(frozen=True)
@@ -55,12 +62,17 @@ class GithubTrendingCrawler(BaseCrawler):
             logger.error('GitHub 트렌딩 페이지 파싱 결과가 비어있습니다 (HTML 구조 변경 가능성)')
             return []
 
+        summarized_entries = [
+            dataclasses.replace(entry, summary_ko=self._summarize(entry.owner_repo, entry.summary_ko))
+            for entry in entries
+        ]
+
         today = timezone.localdate()
         digest = GithubTrendingDigestItem(
             article_id=today.isoformat(),
-            title=f'GitHub 트렌딩 TOP {len(entries)} ({today.strftime("%Y.%m.%d")})',
+            title=f'GitHub 트렌딩 TOP {len(summarized_entries)} ({today.strftime("%Y.%m.%d")})',
             url=self.list_url,
-            repos=entries,
+            repos=summarized_entries,
         )
         return [digest]
 
@@ -114,3 +126,41 @@ class GithubTrendingCrawler(BaseCrawler):
     def _digits_to_int(self, text: str) -> int:
         digits = re.sub(r'[^0-9]', '', text)
         return int(digits) if digits else 0
+
+    def _summarize(self, owner_repo: str, fallback_description: str) -> str:
+        readme = self._fetch_readme(owner_repo)
+        source_text = readme if readme else fallback_description
+        if not source_text:
+            return fallback_description
+
+        template = get_active_prompt(GITHUB_TRENDING_SUMMARY_FEATURE)
+        if template is None:
+            logger.error('GitHub 트렌딩 요약용 활성 프롬프트가 설정되지 않았습니다.')
+            return fallback_description
+
+        messages = [
+            {'role': 'system', 'content': template.system_prompt},
+            {'role': 'user', 'content': source_text[:_README_MAX_CHARS]},
+        ]
+        for attempt in range(1, _AI_RETRY_COUNT + 1):
+            try:
+                return SuhAiderClient().chat(model=template.model, messages=messages).strip()
+            except SuhAiderClientError as e:
+                logger.error(
+                    'GitHub 트렌딩 AI 요약 실패 (repo=%s, attempt=%d/%d): %s',
+                    owner_repo, attempt, _AI_RETRY_COUNT, e,
+                )
+        return fallback_description
+
+    def _fetch_readme(self, owner_repo: str) -> str | None:
+        url = f'https://api.github.com/repos/{owner_repo}/readme'
+        headers = {**_HEADERS, 'Accept': 'application/vnd.github.raw'}
+        if settings.GITHUB_PAT:
+            headers['Authorization'] = f'Bearer {settings.GITHUB_PAT}'
+        try:
+            response = requests.get(url, headers=headers, timeout=_REQUEST_TIMEOUT)
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as e:
+            logger.error('README 조회 실패 (repo=%s): %s', owner_repo, e)
+            return None
