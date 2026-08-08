@@ -2736,3 +2736,42 @@ def test_home_프로젝트_섹션은_project_card_파셜을_재사용한다() ->
     # project_card.html의 "더보기" 토글은 홈에서도 렌더링돼야 한다
     assert '더보기' in body
     assert '설계 포인트 1' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(
+        name='AROM Spring Boot 심화반 테스트용', description='설명 테스트',
+        period='2099.1학기', order=100,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Activities</span>' in body
+    assert 'AROM Spring Boot 심화반 테스트용' in body
+    assert '2099.1학기' in body
+    assert '설명 테스트' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(
+        name='활동_링크_테스트', link='https://example.com/activity', order=100,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<a href="https://example.com/activity"' in body
+    assert '활동_링크_테스트' in body

@@ -149,18 +149,19 @@
     <section class="section-box">
       <span class="eyebrow">Activities</span>
       <h2 class="text-xl font-bold mb-4">활동</h2>
-      <div class="grid gap-4 sm:grid-cols-2">
+      <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
         {% for activity in activities %}
-        <div class="card bg-base-100 border border-base-300">
-          <div class="card-body">
-            <h3 class="card-title text-base">{{ activity.name }}</h3>
-            {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
-            {% if activity.description %}<p class="text-sm">{{ activity.description }}</p>{% endif %}
-            {% if activity.link %}<a href="{{ activity.link }}" target="_blank" rel="noopener" class="link link-hover text-sm">자세히 →</a>{% endif %}
-          </div>
-        </div>
+        <li>
+          {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
+          {% if activity.link %}
+          <p class="font-medium"><a href="{{ activity.link }}" target="_blank" rel="noopener" class="link link-hover">{{ activity.name }}</a></p>
+          {% else %}
+          <p class="font-medium">{{ activity.name }}</p>
+          {% endif %}
+          {% if activity.description %}<p class="text-sm opacity-70">{{ activity.description }}</p>{% endif %}
+        </li>
         {% endfor %}
-      </div>
+      </ul>
     </section>
     {% endif %}
 
