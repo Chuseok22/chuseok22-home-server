@@ -135,6 +135,7 @@ urlpatterns += [
   비활성화된 레코드는 삭제하지 않으므로 이 테이블 자체가 feature별 프롬프트 변경 이력이 된다.
 - 소비 앱은 `PromptTemplate` 모델을 직접 쿼리하지 않고 `apps.ai.services.prompt_template.get_active_prompt(feature)`만
   사용한다 — 모델 직접 import는 "앱 간 직접 model import 금지" 규칙 위반이다.
-- 새로운 AI 소비 기능을 추가할 때는 `PromptTemplate.Feature`에 choice 하나만 추가하면 된다(choices는
-  DB 제약이 아니므로 별도 마이그레이션 불필요). 해당 기능 전용 프롬프트·모델은 Admin에서 별도로
-  생성·활성화하며, 기존 기능의 프롬프트·모델 설정에는 아무 영향이 없다.
+- 새로운 AI 소비 기능을 추가할 때는 `PromptTemplate.Feature`에 choice 하나만 추가하면 되지만, Django 5.1은
+  choices 변경도 모델 마이그레이션 상태로 추적하므로 `makemigrations` 실행이 필요하다(DB 스키마상으로는
+  no-op `AlterField`). 해당 기능 전용 프롬프트·모델은 Admin에서 별도로 생성·활성화하며, 기존 기능의
+  프롬프트·모델 설정에는 아무 영향이 없다.
