@@ -5,7 +5,7 @@ from django.test import Client
 from django.urls import reverse
 
 from apps.projects.models import Project, ProjectCategory, ProjectStatus
-from apps.projects.admin import ExtraLinksField, NewlineSeparatedListField, ProjectAdmin
+from apps.projects.admin import ExtraLinksField, NewlineSeparatedListField, ProjectAdmin, StatsField
 
 
 def test_NewlineSeparatedListField_줄바꿈_텍스트를_리스트로_변환한다() -> None:
@@ -314,3 +314,80 @@ def test_is_featured가_추가_폼에서_저장된다(admin_client: Client) -> N
 def test_is_featured가_목록_display와_filter에_노출된다() -> None:
     assert 'is_featured' in ProjectAdmin.list_display
     assert 'is_featured' in ProjectAdmin.list_filter
+
+
+def test_StatsField_라벨과_값을_파이프로_구분해_리스트로_변환한다() -> None:
+    field = StatsField(required=False)
+    assert field.clean('👥 회원|136명') == [{'label': '👥 회원', 'value': '136명'}]
+
+
+def test_StatsField_여러_줄을_각각_변환한다() -> None:
+    field = StatsField(required=False)
+    assert field.clean('👥 회원|136명\n📦 등록 물품|157개') == [
+        {'label': '👥 회원', 'value': '136명'},
+        {'label': '📦 등록 물품', 'value': '157개'},
+    ]
+
+
+def test_StatsField_빈_입력은_빈_리스트를_반환한다() -> None:
+    field = StatsField(required=False)
+    assert field.clean('') == []
+    assert field.clean(None) == []
+
+
+def test_StatsField_구분자가_없으면_ValidationError를_발생시킨다() -> None:
+    field = StatsField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('회원 136명')
+
+
+def test_StatsField_라벨이_비어있으면_ValidationError를_발생시킨다() -> None:
+    field = StatsField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('|136명')
+
+
+def test_StatsField_값이_비어있으면_ValidationError를_발생시킨다() -> None:
+    field = StatsField(required=False)
+    with pytest.raises(ValidationError, match='1번째 줄'):
+        field.clean('회원|')
+
+
+def test_StatsField_저장된_리스트를_라벨_값_텍스트로_되돌린다() -> None:
+    field = StatsField(required=False)
+    assert field.prepare_value([{'label': '👥 회원', 'value': '136명'}]) == '👥 회원|136명'
+    assert field.prepare_value([]) == ''
+
+
+@pytest.mark.django_db
+def test_stats를_라벨_값_쌍으로_입력하면_리스트로_저장된다(admin_client: Client) -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    url = reverse('admin:projects_project_add')
+    response = admin_client.post(url, {
+        'category': category.pk,
+        'title': '통계 테스트 프로젝트',
+        'description': '설명',
+        'tags': '',
+        'status': status.pk,
+        'order': 0,
+        'period': '',
+        'team_size': '',
+        'role': '',
+        'stats': '👥 회원|136명\n📦 등록 물품|157개',
+        'highlights': '',
+        'github_href': '',
+        'web_site_href': '',
+        'ios_href': '',
+        'android_href': '',
+        'title_href': '',
+        'extra_links': '',
+        '_save': 'Save',
+    })
+
+    assert response.status_code == 302
+    project = Project.objects.get(title='통계 테스트 프로젝트')
+    assert project.stats == [
+        {'label': '👥 회원', 'value': '136명'},
+        {'label': '📦 등록 물품', 'value': '157개'},
+    ]
