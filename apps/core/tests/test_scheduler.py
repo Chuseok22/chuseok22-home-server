@@ -244,3 +244,16 @@ def test_start_scheduler는_각_잡을_동시_실행_락을_거치는_run_job으
         registered_job_ids.add(kwargs['id'])
 
     assert registered_job_ids == set(JOB_DEFINITIONS.keys())
+
+
+@pytest.mark.django_db
+def test_GitHub_트렌딩_리포트_잡은_기본값이_매일_오전_9시다() -> None:
+    definition = JOB_DEFINITIONS['send_github_trending_report']
+
+    config = get_or_seed_job_config('send_github_trending_report', definition)
+
+    assert definition['command'] == 'send_github_trending_report'
+    assert config.schedule_mode == 'fixed_times'
+    assert config.fixed_hours == '9'
+    assert config.fixed_minute == 0
+    assert config.cron_day_of_week == '*'
