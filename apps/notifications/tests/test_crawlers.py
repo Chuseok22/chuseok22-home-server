@@ -10,6 +10,7 @@ from apps.notifications.crawlers.dreamspon import DreamsponCrawler, DreamsponIte
 from apps.notifications.crawlers.dreamspon_auth import DreamsponSession
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
+from apps.notifications.crawlers.github_trending import GithubTrendingCrawler, TrendingRepoEntry
 
 
 class TestLinkareerCrawlerExtractArticleId(TestCase):
@@ -567,3 +568,153 @@ class TestGetCrawlerDreamspon(TestCase):
         from apps.notifications.crawlers import get_crawler
         crawler = get_crawler('dreamspon', 'https://www.dreamspon.com/scholarship/list.html')
         self.assertIsInstance(crawler, DreamsponCrawler)
+
+
+_GITHUB_TRENDING_HTML = '''
+<article class="Box-row">
+<h2 class="h3 lh-condensed">
+<a href="/PrimeIntellect-ai/prime-agent">
+    PrimeIntellect-ai /
+    prime-agent
+</a>
+</h2>
+<p class="col-9 color-fg-muted my-1 pr-4">A self-improving RLM agent for coding workflows and long-running autonomous tasks.</p>
+<div class="f6 color-fg-muted mt-2">
+<span class="d-inline-block ml-0 mr-3">
+<span class="repo-language-color" style="background-color:#3178c6"></span>
+<span itemprop="programmingLanguage">TypeScript</span>
+</span>
+<a href="/PrimeIntellect-ai/prime-agent/stargazers" class="Link--muted d-inline-block mr-3">
+7,270
+</a>
+<a href="/PrimeIntellect-ai/prime-agent/forks" class="Link--muted d-inline-block mr-3">
+601
+</a>
+<span class="d-inline-block float-sm-right">
+2,293 stars today
+</span>
+</div>
+</article>
+<article class="Box-row">
+<h2 class="h3 lh-condensed">
+<a href="/addyosmani/agent-skills">
+    addyosmani /
+    agent-skills
+</a>
+</h2>
+<p class="col-9 color-fg-muted my-1 pr-4">Production-grade engineering skills for AI coding agents.</p>
+<div class="f6 color-fg-muted mt-2">
+<span class="d-inline-block ml-0 mr-3">
+<span class="repo-language-color" style="background-color:#f1e05a"></span>
+<span itemprop="programmingLanguage">JavaScript</span>
+</span>
+<a href="/addyosmani/agent-skills/stargazers" class="Link--muted d-inline-block mr-3">
+84,122
+</a>
+<a href="/addyosmani/agent-skills/forks" class="Link--muted d-inline-block mr-3">
+8,984
+</a>
+<span class="d-inline-block float-sm-right">
+1,131 stars today
+</span>
+</div>
+</article>
+'''
+
+
+class TestGithubTrendingCrawlerParse(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    def test_트렌딩_목록_파싱_전체_필드(self) -> None:
+        entries = self.crawler._parse(_GITHUB_TRENDING_HTML)
+        self.assertEqual(len(entries), 2)
+
+        first = entries[0]
+        self.assertIsInstance(first, TrendingRepoEntry)
+        self.assertEqual(first.owner_repo, 'PrimeIntellect-ai/prime-agent')
+        self.assertEqual(first.url, 'https://github.com/PrimeIntellect-ai/prime-agent')
+        self.assertEqual(first.language, 'TypeScript')
+        self.assertEqual(first.stars_today, 2293)
+        self.assertEqual(first.total_stars, 7270)
+        self.assertEqual(first.total_forks, 601)
+        # _parse()는 AI 요약을 호출하지 않으므로 원본 설명이 그대로 summary_ko가 된다
+        self.assertEqual(
+            first.summary_ko,
+            'A self-improving RLM agent for coding workflows and long-running autonomous tasks.',
+        )
+
+        second = entries[1]
+        self.assertEqual(second.owner_repo, 'addyosmani/agent-skills')
+        self.assertEqual(second.language, 'JavaScript')
+        self.assertEqual(second.stars_today, 1131)
+        self.assertEqual(second.total_stars, 84122)
+        self.assertEqual(second.total_forks, 8984)
+
+    def test_저장소_링크_없는_article은_무시(self) -> None:
+        html = '<article class="Box-row"><p class="col-9">설명만 있음</p></article>'
+        entries = self.crawler._parse(html)
+        self.assertEqual(entries, [])
+
+    def test_언어_태그_없으면_None(self) -> None:
+        html = '''
+        <article class="Box-row">
+        <h2 class="h3 lh-condensed"><a href="/owner/repo">owner / repo</a></h2>
+        </article>
+        '''
+        entries = self.crawler._parse(html)
+        self.assertEqual(len(entries), 1)
+        self.assertIsNone(entries[0].language)
+        self.assertEqual(entries[0].total_stars, 0)
+        self.assertEqual(entries[0].total_forks, 0)
+        self.assertEqual(entries[0].stars_today, 0)
+
+    def test_상위_10개까지만_파싱(self) -> None:
+        rows = ''.join(
+            f'<article class="Box-row"><h2 class="h3 lh-condensed">'
+            f'<a href="/owner/repo{i}">owner / repo{i}</a></h2></article>'
+            for i in range(15)
+        )
+        entries = self.crawler._parse(rows)
+        self.assertEqual(len(entries), 10)
+        self.assertEqual(entries[0].owner_repo, 'owner/repo0')
+        self.assertEqual(entries[9].owner_repo, 'owner/repo9')
+
+
+class TestGithubTrendingCrawlerCrawl(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_요청_성공시_다이제스트_아이템_1개_반환(self, mock_get) -> None:
+        mock_response = MagicMock()
+        mock_response.text = _GITHUB_TRENDING_HTML
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(len(items), 1)
+        digest = items[0]
+        self.assertEqual(len(digest.repos), 2)
+        self.assertEqual(digest.url, 'https://github.com/trending?since=daily')
+        self.assertIn('GitHub 트렌딩 TOP 2', digest.title)
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_요청_실패시_빈_리스트(self, mock_get) -> None:
+        mock_get.side_effect = requests.RequestException('연결 실패')
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(items, [])
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_파싱_결과_없으면_빈_리스트(self, mock_get) -> None:
+        mock_response = MagicMock()
+        mock_response.text = '<html><body>구조가 바뀐 페이지</body></html>'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(items, [])
