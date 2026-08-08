@@ -88,7 +88,7 @@
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
       </div>
-      <div class="grid gap-4 md:grid-cols-2 items-start">
+      <div class="grid gap-4">
         {% for project in featured_projects %}
         {% include "site/partials/project_card.html" %}
         {% endfor %}

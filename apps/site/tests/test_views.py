@@ -2679,7 +2679,7 @@ def test_blog_상세는_is_staff_아닌_로그인_사용자에게도_수정_UI�
 
 
 @pytest.mark.django_db
-def test_home_프로젝트_섹션은_2열_grid와_items_start를_사용한다() -> None:
+def test_home_프로젝트_섹션은_1열_grid를_사용한다() -> None:
     from django.test import Client
 
     from apps.projects.models import Project, ProjectCategory, ProjectStatus
@@ -2695,7 +2695,8 @@ def test_home_프로젝트_섹션은_2열_grid와_items_start를_사용한다() 
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert 'grid gap-4 md:grid-cols-2 items-start' in body
+    assert 'grid gap-4' in body
+    assert 'md:grid-cols-2' not in body
 
 
 @pytest.mark.django_db
