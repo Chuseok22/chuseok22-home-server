@@ -831,3 +831,10 @@ class TestGithubTrendingCrawlerSummarize(TestCase):
         result = self.crawler._summarize('owner/repo', '원본 설명')
 
         self.assertEqual(result, '원본 설명')
+
+
+class TestGetCrawlerGithubTrending(TestCase):
+    def test_github_trending_크롤러_반환(self) -> None:
+        from apps.notifications.crawlers import get_crawler
+        crawler = get_crawler('github_trending', 'https://github.com/trending?since=daily')
+        self.assertIsInstance(crawler, GithubTrendingCrawler)
