@@ -70,6 +70,47 @@
   .gh-star .icon {
     color: var(--home-star, #f2b705);
   }
+
+  /* 프로젝트 카드 핵심 지표 표. 세로형 라벨-값, 줄무늬 없이 행 사이 실선만 사용한다
+     (여러 브라우저 목업 라운드에서 확정된 스타일 — 줄무늬는 가독성을 해친다는 피드백). */
+  .stat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+    margin: 0.25rem 0;
+  }
+
+  .stat-table tr:not(:last-child) td {
+    border-bottom: 1px solid var(--home-panel-border, theme('colors.base-300'));
+  }
+
+  .stat-table td {
+    padding: 0.45rem 0.1rem;
+  }
+
+  .stat-table td:first-child {
+    opacity: 0.6;
+  }
+
+  .stat-table td:last-child {
+    text-align: right;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--home-accent, #0f9aa3);
+  }
+
+  /* Awards & Honors 섹션의 원형 아이콘 배지. */
+  .medal {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--home-highlight, #a6f0e8);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
 }
 
 /* Alpine.js가 초기화되기 전 모바일 메뉴가 잠깐 노출되는 것을 막는다. */

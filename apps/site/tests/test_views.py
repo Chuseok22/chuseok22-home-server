@@ -635,6 +635,91 @@ def test_project_card는_extra_links를_모두_렌더링한다() -> None:
 
 
 @pytest.mark.django_db
+def test_project_card는_stats가_없으면_통계_표를_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='통계 없음', description='설명', status=status, stats=[],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="stat-table"' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_stats가_있으면_라벨과_값을_표로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='통계 있음', description='설명', status=status,
+        stats=[
+            {'label': '👥 회원', 'value': '136명'},
+            {'label': '📦 등록 물품', 'value': '157개'},
+        ],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="stat-table"' in body
+    assert '<td>👥 회원</td><td>136명</td>' in body
+    assert '<td>📦 등록 물품</td><td>157개</td>' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_역할_인원_기간을_한_줄로_결합해서_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='메타 결합 테스트', description='설명', status=status,
+        role='Backend Lead', team_size=7, period='약 1년 6개월',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '약 1년 6개월 · Backend Lead · 7명' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_메타_정보만_있고_링크가_없으면_구분선을_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='링크 없음', description='설명', status=status,
+        role='Backend Lead', team_size=7, period='약 1년 6개월',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'Backend Lead · 7명' in body
+    assert 'divider' not in body
+
+
+@pytest.mark.django_db
 def test_projects_사이드바는_프로젝트가_없는_카테고리를_제외한다() -> None:
     from django.test import Client
 
