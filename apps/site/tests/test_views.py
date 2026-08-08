@@ -1870,6 +1870,63 @@ def test_lab_index는_알리미_카드와_discord_cta를_렌더링한다() -> No
 
 
 @pytest.mark.django_db
+def test_lab_index는_github_trending_소스에_전용_스케줄러_잡의_일정을_표시한다() -> None:
+    """github_trending 소스는 check_new_notices가 아니라 send_github_trending_report 잡으로
+    운영되므로, 두 ScheduledJobConfig의 스케줄이 다를 때 카드마다 각자의 실제 잡 일정을
+    표시하는지 검증한다(Finding 2 회귀 테스트)."""
+    from django.test import Client
+
+    from apps.core.models import ScheduledJobConfig
+    from apps.notifications.models import NoticeSource
+
+    NoticeSource.objects.create(
+        name='세종대 학사공지',
+        url='https://www.sejong.ac.kr/kor/intro/notice3.do',
+        crawler_type='sejong',
+        description='',
+        discord_webhook_url='https://discord.com/api/webhooks/1/a',
+        is_active=True,
+    )
+    NoticeSource.objects.create(
+        name='GitHub 트렌딩 리포트',
+        url='https://github.com/trending?since=daily',
+        crawler_type='github_trending',
+        description='',
+        discord_webhook_url='https://discord.com/api/webhooks/2/b',
+        is_active=True,
+    )
+    ScheduledJobConfig.objects.create(
+        job_id='check_new_notices',
+        is_enabled=True,
+        cron_day_of_week='*',
+        schedule_mode='fixed_times',
+        fixed_hours='8',
+        fixed_minute=0,
+    )
+    ScheduledJobConfig.objects.create(
+        job_id='send_github_trending_report',
+        is_enabled=True,
+        cron_day_of_week='*',
+        schedule_mode='fixed_times',
+        fixed_hours='9',
+        fixed_minute=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:lab-index'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '08:00' in body
+    assert '09:00' in body
+
+    sejong_source = next(s for s in response.context['notice_sources'] if s.name == '세종대 학사공지')
+    github_source = next(s for s in response.context['notice_sources'] if s.name == 'GitHub 트렌딩 리포트')
+    assert sejong_source.schedule_text == '매일 08:00 자동 수집'
+    assert github_source.schedule_text == '매일 09:00 자동 수집'
+
+
+@pytest.mark.django_db
 def test_lab_index는_discord_invite_url_미설정시_cta만_숨긴다() -> None:
     from django.test import Client, override_settings
 

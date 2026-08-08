@@ -63,6 +63,13 @@ from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
 # apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
 
+# NoticeSource.crawler_type별로 실제 수집을 구동하는 ScheduledJobConfig.job_id 매핑.
+# github_trending만 check_new_notices가 아닌 별도 잡(send_github_trending_report)으로 운영되고,
+# 나머지 crawler_type(sejong, sejong_do, linkareer, dacon, dreamspon)은 모두 check_new_notices가
+# 기본으로 구동하므로 매핑에 없는 crawler_type은 _DEFAULT_NOTICE_JOB_ID로 처리한다.
+_JOB_ID_BY_CRAWLER_TYPE = {'github_trending': 'send_github_trending_report'}
+_DEFAULT_NOTICE_JOB_ID = 'check_new_notices'
+
 _BLOG_SORT_OPTIONS = {
     # published_at은 null 허용 필드라 공개 글이라도 값이 없을 수 있다.
     # NULL을 기본(DESC=NULLS FIRST) 규칙대로 두면 날짜 없는 글이 "최신"으로 보여 nulls_last로 맨 뒤로 보낸다.
@@ -393,17 +400,25 @@ def lab_index(request: HttpRequest) -> HttpResponse:
     자동 알리미 섹션은 discord_webhook_url이 설정된(즉 한 번이라도 Discord에 연동된)
     NoticeSource만 노출한다(비활성 포함). 웹훅이 없는 소스는 check_new_notices가 발송
     자체를 건너뛰므로, 애초에 노출하지 않아야 "운영 중"처럼 보이는 오해를 막을 수 있다.
-    check_new_notices 잡의 ScheduledJobConfig를 조회해 수집 주기 문구를 함께 보여준다.
+    소스마다 실제로 수집을 구동하는 ScheduledJobConfig가 다를 수 있으므로(예: github_trending은
+    check_new_notices가 아니라 send_github_trending_report), 소스별 crawler_type에 맞는
+    ScheduledJobConfig를 조회해 수집 주기 문구를 카드마다 개별적으로 보여준다.
     """
     is_owner = request.user.is_authenticated and request.user.is_staff
     tools = Tool.objects.all()
-    notice_sources = NoticeSource.objects.exclude(discord_webhook_url='').order_by('id')
-    schedule_config = ScheduledJobConfig.objects.filter(job_id='check_new_notices').first()
+    notice_sources = list(NoticeSource.objects.exclude(discord_webhook_url='').order_by('id'))
+    job_ids = {_DEFAULT_NOTICE_JOB_ID, *_JOB_ID_BY_CRAWLER_TYPE.values()}
+    configs_by_job_id = {
+        config.job_id: config
+        for config in ScheduledJobConfig.objects.filter(job_id__in=job_ids)
+    }
+    for source in notice_sources:
+        job_id = _JOB_ID_BY_CRAWLER_TYPE.get(source.crawler_type, _DEFAULT_NOTICE_JOB_ID)
+        source.schedule_text = _format_notice_schedule_text(configs_by_job_id.get(job_id))
     return render(request, 'site/lab_index.html', {
         'tools': tools,
         'is_owner': is_owner,
         'notice_sources': notice_sources,
-        'notice_schedule_text': _format_notice_schedule_text(schedule_config),
         'discord_invite_url': settings.DISCORD_INVITE_URL,
     })
 
