@@ -1855,7 +1855,9 @@ def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_2개를_�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 2
+    # section-box 2개(GitHub 컨트리뷰션 + 사이드바 최근 글) + 시딩된 활동 데이터로 항상 렌더링되는
+    # "활동" 섹션 1개 = 3개. Awards & Honors는 Task 8에서 템플릿이 추가되면 여기 개수가 다시 +1 된다.
+    assert body.count('class="section-box') == 3
 
 
 @pytest.mark.django_db
@@ -1871,7 +1873,7 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 4
+    assert body.count('class="section-box') == 5
 
 
 @pytest.mark.django_db
