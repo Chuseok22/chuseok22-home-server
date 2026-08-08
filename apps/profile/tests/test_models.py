@@ -57,14 +57,14 @@ def test_career_str_representation은_분류_기관_역할을_보여준다() -> 
 def test_career는_order_순으로_정렬된다() -> None:
     Career.objects.create(
         category=Career.Category.WORK, organization='추석22', role='백엔드 개발자',
-        period_start='2026-01-01', order=1,
+        period_start='2026-01-01', order=101,
     )
     Career.objects.create(
         category=Career.Category.EDUCATION, organization='세종대학교', role='컴퓨터공학과',
-        period_start='2022-03-01', order=0,
+        period_start='2022-03-01', order=100,
     )
 
-    first = Career.objects.first()
+    first = Career.objects.filter(organization__in=['추석22', '세종대학교']).order_by('order').first()
 
     assert first.organization == '세종대학교'
 
@@ -101,3 +101,25 @@ def test_pull_request_highlight_str_representation은_저장소와_제목을_보
     )
 
     assert str(pr) == '[chuseok22/chuseok22-home-server] GitHub 활동 이력 자동 정리 기능 추가'
+
+
+@pytest.mark.django_db
+def test_시딩_마이그레이션으로_수상_2건이_생성되어_있다() -> None:
+    awards = list(Career.objects.filter(category=Career.Category.AWARD).order_by('order'))
+
+    assert len(awards) == 2
+    assert awards[0].organization == '제4회 문화체육관광 인공지능·데이터 활용 공모전'
+    assert awards[0].role == '문화데이터 우수사례 부문 장려상'
+    assert awards[1].organization == '세종대학교'
+    assert awards[1].role == '성적우수장학금'
+
+
+@pytest.mark.django_db
+def test_시딩_마이그레이션으로_활동_3건이_생성되어_있다() -> None:
+    names = list(Activity.objects.order_by('order').values_list('name', flat=True))
+
+    assert names == [
+        'AROM Spring Boot 심화반 · Lead Mentor',
+        'CODEGATE AI-Start-Up Hackathon',
+        'Autory · 세종대 자동차제작 동아리',
+    ]

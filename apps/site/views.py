@@ -91,11 +91,15 @@ def home(request: HttpRequest) -> HttpResponse:
         category: list(items) for category, items in groupby(skills, key=lambda s: s.category)
     }
 
-    # 직장/학력/수상을 구분해 보여주기 위해 Skill과 동일한 방식으로 카테고리별로 그룹핑
-    careers = sorted(Career.objects.all(), key=lambda c: (Career.Category.values.index(c.category), c.order))
+    # 수상(AWARD)은 이력이 아닌 별도 Awards & Honors 섹션에서 보여주므로 이력 그룹핑에서 제외한다
+    careers = sorted(
+        Career.objects.exclude(category=Career.Category.AWARD),
+        key=lambda c: (Career.Category.values.index(c.category), c.order),
+    )
     careers_by_category = {
         category: list(items) for category, items in groupby(careers, key=lambda c: c.category)
     }
+    awards = Career.objects.filter(category=Career.Category.AWARD).order_by('order')
 
     VisitorCounter.objects.get_or_create(pk=1)
     VisitorCounter.objects.filter(pk=1).update(count=F('count') + 1)
@@ -106,8 +110,9 @@ def home(request: HttpRequest) -> HttpResponse:
         'bio_html': bio_html,
         'skills_by_category': skills_by_category,
         'pr_highlights': PullRequestHighlight.objects.all(),
-        'featured_projects': Project.objects.order_by('order')[:3],
+        'featured_projects': Project.objects.filter(is_featured=True).order_by('order'),
         'careers_by_category': careers_by_category,
+        'awards': awards,
         'activities': Activity.objects.all(),
         'certifications': Certification.objects.all(),
         'recent_posts': Post.objects.filter(is_published=True).order_by('-published_at')[:3],

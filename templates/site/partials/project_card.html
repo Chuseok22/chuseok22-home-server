@@ -10,6 +10,21 @@
     {% else %}
     <h2 class="card-title">{{ project.title }}</h2>
     {% endif %}
+
+    {% if project.period or project.role or project.team_size %}
+    <p class="text-xs opacity-60 -mt-1">{% if project.period %}{{ project.period }}{% if project.role or project.team_size %} · {% endif %}{% endif %}{% if project.role %}{{ project.role }}{% if project.team_size %} · {% endif %}{% endif %}{% if project.team_size %}{{ project.team_size }}명{% endif %}</p>
+    {% endif %}
+
+    {% if project.stats %}
+    <table class="stat-table">
+      <tbody>
+        {% for stat in project.stats %}
+        <tr><td>{{ stat.label }}</td><td>{{ stat.value }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
     <p>{{ project.description }}</p>
     <div class="flex gap-2 flex-wrap">
       {% for tag in project.tags %}
@@ -28,40 +43,32 @@
     </ul>
     {% endif %}
 
-    {% if project.period or project.role or project.team_size or project.github_href or project.web_site_href or project.ios_href or project.android_href or project.extra_links %}
+    {% if project.github_href or project.web_site_href or project.ios_href or project.android_href or project.extra_links %}
     <div class="divider my-2"></div>
-    <div class="flex items-center justify-between gap-2 flex-wrap text-sm opacity-70">
-      <div class="flex gap-3 flex-wrap">
-        {% if project.period %}<span>{{ project.period }}</span>{% endif %}
-        {% if project.role or project.team_size %}
-        <span>{{ project.role }}{% if project.role and project.team_size %} · {% endif %}{% if project.team_size %}{{ project.team_size }}명{% endif %}</span>
-        {% endif %}
-      </div>
-      <div class="flex gap-2 items-center flex-wrap">
-        {% if project.github_href %}
-        <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub 저장소">
-          <img src="{{ "github"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
-        </a>
-        {% endif %}
-        {% if project.ios_href %}
-        <a href="{{ project.ios_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="App Store">
-          <img src="{{ "apple"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
-        </a>
-        {% endif %}
-        {% if project.android_href %}
-        <a href="{{ project.android_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="Google Play">
-          <img src="{{ "googleplay"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
-        </a>
-        {% endif %}
-        {% if project.web_site_href %}
-        <a href="{{ project.web_site_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="웹사이트">
-          <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/globe-alt.svg" alt="" class="w-4 h-4 shrink-0">
-        </a>
-        {% endif %}
-        {% for link in project.extra_links %}
-        <a href="{{ link.url }}" class="link link-hover" target="_blank" rel="noopener">{{ link.label }}</a>
-        {% endfor %}
-      </div>
+    <div class="flex items-center justify-end gap-2 flex-wrap text-sm opacity-70">
+      {% if project.github_href %}
+      <a href="{{ project.github_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub 저장소">
+        <img src="{{ "github"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
+      </a>
+      {% endif %}
+      {% if project.ios_href %}
+      <a href="{{ project.ios_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="App Store">
+        <img src="{{ "apple"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
+      </a>
+      {% endif %}
+      {% if project.android_href %}
+      <a href="{{ project.android_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="Google Play">
+        <img src="{{ "googleplay"|skill_icon_url }}" alt="" class="w-4 h-4 shrink-0">
+      </a>
+      {% endif %}
+      {% if project.web_site_href %}
+      <a href="{{ project.web_site_href }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="웹사이트">
+        <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/globe-alt.svg" alt="" class="w-4 h-4 shrink-0">
+      </a>
+      {% endif %}
+      {% for link in project.extra_links %}
+      <a href="{{ link.url }}" class="link link-hover" target="_blank" rel="noopener">{{ link.label }}</a>
+      {% endfor %}
     </div>
     {% endif %}
   </div>

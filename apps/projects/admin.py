@@ -85,6 +85,41 @@ class ExtraLinksField(forms.Field):
         return links
 
 
+class StatsField(forms.Field):
+    """"라벨|값" 형식의 줄바꿈 텍스트를 [{"label": str, "value": str}, ...] 리스트로 변환하는 폼 필드.
+
+    프로젝트 카드에 노출할 핵심 지표(예: "👥 회원|136명")를 라벨과 값 쌍으로 임의 개수 저장하기
+    위해 사용한다. ExtraLinksField와 동일한 "라벨|값" 파이프 구분 패턴을 재사용한다.
+    """
+
+    widget = forms.Textarea
+
+    def prepare_value(self, value: Any) -> Any:
+        if isinstance(value, list):
+            return '\n'.join(f'{item["label"]}|{item["value"]}' for item in value)
+        return value
+
+    def to_python(self, value: str | None) -> list[dict[str, str]]:
+        if not value:
+            return []
+
+        stats: list[dict[str, str]] = []
+        for line_number, line in enumerate(value.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if '|' not in stripped:
+                raise forms.ValidationError(f'{line_number}번째 줄: "라벨|값" 형식이 아닙니다.')
+            label, stat_value = stripped.split('|', 1)
+            label, stat_value = label.strip(), stat_value.strip()
+            if not label:
+                raise forms.ValidationError(f'{line_number}번째 줄: 라벨이 비어 있습니다.')
+            if not stat_value:
+                raise forms.ValidationError(f'{line_number}번째 줄: 값이 비어 있습니다.')
+            stats.append({'label': label, 'value': stat_value})
+        return stats
+
+
 @admin.register(ProjectCategory)
 class ProjectCategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'order')
@@ -117,6 +152,10 @@ class ProjectAdminForm(forms.ModelForm):
         required=False,
         help_text='한 줄에 "라벨|URL" 형식으로 입력하세요. 예: Notion|https://notion.so/xxx',
     )
+    stats = StatsField(
+        required=False,
+        help_text='한 줄에 "라벨|값" 형식으로 입력하세요. 예: 👥 회원|136명',
+    )
 
     class Meta:
         model = Project
@@ -137,7 +176,7 @@ class ProjectAdmin(admin.ModelAdmin):
             'fields': ('category', 'title', 'description', 'tags', 'status', 'order', 'is_featured'),
         }),
         ('상세 정보', {
-            'fields': ('period', 'team_size', 'role', 'highlights'),
+            'fields': ('period', 'team_size', 'role', 'stats', 'highlights'),
             'classes': ('collapse',),
         }),
         ('링크', {

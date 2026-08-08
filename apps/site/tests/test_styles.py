@@ -121,3 +121,16 @@ def test_코드블록_복사_버튼은_키보드_포커스_표시를_가진다()
     content = STYLES_PATH.read_text(encoding='utf-8')
 
     assert '.code-block-copy:focus-visible' in content
+
+
+def test_stat_table이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.stat-table' in content
+    assert 'var(--home-accent, #0f9aa3)' in content
+
+
+def test_medal이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.medal {' in content

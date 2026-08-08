@@ -226,7 +226,49 @@ def test_home_은_기술스택_카테고리를_정의_순서대로_보여준다(
 
 
 @pytest.mark.django_db
-def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한다() -> None:
+def test_home_은_기술스택_카테고리에_Mobile과_AI를_포함한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Skill
+
+    Skill.objects.create(category=Skill.Category.MOBILE, name='Capacitor', order=0)
+    Skill.objects.create(category=Skill.Category.AI, name='Gemini', order=0)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    categories = list(response.context['skills_by_category'].keys())
+
+    assert 'mobile' in categories
+    assert 'ai' in categories
+    assert categories.index('mobile') < categories.index('ai')
+
+
+@pytest.mark.django_db
+def test_home_은_is_featured인_프로젝트만_대표_프로젝트로_전달한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        order=0, is_featured=True,
+    )
+    Project.objects.create(
+        category=category, title='일반작', description='설명', status=status,
+        order=1, is_featured=False,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    featured = list(response.context['featured_projects'])
+
+    assert [p.title for p in featured] == ['대표작']
+
+
+@pytest.mark.django_db
+def test_home_은_is_featured_프로젝트를_order_순으로_개수_제한_없이_전달한다() -> None:
     from django.test import Client
 
     from apps.projects.models import Project, ProjectCategory, ProjectStatus
@@ -235,15 +277,16 @@ def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한�
     status = ProjectStatus.objects.get(name='진행중')
     for i in range(5):
         Project.objects.create(
-            category=category, title=f'프로젝트 {i}', description='설명', status=status, order=i,
+            category=category, title=f'대표작 {i}', description='설명', status=status,
+            order=i, is_featured=True,
         )
 
     client = Client()
     response = client.get(reverse('site:home'))
     featured = list(response.context['featured_projects'])
 
-    assert len(featured) == 3
-    assert [p.title for p in featured] == ['프로젝트 0', '프로젝트 1', '프로젝트 2']
+    assert len(featured) == 5
+    assert [p.title for p in featured] == [f'대표작 {i}' for i in range(5)]
 
 
 @pytest.mark.django_db
@@ -632,6 +675,91 @@ def test_project_card는_extra_links를_모두_렌더링한다() -> None:
     assert 'Notion' in body
     assert '<a href="https://speakerdeck.com/example"' in body
     assert '발표자료' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_stats가_없으면_통계_표를_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='통계 없음', description='설명', status=status, stats=[],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="stat-table"' not in body
+
+
+@pytest.mark.django_db
+def test_project_card는_stats가_있으면_라벨과_값을_표로_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='통계 있음', description='설명', status=status,
+        stats=[
+            {'label': '👥 회원', 'value': '136명'},
+            {'label': '📦 등록 물품', 'value': '157개'},
+        ],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'class="stat-table"' in body
+    assert '<td>👥 회원</td><td>136명</td>' in body
+    assert '<td>📦 등록 물품</td><td>157개</td>' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_역할_인원_기간을_한_줄로_결합해서_보여준다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='메타 결합 테스트', description='설명', status=status,
+        role='Backend Lead', team_size=7, period='약 1년 6개월',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert '약 1년 6개월 · Backend Lead · 7명' in body
+
+
+@pytest.mark.django_db
+def test_project_card는_메타_정보만_있고_링크가_없으면_구분선을_보여주지_않는다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    side = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=side, title='링크 없음', description='설명', status=status,
+        role='Backend Lead', team_size=7, period='약 1년 6개월',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:projects'))
+    body = response.content.decode()
+
+    assert 'Backend Lead · 7명' in body
+    assert 'divider' not in body
 
 
 @pytest.mark.django_db
@@ -1502,21 +1630,86 @@ def test_home_템플릿은_이력을_직장_학력_그룹으로_구분해서_보
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_수상_데이터가_없으면_수상_헤더를_보여주지_않는다() -> None:
+def test_home_은_이력_섹션에서_수상_카테고리를_제외한다() -> None:
     from django.test import Client
 
     from apps.profile.models import Career
 
     Career.objects.create(
-        category=Career.Category.WORK, organization='추석22', role='백엔드 개발자',
+        category=Career.Category.WORK, organization='회사', role='개발자',
         period_start='2026-01-01', order=0,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='공모전', role='장려상',
+        period_start='2026-08-06', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    categories = list(response.context['careers_by_category'].keys())
+
+    assert categories == ['work']
+
+
+@pytest.mark.django_db
+def test_home_은_awards_컨텍스트에_수상_카테고리만_담는다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='회사', role='개발자',
+        period_start='2026-01-01', order=0,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='테스트 공모전', role='테스트상',
+        period_start='2026-08-06', order=99,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    awards = list(response.context['awards'])
+
+    assert all(award.category == 'award' for award in awards)
+    assert any(award.organization == '테스트 공모전' for award in awards)
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_awards_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='제4회 문화체육관광 인공지능·데이터 활용 공모전',
+        role='문화데이터 우수사례 부문 장려상', period_start='2026-08-06', order=0,
     )
 
     client = Client()
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert '수상' not in body
+    assert '<span class="eyebrow">Awards</span>' in body
+    assert 'Awards &amp; Honors' in body
+    assert '제4회 문화체육관광 인공지능·데이터 활용 공모전' in body
+    assert '<mark class="home-hl">문화데이터 우수사례 부문 장려상</mark>' in body
+    assert 'class="medal"' in body
+
+
+@pytest.mark.django_db
+def test_home_은_awards가_없으면_Awards_섹션을_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    # Task 6에서 시딩된 수상 데이터를 지워 "수상 데이터가 전혀 없는" 상태를 만든다
+    Career.objects.filter(category=Career.Category.AWARD).delete()
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Awards</span>' not in body
 
 
 @pytest.mark.django_db
@@ -1682,7 +1875,9 @@ def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_2개를_�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 2
+    # section-box 2개(GitHub 컨트리뷰션 + 사이드바 최근 글) + 시딩된 데이터로 항상 렌더링되는
+    # "활동" 섹션 1개 + "Awards & Honors" 섹션 1개 = 4개.
+    assert body.count('class="section-box') == 4
 
 
 @pytest.mark.django_db
@@ -1698,7 +1893,7 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 4
+    assert body.count('class="section-box') == 6
 
 
 @pytest.mark.django_db
@@ -2538,3 +2733,102 @@ def test_blog_상세는_is_staff_아닌_로그인_사용자에게도_수정_UI�
     body = response.content.decode()
 
     assert 'id="post-edit-toggle"' not in body
+
+
+@pytest.mark.django_db
+def test_home_프로젝트_섹션은_2열_grid와_items_start를_사용한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        is_featured=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'grid gap-4 md:grid-cols-2 items-start' in body
+
+
+@pytest.mark.django_db
+def test_home_프로젝트_섹션은_project_card_파셜을_재사용한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        is_featured=True, highlights=['설계 포인트 1'],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # project_card.html의 "더보기" 토글은 홈에서도 렌더링돼야 한다
+    assert '더보기' in body
+    assert '설계 포인트 1' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(
+        name='AROM Spring Boot 심화반 테스트용', description='설명 테스트',
+        period='2099.1학기', order=100,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Activities</span>' in body
+    assert 'AROM Spring Boot 심화반 테스트용' in body
+    assert '2099.1학기' in body
+    assert '설명 테스트' in body
+    assert '<ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(
+        name='활동_링크_테스트', link='https://example.com/activity', order=100,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<a href="https://example.com/activity" target="_blank" rel="noopener" class="link link-hover">활동_링크_테스트</a>' in body
+
+
+@pytest.mark.django_db
+def test_home_자격증_카드는_고정_아이콘과_2열_grid를_사용한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Certification
+
+    Certification.objects.create(
+        name='SQLD', issuer='한국데이터산업진흥원', acquired_date='2023-06-02', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'grid gap-3 sm:grid-cols-2' in body
+    assert '<span class="text-2xl" aria-hidden="true">📜</span>' in body

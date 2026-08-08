@@ -498,6 +498,47 @@ def test_경력이_5개_초과면_상위_5개만_노출된다() -> None:
 
 
 @pytest.mark.django_db
+def test_수상_정보가_있으면_컨텍스트에_포함된다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='OO 공모전', role='장려상',
+        period_start=date(2024, 3, 1), description='문화데이터 우수사례 부문 장려상',
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('무슨 상 받았어요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '[수상]' in system_content
+    assert 'OO 공모전' in system_content
+    assert '문화데이터 우수사례 부문 장려상' in system_content
+
+
+@pytest.mark.django_db
+def test_수상은_종료일이_없어도_현재로_표시하지_않는다() -> None:
+    PromptTemplate.objects.create(
+        feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
+        model='functiongemma', is_active=True,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='OO 공모전', role='장려상',
+        period_start=date(2024, 3, 1),
+    )
+
+    with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
+        mock_client_cls.return_value.chat.return_value = '응답'
+        get_chat_reply('무슨 상 받았어요?', [])
+
+    system_content = mock_client_cls.return_value.chat.call_args.kwargs['messages'][0]['content']
+    assert '2024.03' in system_content
+    assert '현재' not in system_content
+
+
+@pytest.mark.django_db
 def test_자격증_정보가_있으면_컨텍스트에_포함된다() -> None:
     PromptTemplate.objects.create(
         feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
@@ -565,6 +606,10 @@ def test_경력_자격증_대외활동_PR이_모두_있으면_이_순서로_배�
         category=Career.Category.WORK, organization='OO회사', role='백엔드 개발자',
         period_start=date(2024, 1, 1),
     )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='OO 공모전', role='장려상',
+        period_start=date(2024, 3, 1),
+    )
     Certification.objects.create(name='정보처리기사', issuer='한국산업인력공단', acquired_date=date(2023, 5, 1))
     Activity.objects.create(name='OO 커뮤니티')
     PullRequestHighlight.objects.create(
@@ -580,6 +625,7 @@ def test_경력_자격증_대외활동_PR이_모두_있으면_이_순서로_배�
     assert (
         system_content.index('[프로필]')
         < system_content.index('[경력]')
+        < system_content.index('[수상]')
         < system_content.index('[자격증]')
         < system_content.index('[대외활동]')
         < system_content.index('[대표 PR]')

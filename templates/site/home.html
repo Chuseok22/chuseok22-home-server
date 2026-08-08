@@ -88,19 +88,9 @@
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
       </div>
-      <div class="grid gap-4">
+      <div class="grid gap-4 md:grid-cols-2 items-start">
         {% for project in featured_projects %}
-        <article class="card bg-base-100 border border-base-300">
-          <div class="card-body">
-            <h3 class="card-title text-base">{{ project.title }}</h3>
-            <p class="text-sm">{{ project.description }}</p>
-            <div class="flex gap-2 flex-wrap">
-              {% for tag in project.tags %}
-              <span class="badge-tag">{{ tag }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        </article>
+        {% include "site/partials/project_card.html" %}
         {% endfor %}
       </div>
     </section>
@@ -132,18 +122,22 @@
     </section>
     {% endif %}
 
-    {% if activities %}
+    {% if awards %}
     <section class="section-box">
-      <span class="eyebrow">Activities</span>
-      <h2 class="text-xl font-bold mb-4">활동</h2>
-      <div class="grid gap-4 sm:grid-cols-2">
-        {% for activity in activities %}
+      <span class="eyebrow">Awards</span>
+      <h2 class="text-xl font-bold mb-4">Awards &amp; Honors</h2>
+      <div class="flex flex-col gap-3">
+        {% for award in awards %}
         <div class="card bg-base-100 border border-base-300">
-          <div class="card-body">
-            <h3 class="card-title text-base">{{ activity.name }}</h3>
-            {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
-            {% if activity.description %}<p class="text-sm">{{ activity.description }}</p>{% endif %}
-            {% if activity.link %}<a href="{{ activity.link }}" target="_blank" rel="noopener" class="link link-hover text-sm">자세히 →</a>{% endif %}
+          <div class="card-body flex-row items-start gap-3 p-4">
+            <div class="medal">🏆</div>
+            <div>
+              <p class="font-medium leading-snug">{{ award.organization }} · <mark class="home-hl">{{ award.role }}</mark></p>
+              {% if award.description %}<p class="text-sm opacity-70">{{ award.description }}</p>{% endif %}
+              <p class="text-xs opacity-60 mt-1">
+                {{ award.period_start|date:'Y.m' }}{% if award.period_end and award.period_end != award.period_start %} — {{ award.period_end|date:'Y.m' }}{% endif %}
+              </p>
+            </div>
           </div>
         </div>
         {% endfor %}
@@ -151,21 +145,44 @@
     </section>
     {% endif %}
 
+    {% if activities %}
+    <section class="section-box">
+      <span class="eyebrow">Activities</span>
+      <h2 class="text-xl font-bold mb-4">활동</h2>
+      <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
+        {% for activity in activities %}
+        <li>
+          {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
+          {% if activity.link %}
+          <p class="font-medium"><a href="{{ activity.link }}" target="_blank" rel="noopener" class="link link-hover">{{ activity.name }}</a></p>
+          {% else %}
+          <p class="font-medium">{{ activity.name }}</p>
+          {% endif %}
+          {% if activity.description %}<p class="text-sm opacity-70">{{ activity.description }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     {% if certifications %}
     <section class="section-box" x-data="{ openId: null }" @keydown.escape.window="openId = null">
       <span class="eyebrow">Certifications</span>
       <h2 class="text-xl font-bold mb-4">자격증</h2>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-3 sm:grid-cols-2">
         {% for cert in certifications %}
         {% if cert.badge_image %}
         <button type="button" @click="openId = {{ cert.id }}" class="card bg-base-100 border border-base-300 text-left hover:bg-base-300 transition-colors">
         {% else %}
         <div class="card bg-base-100 border border-base-300 text-left">
         {% endif %}
-          <div class="card-body items-center text-center">
-            <h3 class="card-title text-sm">{{ cert.name }}</h3>
-            <p class="text-xs opacity-70">{{ cert.acquired_date|date:'Y.m.d' }}</p>
-            <p class="text-xs opacity-70">{{ cert.issuer }}</p>
+          <div class="card-body flex-row items-center gap-3 p-4">
+            <span class="text-2xl" aria-hidden="true">📜</span>
+            <div>
+              <h3 class="card-title text-sm">{{ cert.name }}</h3>
+              <p class="text-xs opacity-70">{{ cert.issuer }}</p>
+              <p class="text-xs opacity-70">{{ cert.acquired_date|date:'Y.m.d' }}</p>
+            </div>
           </div>
         {% if cert.badge_image %}</button>{% else %}</div>{% endif %}
         {% endfor %}
