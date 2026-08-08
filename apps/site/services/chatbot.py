@@ -94,6 +94,7 @@ def _build_dynamic_context(user_message: str) -> tuple[str, list[ChatLink]]:
     sections = [
         _build_profile_section(),
         _build_career_section(),
+        _build_award_section(),
         _build_certification_section(),
         _build_activity_section(),
         _build_pull_request_highlight_section(),
@@ -156,6 +157,14 @@ def _format_career_line(career: Career) -> str:
     if career.description:
         line += f'\n  {career.description}'
     return line
+
+
+def _build_award_section() -> str:
+    awards = Career.objects.filter(category=Career.Category.AWARD)[:_STATIC_SECTION_LIMIT]
+    if not awards:
+        return ''
+    lines = [_format_career_line(award) for award in awards]
+    return '[수상]\n' + '\n'.join(lines)
 
 
 def _build_certification_section() -> str:

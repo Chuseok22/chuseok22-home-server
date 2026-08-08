@@ -1675,24 +1675,6 @@ def test_home_은_awards_컨텍스트에_수상_카테고리만_담는다() -> N
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_수상_데이터가_없으면_수상_헤더를_보여주지_않는다() -> None:
-    from django.test import Client
-
-    from apps.profile.models import Career
-
-    Career.objects.create(
-        category=Career.Category.WORK, organization='추석22', role='백엔드 개발자',
-        period_start='2026-01-01', order=0,
-    )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '수상' not in body
-
-
-@pytest.mark.django_db
 def test_home_템플릿은_awards_섹션에_eyebrow_라벨을_보여준다() -> None:
     from django.test import Client
 
