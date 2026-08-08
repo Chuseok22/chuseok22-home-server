@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.dreamspon import DreamsponItem
+from apps.notifications.crawlers.github_trending import GithubTrendingDigestItem, TrendingRepoEntry
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -249,3 +250,80 @@ class TestDiscordServiceSendNotice(TestCase):
         self.assertFalse(result)
         self.assertNotIn('test-token', captured.output[0])
         self.assertIn('테스트 출처', captured.output[0])
+
+
+class TestDiscordServiceSendDigest(TestCase):
+    def setUp(self) -> None:
+        self.service = DiscordService()
+        self.item = GithubTrendingDigestItem(
+            article_id='2026-08-08',
+            title='GitHub 트렌딩 TOP 2 (2026.08.08)',
+            url='https://github.com/trending?since=daily',
+            repos=[
+                TrendingRepoEntry(
+                    owner_repo='owner/repo1', url='https://github.com/owner/repo1',
+                    language='Python', stars_today=342, total_stars=12450, total_forks=890,
+                    summary_ko='파이썬으로 만든 예제 저장소입니다.',
+                ),
+                TrendingRepoEntry(
+                    owner_repo='owner/repo2', url='https://github.com/owner/repo2',
+                    language=None, stars_today=100, total_stars=500, total_forks=10,
+                    summary_ko='언어 정보가 없는 저장소입니다.',
+                ),
+            ],
+        )
+
+    def test_build_repo_embed_필드_구성(self) -> None:
+        embed = self.service._build_repo_embed(1, self.item.repos[0])
+
+        self.assertEqual(embed['title'], '1. 📦 owner/repo1')
+        self.assertEqual(embed['url'], 'https://github.com/owner/repo1')
+        self.assertEqual(embed['description'], '파이썬으로 만든 예제 저장소입니다.')
+        field_names = [f['name'] for f in embed['fields']]
+        self.assertIn('🔤 언어', field_names)
+        self.assertIn('⭐ 오늘 획득', field_names)
+        self.assertIn('🌟 누적 star', field_names)
+        self.assertIn('🍴 fork', field_names)
+        field_values = {f['name']: f['value'] for f in embed['fields']}
+        self.assertEqual(field_values['🔤 언어'], 'Python')
+        self.assertEqual(field_values['⭐ 오늘 획득'], '+342')
+        self.assertEqual(field_values['🌟 누적 star'], '12,450')
+        self.assertEqual(field_values['🍴 fork'], '890')
+
+    def test_build_repo_embed_언어_없으면_대시(self) -> None:
+        embed = self.service._build_repo_embed(2, self.item.repos[1])
+        field_values = {f['name']: f['value'] for f in embed['fields']}
+        self.assertEqual(field_values['🔤 언어'], '—')
+
+    def test_build_repo_embed_긴_요약은_잘린다(self) -> None:
+        """AI 요약이 예상보다 길어도 Discord embed 길이 제한(embed당 4096자, 메시지 전체
+        embeds 합산 6000자)에 걸려 400 응답으로 그날 리포트 전체가 유실되지 않도록,
+        카드당 안전한 길이로 잘라야 한다."""
+        long_repo = TrendingRepoEntry(
+            owner_repo='owner/repo3', url='https://github.com/owner/repo3',
+            language='Go', stars_today=1, total_stars=1, total_forks=1,
+            summary_ko='가' * 500,
+        )
+
+        embed = self.service._build_repo_embed(3, long_repo)
+
+        self.assertLessEqual(len(embed['description']), 400)
+        self.assertTrue(embed['description'].endswith('…'))
+
+    def test_send_digest_성공(self) -> None:
+        with patch('apps.notifications.services.discord.requests.post') as mock_post:
+            mock_post.return_value.raise_for_status = MagicMock()
+            result = self.service.send_digest(_WEBHOOK_URL, self.item)
+
+        self.assertTrue(result)
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(len(payload['embeds']), 2)
+        self.assertIn('GitHub 트렌딩', payload['content'])
+        self.assertEqual(payload['allowed_mentions'], {'parse': []})
+
+    def test_send_digest_실패시_False(self) -> None:
+        with patch('apps.notifications.services.discord.requests.post') as mock_post:
+            mock_post.side_effect = requests.RequestException('boom')
+            result = self.service.send_digest(_WEBHOOK_URL, self.item)
+
+        self.assertFalse(result)
