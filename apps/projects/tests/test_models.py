@@ -119,3 +119,20 @@ def test_Project는_web_site_href_ios_href_android_href_extra_links_필드를_�
 
 def test_Project의_extra_links_기본값은_빈_리스트다() -> None:
     assert Project._meta.get_field('extra_links').default() == []
+
+
+@pytest.mark.django_db
+def test_Project는_stats_필드를_저장한다() -> None:
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    project = Project.objects.create(
+        category=category, title='통계 필드 테스트', description='설명', status=status,
+        stats=[{'label': '👥 회원', 'value': '136명'}],
+    )
+
+    project.refresh_from_db()
+    assert project.stats == [{'label': '👥 회원', 'value': '136명'}]
+
+
+def test_Project의_stats_기본값은_빈_리스트다() -> None:
+    assert Project._meta.get_field('stats').default() == []

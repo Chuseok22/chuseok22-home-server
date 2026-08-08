@@ -44,6 +44,7 @@ class Project(models.Model):
     android_href = models.URLField(blank=True)
     title_href = models.URLField(blank=True)
     extra_links = models.JSONField(default=list, blank=True)
+    stats = models.JSONField(default=list, blank=True, verbose_name='핵심 지표')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
