@@ -59,6 +59,8 @@ class DiscordService:
         description = repo.summary_ko
         if len(description) > _EMBED_DESCRIPTION_MAX_CHARS:
             description = description[:_EMBED_DESCRIPTION_MAX_CHARS - 1].rstrip() + '…'
+        if not description:
+            description = '설명 없음'
         return {
             'title': f'{rank}. 📦 {repo.owner_repo}',
             'url': repo.url,

@@ -310,6 +310,20 @@ class TestDiscordServiceSendDigest(TestCase):
         self.assertLessEqual(len(embed['description']), 400)
         self.assertTrue(embed['description'].endswith('…'))
 
+    def test_build_repo_embed_설명_없으면_플레이스홀더(self) -> None:
+        """설명이 없는 저장소(README 없고 AI 요약도 실패한 경우)의 embed description이
+        빈 문자열이 되면 Discord 400 응답으로 그날 리포트 전체가 유실될 수 있으므로,
+        빈 값이면 플레이스홀더 문구로 대체해야 한다."""
+        empty_repo = TrendingRepoEntry(
+            owner_repo='owner/repo-empty', url='https://github.com/owner/repo-empty',
+            language='JavaScript', stars_today=50, total_stars=100, total_forks=5,
+            summary_ko='',
+        )
+
+        embed = self.service._build_repo_embed(1, empty_repo)
+
+        self.assertEqual(embed['description'], '설명 없음')
+
     def test_send_digest_성공(self) -> None:
         with patch('apps.notifications.services.discord.requests.post') as mock_post:
             mock_post.return_value.raise_for_status = MagicMock()
