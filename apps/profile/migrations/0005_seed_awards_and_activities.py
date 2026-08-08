@@ -1,6 +1,7 @@
 import datetime
 
 from django.db import migrations
+from django.db.models import Q
 
 
 def seed_awards_and_activities(apps, schema_editor) -> None:
@@ -57,10 +58,15 @@ def remove_seeded_awards_and_activities(apps, schema_editor) -> None:
     Career = apps.get_model('profile', 'Career')
     Activity = apps.get_model('profile', 'Activity')
 
+    # organization/role을 각각 __in으로 독립 매칭하면 두 목록의 교차 조합(시딩하지 않은 조합)도
+    # 삭제 대상에 포함된다. 시딩한 두 레코드를 organization+role 쌍으로 정확히 묶어 매칭한다.
     Career.objects.filter(
-        category='award',
-        organization__in=['제4회 문화체육관광 인공지능·데이터 활용 공모전', '세종대학교'],
-        role__in=['문화데이터 우수사례 부문 장려상', '성적우수장학금'],
+        Q(
+            category='award',
+            organization='제4회 문화체육관광 인공지능·데이터 활용 공모전',
+            role='문화데이터 우수사례 부문 장려상',
+        )
+        | Q(category='award', organization='세종대학교', role='성적우수장학금'),
     ).delete()
     Activity.objects.filter(
         name__in=[
