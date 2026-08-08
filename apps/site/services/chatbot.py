@@ -142,7 +142,7 @@ def _build_profile_section() -> str:
 
 
 def _build_career_section() -> str:
-    careers = Career.objects.all()[:_STATIC_SECTION_LIMIT]
+    careers = Career.objects.exclude(category=Career.Category.AWARD)[:_STATIC_SECTION_LIMIT]
     if not careers:
         return ''
     lines = [_format_career_line(career) for career in careers]
