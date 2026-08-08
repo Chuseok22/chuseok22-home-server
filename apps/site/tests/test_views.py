@@ -244,7 +244,31 @@ def test_home_은_기술스택_카테고리에_Mobile과_AI를_포함한다() ->
 
 
 @pytest.mark.django_db
-def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한다() -> None:
+def test_home_은_is_featured인_프로젝트만_대표_프로젝트로_전달한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        order=0, is_featured=True,
+    )
+    Project.objects.create(
+        category=category, title='일반작', description='설명', status=status,
+        order=1, is_featured=False,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    featured = list(response.context['featured_projects'])
+
+    assert [p.title for p in featured] == ['대표작']
+
+
+@pytest.mark.django_db
+def test_home_은_is_featured_프로젝트를_order_순으로_개수_제한_없이_전달한다() -> None:
     from django.test import Client
 
     from apps.projects.models import Project, ProjectCategory, ProjectStatus
@@ -253,15 +277,16 @@ def test_home_은_대표_프로젝트를_order_기준_상위_3개만_전달한�
     status = ProjectStatus.objects.get(name='진행중')
     for i in range(5):
         Project.objects.create(
-            category=category, title=f'프로젝트 {i}', description='설명', status=status, order=i,
+            category=category, title=f'대표작 {i}', description='설명', status=status,
+            order=i, is_featured=True,
         )
 
     client = Client()
     response = client.get(reverse('site:home'))
     featured = list(response.context['featured_projects'])
 
-    assert len(featured) == 3
-    assert [p.title for p in featured] == ['프로젝트 0', '프로젝트 1', '프로젝트 2']
+    assert len(featured) == 5
+    assert [p.title for p in featured] == [f'대표작 {i}' for i in range(5)]
 
 
 @pytest.mark.django_db
@@ -1602,6 +1627,51 @@ def test_home_템플릿은_이력을_직장_학력_그룹으로_구분해서_보
     assert '학력' in body
     assert '[직장]' not in body
     assert '[학력]' not in body
+
+
+@pytest.mark.django_db
+def test_home_은_이력_섹션에서_수상_카테고리를_제외한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='회사', role='개발자',
+        period_start='2026-01-01', order=0,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='공모전', role='장려상',
+        period_start='2026-08-06', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    categories = list(response.context['careers_by_category'].keys())
+
+    assert categories == ['work']
+
+
+@pytest.mark.django_db
+def test_home_은_awards_컨텍스트에_수상_카테고리만_담는다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.WORK, organization='회사', role='개발자',
+        period_start='2026-01-01', order=0,
+    )
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='테스트 공모전', role='테스트상',
+        period_start='2026-08-06', order=99,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    awards = list(response.context['awards'])
+
+    assert all(award.category == 'award' for award in awards)
+    assert any(award.organization == '테스트 공모전' for award in awards)
 
 
 @pytest.mark.django_db
