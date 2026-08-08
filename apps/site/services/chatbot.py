@@ -163,8 +163,20 @@ def _build_award_section() -> str:
     awards = Career.objects.filter(category=Career.Category.AWARD)[:_STATIC_SECTION_LIMIT]
     if not awards:
         return ''
-    lines = [_format_career_line(award) for award in awards]
+    lines = [_format_award_line(award) for award in awards]
     return '[수상]\n' + '\n'.join(lines)
+
+
+def _format_award_line(award: Career) -> str:
+    # 수상은 진행 중인 경력이 아니라 특정 시점의 일회성 이벤트라, period_end가 없다고
+    # _format_career_line처럼 '현재'로 표시하면 마치 진행 중인 것처럼 보인다.
+    period = award.period_start.strftime('%Y.%m')
+    if award.period_end and award.period_end != award.period_start:
+        period += f"~{award.period_end.strftime('%Y.%m')}"
+    line = f'- {award.organization} — {award.role} ({period})'
+    if award.description:
+        line += f'\n  {award.description}'
+    return line
 
 
 def _build_certification_section() -> str:
