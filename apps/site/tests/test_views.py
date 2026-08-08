@@ -2757,6 +2757,7 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
     assert 'AROM Spring Boot 심화반 테스트용' in body
     assert '2099.1학기' in body
     assert '설명 테스트' in body
+    assert '<ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">' in body
 
 
 @pytest.mark.django_db
@@ -2773,5 +2774,4 @@ def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert '<a href="https://example.com/activity"' in body
-    assert '활동_링크_테스트' in body
+    assert '<a href="https://example.com/activity" target="_blank" rel="noopener" class="link link-hover">활동_링크_테스트</a>' in body
