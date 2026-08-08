@@ -64,6 +64,14 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 30,
         'default_day_of_week': 'sun',
     },
+    'send_github_trending_report': {
+        'label': 'GitHub 트렌딩 리포트',
+        'command': 'send_github_trending_report',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '9',
+        'default_fixed_minute': 0,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None

@@ -53,7 +53,7 @@
       <p class="text-sm line-clamp-2">{{ source.description }}</p>
       {% endif %}
       {% if source.is_active %}
-      <p class="text-xs opacity-70">{{ notice_schedule_text }}</p>
+      <p class="text-xs opacity-70">{{ source.schedule_text }}</p>
       {% endif %}
       <a href="{{ source.url }}" target="_blank" rel="noopener"
          aria-label="{{ source.name }} 출처 사이트 바로가기 (새 탭)" class="link link-hover text-sm">

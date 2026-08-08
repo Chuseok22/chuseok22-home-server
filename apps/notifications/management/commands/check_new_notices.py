@@ -22,7 +22,8 @@ class Command(BaseCommand):
     help = '공지사항을 크롤링하고 새 글이 있으면 Discord 알림을 발송한다'
 
     def handle(self, *args, **options) -> None:
-        sources = NoticeSource.objects.filter(is_active=True)
+        # github_trending은 별도의 dedicated report 커맨드에서만 처리되므로 제외한다.
+        sources = NoticeSource.objects.filter(is_active=True).exclude(crawler_type='github_trending')
         if not sources.exists():
             self.stdout.write('활성화된 공지 출처가 없습니다.')
             return

@@ -7,6 +7,7 @@ from django.utils import timezone
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.dreamspon import DreamsponItem
+from apps.notifications.crawlers.github_trending import GithubTrendingDigestItem, TrendingRepoEntry
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -20,6 +21,14 @@ _REQUEST_TIMEOUT = 10
 # 여유를 두고, 초과 시 400 응답으로 발송 자체가 실패해 is_notified가 갱신되지 않고
 # 매 실행마다 재시도되는 것을 막기 위해 이 길이로 자른다.
 _MAX_CONTENT_LENGTH = 1900
+# Embed description(카드당) 안전 길이 — Discord는 메시지 내 embeds 전체의 title+description+
+# field(name/value) 합산이 6000자를 넘으면 메시지 전체를 400으로 거부한다. title(f'{rank}. 📦
+# {repo.owner_repo}')은 GitHub 저장소명 규칙상 owner(최대 39자)/repo(최대 100자)로 최악의 경우
+# 약 146자, field 4개(언어/오늘 획득/누적 star/fork 라벨+값)는 약 90자이므로, 카드 10개를 담을 때
+# description을 300자로 제한하면 (146 + 300 + 90) * 10 ≈ 5,360자로 6000자 한도 내에 여유 있게
+# 들어간다. AI 요약 길이는 프롬프트로만 유도될 뿐 강제되지 않으므로, 길이 초과로 400 응답을
+# 받아 그날 리포트 전체가 유실되는 것을 막기 위함이다.
+_EMBED_DESCRIPTION_MAX_CHARS = 300
 
 
 class DiscordService:
@@ -29,6 +38,44 @@ class DiscordService:
         """공지사항 알림 메시지를 발송한다. 성공 여부를 반환한다."""
         message = self._format_message(source, item)
         return self._send(message, webhook_url, source.name)
+
+    def send_digest(self, webhook_url: str, item: GithubTrendingDigestItem) -> bool:
+        """GitHub 트렌딩 다이제스트를 Embed 카드 여러 개로 묶어 발송한다. 성공 여부를 반환한다."""
+        embeds = [self._build_repo_embed(rank, repo) for rank, repo in enumerate(item.repos, start=1)]
+        payload = {
+            'content': f'🔥 {item.title}',
+            'embeds': embeds,
+            'allowed_mentions': {'parse': []},
+        }
+        try:
+            response = requests.post(webhook_url, json=payload, timeout=_REQUEST_TIMEOUT)
+            response.raise_for_status()
+            return True
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else '?'
+            logger.error('디스코드 다이제스트 발송 실패 (status=%s)', status)
+            return False
+        except requests.RequestException as e:
+            logger.error('디스코드 다이제스트 발송 실패 (error_type=%s)', type(e).__name__)
+            return False
+
+    def _build_repo_embed(self, rank: int, repo: TrendingRepoEntry) -> dict:
+        description = repo.summary_ko
+        if len(description) > _EMBED_DESCRIPTION_MAX_CHARS:
+            description = description[:_EMBED_DESCRIPTION_MAX_CHARS - 1].rstrip() + '…'
+        if not description:
+            description = '설명 없음'
+        return {
+            'title': f'{rank}. 📦 {repo.owner_repo}',
+            'url': repo.url,
+            'description': description,
+            'fields': [
+                {'name': '🔤 언어', 'value': repo.language or '—', 'inline': True},
+                {'name': '⭐ 오늘 획득', 'value': f'+{repo.stars_today:,}', 'inline': True},
+                {'name': '🌟 누적 star', 'value': f'{repo.total_stars:,}', 'inline': True},
+                {'name': '🍴 fork', 'value': f'{repo.total_forks:,}', 'inline': True},
+            ],
+        }
 
     def _format_message(self, source: NoticeSource, item: BaseNoticeItem) -> str:
         if isinstance(item, SejongNoticeItem):

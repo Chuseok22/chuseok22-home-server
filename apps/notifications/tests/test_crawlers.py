@@ -10,6 +10,10 @@ from apps.notifications.crawlers.dreamspon import DreamsponCrawler, DreamsponIte
 from apps.notifications.crawlers.dreamspon_auth import DreamsponSession
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
+from apps.notifications.crawlers.github_trending import GithubTrendingCrawler, TrendingRepoEntry
+from apps.ai.models import PromptTemplate
+from apps.ai.services.prompt_template import GITHUB_TRENDING_SUMMARY_FEATURE
+from apps.ai.services.suh_aider_client import SuhAiderClientError
 
 
 class TestLinkareerCrawlerExtractArticleId(TestCase):
@@ -567,3 +571,283 @@ class TestGetCrawlerDreamspon(TestCase):
         from apps.notifications.crawlers import get_crawler
         crawler = get_crawler('dreamspon', 'https://www.dreamspon.com/scholarship/list.html')
         self.assertIsInstance(crawler, DreamsponCrawler)
+
+
+_GITHUB_TRENDING_HTML = '''
+<article class="Box-row">
+<h2 class="h3 lh-condensed">
+<a href="/PrimeIntellect-ai/prime-agent">
+    PrimeIntellect-ai /
+    prime-agent
+</a>
+</h2>
+<p class="col-9 color-fg-muted my-1 pr-4">A self-improving RLM agent for coding workflows and long-running autonomous tasks.</p>
+<div class="f6 color-fg-muted mt-2">
+<span class="d-inline-block ml-0 mr-3">
+<span class="repo-language-color" style="background-color:#3178c6"></span>
+<span itemprop="programmingLanguage">TypeScript</span>
+</span>
+<a href="/PrimeIntellect-ai/prime-agent/stargazers" class="Link--muted d-inline-block mr-3">
+7,270
+</a>
+<a href="/PrimeIntellect-ai/prime-agent/forks" class="Link--muted d-inline-block mr-3">
+601
+</a>
+<span class="d-inline-block float-sm-right">
+2,293 stars today
+</span>
+</div>
+</article>
+<article class="Box-row">
+<h2 class="h3 lh-condensed">
+<a href="/addyosmani/agent-skills">
+    addyosmani /
+    agent-skills
+</a>
+</h2>
+<p class="col-9 color-fg-muted my-1 pr-4">Production-grade engineering skills for AI coding agents.</p>
+<div class="f6 color-fg-muted mt-2">
+<span class="d-inline-block ml-0 mr-3">
+<span class="repo-language-color" style="background-color:#f1e05a"></span>
+<span itemprop="programmingLanguage">JavaScript</span>
+</span>
+<a href="/addyosmani/agent-skills/stargazers" class="Link--muted d-inline-block mr-3">
+84,122
+</a>
+<a href="/addyosmani/agent-skills/forks" class="Link--muted d-inline-block mr-3">
+8,984
+</a>
+<span class="d-inline-block float-sm-right">
+1,131 stars today
+</span>
+</div>
+</article>
+'''
+
+
+class TestGithubTrendingCrawlerParse(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    def test_트렌딩_목록_파싱_전체_필드(self) -> None:
+        entries = self.crawler._parse(_GITHUB_TRENDING_HTML)
+        self.assertEqual(len(entries), 2)
+
+        first = entries[0]
+        self.assertIsInstance(first, TrendingRepoEntry)
+        self.assertEqual(first.owner_repo, 'PrimeIntellect-ai/prime-agent')
+        self.assertEqual(first.url, 'https://github.com/PrimeIntellect-ai/prime-agent')
+        self.assertEqual(first.language, 'TypeScript')
+        self.assertEqual(first.stars_today, 2293)
+        self.assertEqual(first.total_stars, 7270)
+        self.assertEqual(first.total_forks, 601)
+        # _parse()는 AI 요약을 호출하지 않으므로 원본 설명이 그대로 summary_ko가 된다
+        self.assertEqual(
+            first.summary_ko,
+            'A self-improving RLM agent for coding workflows and long-running autonomous tasks.',
+        )
+
+        second = entries[1]
+        self.assertEqual(second.owner_repo, 'addyosmani/agent-skills')
+        self.assertEqual(second.language, 'JavaScript')
+        self.assertEqual(second.stars_today, 1131)
+        self.assertEqual(second.total_stars, 84122)
+        self.assertEqual(second.total_forks, 8984)
+
+    def test_저장소_링크_없는_article은_무시(self) -> None:
+        html = '<article class="Box-row"><p class="col-9">설명만 있음</p></article>'
+        entries = self.crawler._parse(html)
+        self.assertEqual(entries, [])
+
+    def test_언어_태그_없으면_None(self) -> None:
+        html = '''
+        <article class="Box-row">
+        <h2 class="h3 lh-condensed"><a href="/owner/repo">owner / repo</a></h2>
+        </article>
+        '''
+        entries = self.crawler._parse(html)
+        self.assertEqual(len(entries), 1)
+        self.assertIsNone(entries[0].language)
+        self.assertEqual(entries[0].total_stars, 0)
+        self.assertEqual(entries[0].total_forks, 0)
+        self.assertEqual(entries[0].stars_today, 0)
+
+    def test_상위_10개까지만_파싱(self) -> None:
+        rows = ''.join(
+            f'<article class="Box-row"><h2 class="h3 lh-condensed">'
+            f'<a href="/owner/repo{i}">owner / repo{i}</a></h2></article>'
+            for i in range(15)
+        )
+        entries = self.crawler._parse(rows)
+        self.assertEqual(len(entries), 10)
+        self.assertEqual(entries[0].owner_repo, 'owner/repo0')
+        self.assertEqual(entries[9].owner_repo, 'owner/repo9')
+
+
+class TestGithubTrendingCrawlerCrawl(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    @patch.object(GithubTrendingCrawler, '_summarize')
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_요청_성공시_다이제스트_아이템_1개_반환(self, mock_get, mock_summarize) -> None:
+        mock_response = MagicMock()
+        mock_response.text = _GITHUB_TRENDING_HTML
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+        mock_summarize.side_effect = lambda owner_repo, fallback_description: fallback_description
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(len(items), 1)
+        digest = items[0]
+        self.assertEqual(len(digest.repos), 2)
+        self.assertEqual(digest.url, 'https://github.com/trending?since=daily')
+        self.assertIn('GitHub 트렌딩 TOP 2', digest.title)
+        self.assertEqual(mock_summarize.call_count, 2)
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_요청_실패시_빈_리스트(self, mock_get) -> None:
+        mock_get.side_effect = requests.RequestException('연결 실패')
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(items, [])
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_파싱_결과_없으면_빈_리스트(self, mock_get) -> None:
+        mock_response = MagicMock()
+        mock_response.text = '<html><body>구조가 바뀐 페이지</body></html>'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        items = self.crawler.crawl()
+
+        self.assertEqual(items, [])
+
+    @patch.object(GithubTrendingCrawler, '_summarize', return_value='AI 요약 결과')
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_crawl은_파싱된_각_저장소에_summarize_결과를_적용한다(self, mock_get, mock_summarize) -> None:
+        mock_response = MagicMock()
+        mock_response.text = _GITHUB_TRENDING_HTML
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        items = self.crawler.crawl()
+
+        digest = items[0]
+        self.assertTrue(all(repo.summary_ko == 'AI 요약 결과' for repo in digest.repos))
+
+
+class TestGithubTrendingCrawlerFetchReadme(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_readme_조회_성공(self, mock_get) -> None:
+        mock_response = MagicMock()
+        mock_response.text = '# README 원문'
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = self.crawler._fetch_readme('owner/repo')
+
+        self.assertEqual(result, '# README 원문')
+        called_url = mock_get.call_args.args[0]
+        self.assertEqual(called_url, 'https://api.github.com/repos/owner/repo/readme')
+        called_headers = mock_get.call_args.kwargs['headers']
+        self.assertEqual(called_headers['Accept'], 'application/vnd.github.raw')
+
+    @patch('apps.notifications.crawlers.github_trending.requests.get')
+    def test_readme_조회_실패시_None(self, mock_get) -> None:
+        mock_get.side_effect = requests.RequestException('404')
+
+        result = self.crawler._fetch_readme('owner/repo')
+
+        self.assertIsNone(result)
+
+
+class TestGithubTrendingCrawlerSummarize(TestCase):
+    def setUp(self) -> None:
+        self.crawler = GithubTrendingCrawler('https://github.com/trending?since=daily')
+        PromptTemplate.objects.create(
+            feature=GITHUB_TRENDING_SUMMARY_FEATURE, name='테스트 프롬프트',
+            system_prompt='한국어로 요약해줘', model='functiongemma', is_active=True,
+        )
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_readme_있고_ai_성공시_요약문_반환(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.return_value = '한국어 요약 결과'
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '한국어 요약 결과')
+        mock_client_cls.return_value.chat.assert_called_once()
+        _, kwargs = mock_client_cls.return_value.chat.call_args
+        self.assertEqual(kwargs['model'], 'functiongemma')
+        self.assertEqual(kwargs['messages'][0], {'role': 'system', 'content': '한국어로 요약해줘'})
+        self.assertEqual(kwargs['messages'][1]['content'], '# 원문 README')
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value=None)
+    def test_readme_없으면_원본_설명으로_ai_요약_시도(self, mock_fetch_readme) -> None:
+        with patch('apps.notifications.crawlers.github_trending.SuhAiderClient') as mock_client_cls:
+            mock_client_cls.return_value.chat.return_value = '설명 기반 요약'
+            result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '설명 기반 요약')
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value=None)
+    def test_readme도_설명도_없으면_폴백_설명_그대로(self, mock_fetch_readme) -> None:
+        result = self.crawler._summarize('owner/repo', '')
+        self.assertEqual(result, '')
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_1회_실패_후_재시도_성공(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.side_effect = [
+            SuhAiderClientError('일시 오류'), '재시도 성공 요약',
+        ]
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '재시도 성공 요약')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_2회_모두_실패시_폴백_설명(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.side_effect = SuhAiderClientError('영구 오류')
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_빈_응답이면_재시도_후_폴백_설명(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.return_value = '   '
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_활성_프롬프트_없으면_폴백_설명(self, mock_fetch_readme) -> None:
+        PromptTemplate.objects.filter(feature=GITHUB_TRENDING_SUMMARY_FEATURE).update(is_active=False)
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')
+        # 활성 프롬프트가 없으면 어차피 AI 요약을 시도할 수 없으므로, README 조회(GitHub API
+        # 호출) 자체를 하지 않아야 한다.
+        mock_fetch_readme.assert_not_called()
+
+
+class TestGetCrawlerGithubTrending(TestCase):
+    def test_github_trending_크롤러_반환(self) -> None:
+        from apps.notifications.crawlers import get_crawler
+        crawler = get_crawler('github_trending', 'https://github.com/trending?since=daily')
+        self.assertIsInstance(crawler, GithubTrendingCrawler)

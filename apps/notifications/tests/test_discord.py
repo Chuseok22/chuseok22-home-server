@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.notifications.crawlers.base import BaseNoticeItem
 from apps.notifications.crawlers.dacon import DaconItem
 from apps.notifications.crawlers.dreamspon import DreamsponItem
+from apps.notifications.crawlers.github_trending import GithubTrendingDigestItem, TrendingRepoEntry
 from apps.notifications.crawlers.linkareer import ContestItem
 from apps.notifications.crawlers.sejong import SejongNoticeItem
 from apps.notifications.crawlers.sejong_do import SejongDoItem
@@ -249,3 +250,116 @@ class TestDiscordServiceSendNotice(TestCase):
         self.assertFalse(result)
         self.assertNotIn('test-token', captured.output[0])
         self.assertIn('테스트 출처', captured.output[0])
+
+
+class TestDiscordServiceSendDigest(TestCase):
+    def setUp(self) -> None:
+        self.service = DiscordService()
+        self.item = GithubTrendingDigestItem(
+            article_id='2026-08-08',
+            title='GitHub 트렌딩 TOP 2 (2026.08.08)',
+            url='https://github.com/trending?since=daily',
+            repos=[
+                TrendingRepoEntry(
+                    owner_repo='owner/repo1', url='https://github.com/owner/repo1',
+                    language='Python', stars_today=342, total_stars=12450, total_forks=890,
+                    summary_ko='파이썬으로 만든 예제 저장소입니다.',
+                ),
+                TrendingRepoEntry(
+                    owner_repo='owner/repo2', url='https://github.com/owner/repo2',
+                    language=None, stars_today=100, total_stars=500, total_forks=10,
+                    summary_ko='언어 정보가 없는 저장소입니다.',
+                ),
+            ],
+        )
+
+    def test_build_repo_embed_필드_구성(self) -> None:
+        embed = self.service._build_repo_embed(1, self.item.repos[0])
+
+        self.assertEqual(embed['title'], '1. 📦 owner/repo1')
+        self.assertEqual(embed['url'], 'https://github.com/owner/repo1')
+        self.assertEqual(embed['description'], '파이썬으로 만든 예제 저장소입니다.')
+        field_names = [f['name'] for f in embed['fields']]
+        self.assertIn('🔤 언어', field_names)
+        self.assertIn('⭐ 오늘 획득', field_names)
+        self.assertIn('🌟 누적 star', field_names)
+        self.assertIn('🍴 fork', field_names)
+        field_values = {f['name']: f['value'] for f in embed['fields']}
+        self.assertEqual(field_values['🔤 언어'], 'Python')
+        self.assertEqual(field_values['⭐ 오늘 획득'], '+342')
+        self.assertEqual(field_values['🌟 누적 star'], '12,450')
+        self.assertEqual(field_values['🍴 fork'], '890')
+
+    def test_build_repo_embed_언어_없으면_대시(self) -> None:
+        embed = self.service._build_repo_embed(2, self.item.repos[1])
+        field_values = {f['name']: f['value'] for f in embed['fields']}
+        self.assertEqual(field_values['🔤 언어'], '—')
+
+    def test_build_repo_embed_긴_요약은_잘린다(self) -> None:
+        """AI 요약이 예상보다 길어도 Discord embed 길이 제한(embed당 4096자, 메시지 전체
+        embeds 합산 6000자)에 걸려 400 응답으로 그날 리포트 전체가 유실되지 않도록,
+        카드당 안전한 길이로 잘라야 한다."""
+        long_repo = TrendingRepoEntry(
+            owner_repo='owner/repo3', url='https://github.com/owner/repo3',
+            language='Go', stars_today=1, total_stars=1, total_forks=1,
+            summary_ko='가' * 500,
+        )
+
+        embed = self.service._build_repo_embed(3, long_repo)
+
+        self.assertLessEqual(len(embed['description']), 300)
+        self.assertTrue(embed['description'].endswith('…'))
+
+    def test_build_repo_embed_설명_없으면_플레이스홀더(self) -> None:
+        """설명이 없는 저장소(README 없고 AI 요약도 실패한 경우)의 embed description이
+        빈 문자열이 되면 Discord 400 응답으로 그날 리포트 전체가 유실될 수 있으므로,
+        빈 값이면 플레이스홀더 문구로 대체해야 한다."""
+        empty_repo = TrendingRepoEntry(
+            owner_repo='owner/repo-empty', url='https://github.com/owner/repo-empty',
+            language='JavaScript', stars_today=50, total_stars=100, total_forks=5,
+            summary_ko='',
+        )
+
+        embed = self.service._build_repo_embed(1, empty_repo)
+
+        self.assertEqual(embed['description'], '설명 없음')
+
+    def test_send_digest는_10개_embed_합산_문자수가_discord_제한을_넘지_않는다(self) -> None:
+        """Discord는 메시지 내 embeds 전체의 title+description+field 합산이 6000자를 넘으면
+        메시지 전체를 거부한다. owner/repo가 GitHub 최대 길이(owner 39자/repo 100자)이고
+        AI 요약도 잘리기 전까지 길게 채워지는 최악의 경우에도, 카드 10개 합산이 6000자 이내에
+        들어와야 한다."""
+        worst_case_repo = TrendingRepoEntry(
+            owner_repo='a' * 39 + '/' + 'b' * 100,
+            url='https://github.com/worst-case',
+            language='SomeVeryLongLanguageName',
+            stars_today=999_999_999, total_stars=999_999_999, total_forks=999_999_999,
+            summary_ko='가' * 500,
+        )
+
+        embeds = [self.service._build_repo_embed(rank, worst_case_repo) for rank in range(1, 11)]
+
+        total_chars = sum(
+            len(embed['title']) + len(embed['description'])
+            + sum(len(f['name']) + len(f['value']) for f in embed['fields'])
+            for embed in embeds
+        )
+        self.assertLessEqual(total_chars, 6000)
+
+    def test_send_digest_성공(self) -> None:
+        with patch('apps.notifications.services.discord.requests.post') as mock_post:
+            mock_post.return_value.raise_for_status = MagicMock()
+            result = self.service.send_digest(_WEBHOOK_URL, self.item)
+
+        self.assertTrue(result)
+        payload = mock_post.call_args.kwargs['json']
+        self.assertEqual(len(payload['embeds']), 2)
+        self.assertIn('GitHub 트렌딩', payload['content'])
+        self.assertEqual(payload['allowed_mentions'], {'parse': []})
+
+    def test_send_digest_실패시_False(self) -> None:
+        with patch('apps.notifications.services.discord.requests.post') as mock_post:
+            mock_post.side_effect = requests.RequestException('boom')
+            result = self.service.send_digest(_WEBHOOK_URL, self.item)
+
+        self.assertFalse(result)
