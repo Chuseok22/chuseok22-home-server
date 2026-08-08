@@ -7,6 +7,7 @@ class PromptTemplate(models.Model):
 
     class Feature(models.TextChoices):
         CHATBOT = 'chatbot', '사이트 챗봇'
+        GITHUB_TRENDING_SUMMARY = 'github_trending_summary', 'GitHub 트렌딩 요약'
         # 향후 기능 추가 시 choice만 추가한다 (choices는 DB 제약이 아니므로 별도 마이그레이션 불필요).
 
     feature = models.CharField(max_length=50, choices=Feature.choices, verbose_name='기능')
