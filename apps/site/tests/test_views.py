@@ -1693,6 +1693,44 @@ def test_home_템플릿은_수상_데이터가_없으면_수상_헤더를_보여
 
 
 @pytest.mark.django_db
+def test_home_템플릿은_awards_섹션에_eyebrow_라벨을_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    Career.objects.create(
+        category=Career.Category.AWARD, organization='제4회 문화체육관광 인공지능·데이터 활용 공모전',
+        role='문화데이터 우수사례 부문 장려상', period_start='2026-08-06', order=0,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Awards</span>' in body
+    assert 'Awards &amp; Honors' in body
+    assert '제4회 문화체육관광 인공지능·데이터 활용 공모전' in body
+    assert '<mark class="home-hl">문화데이터 우수사례 부문 장려상</mark>' in body
+    assert 'class="medal"' in body
+
+
+@pytest.mark.django_db
+def test_home_은_awards가_없으면_Awards_섹션을_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Career
+
+    # Task 6에서 시딩된 수상 데이터를 지워 "수상 데이터가 전혀 없는" 상태를 만든다
+    Career.objects.filter(category=Career.Category.AWARD).delete()
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<span class="eyebrow">Awards</span>' not in body
+
+
+@pytest.mark.django_db
 def test_home_템플릿은_직장_그룹을_학력_그룹보다_먼저_보여준다() -> None:
     from django.test import Client
 
@@ -1855,9 +1893,9 @@ def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_2개를_�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    # section-box 2개(GitHub 컨트리뷰션 + 사이드바 최근 글) + 시딩된 활동 데이터로 항상 렌더링되는
-    # "활동" 섹션 1개 = 3개. Awards & Honors는 Task 8에서 템플릿이 추가되면 여기 개수가 다시 +1 된다.
-    assert body.count('class="section-box') == 3
+    # section-box 2개(GitHub 컨트리뷰션 + 사이드바 최근 글) + 시딩된 데이터로 항상 렌더링되는
+    # "활동" 섹션 1개 + "Awards & Honors" 섹션 1개 = 4개.
+    assert body.count('class="section-box') == 4
 
 
 @pytest.mark.django_db
@@ -1873,7 +1911,7 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 5
+    assert body.count('class="section-box') == 6
 
 
 @pytest.mark.django_db

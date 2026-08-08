@@ -122,6 +122,29 @@
     </section>
     {% endif %}
 
+    {% if awards %}
+    <section class="section-box">
+      <span class="eyebrow">Awards</span>
+      <h2 class="text-xl font-bold mb-4">Awards &amp; Honors</h2>
+      <div class="flex flex-col gap-3">
+        {% for award in awards %}
+        <div class="card bg-base-100 border border-base-300">
+          <div class="card-body flex-row items-start gap-3 p-4">
+            <div class="medal">🏆</div>
+            <div>
+              <p class="font-medium leading-snug">{{ award.organization }} · <mark class="home-hl">{{ award.role }}</mark></p>
+              {% if award.description %}<p class="text-sm opacity-70">{{ award.description }}</p>{% endif %}
+              <p class="text-xs opacity-60 mt-1">
+                {{ award.period_start|date:'Y.m' }}{% if award.period_end and award.period_end != award.period_start %} — {{ award.period_end|date:'Y.m' }}{% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     {% if activities %}
     <section class="section-box">
       <span class="eyebrow">Activities</span>
