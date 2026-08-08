@@ -148,7 +148,13 @@ class GithubTrendingCrawler(BaseCrawler):
         ]
         for attempt in range(1, _AI_RETRY_COUNT + 1):
             try:
-                return SuhAiderClient().chat(model=template.model, messages=messages).strip()
+                summary = SuhAiderClient().chat(model=template.model, messages=messages).strip()
+                if summary:
+                    return summary
+                logger.error(
+                    'GitHub 트렌딩 AI 요약이 비어 있습니다 (repo=%s, attempt=%d/%d)',
+                    owner_repo, attempt, _AI_RETRY_COUNT,
+                )
             except SuhAiderClientError as e:
                 logger.error(
                     'GitHub 트렌딩 AI 요약 실패 (repo=%s, attempt=%d/%d): %s',

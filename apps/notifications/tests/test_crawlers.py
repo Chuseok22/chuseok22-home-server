@@ -824,6 +824,16 @@ class TestGithubTrendingCrawlerSummarize(TestCase):
         self.assertEqual(result, '원본 설명')
         self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
 
+    @patch('apps.notifications.crawlers.github_trending.SuhAiderClient')
+    @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
+    def test_ai_빈_응답이면_재시도_후_폴백_설명(self, mock_fetch_readme, mock_client_cls) -> None:
+        mock_client_cls.return_value.chat.return_value = '   '
+
+        result = self.crawler._summarize('owner/repo', '원본 설명')
+
+        self.assertEqual(result, '원본 설명')
+        self.assertEqual(mock_client_cls.return_value.chat.call_count, 2)
+
     @patch.object(GithubTrendingCrawler, '_fetch_readme', return_value='# 원문 README')
     def test_활성_프롬프트_없으면_폴백_설명(self, mock_fetch_readme) -> None:
         PromptTemplate.objects.filter(feature=GITHUB_TRENDING_SUMMARY_FEATURE).update(is_active=False)
