@@ -2656,3 +2656,45 @@ def test_blog_상세는_is_staff_아닌_로그인_사용자에게도_수정_UI�
     body = response.content.decode()
 
     assert 'id="post-edit-toggle"' not in body
+
+
+@pytest.mark.django_db
+def test_home_프로젝트_섹션은_2열_grid와_items_start를_사용한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        is_featured=True,
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'grid gap-4 md:grid-cols-2 items-start' in body
+
+
+@pytest.mark.django_db
+def test_home_프로젝트_섹션은_project_card_파셜을_재사용한다() -> None:
+    from django.test import Client
+
+    from apps.projects.models import Project, ProjectCategory, ProjectStatus
+
+    category = ProjectCategory.objects.get(name='사이드 프로젝트')
+    status = ProjectStatus.objects.get(name='진행중')
+    Project.objects.create(
+        category=category, title='대표작', description='설명', status=status,
+        is_featured=True, highlights=['설계 포인트 1'],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # project_card.html의 "더보기" 토글은 홈에서도 렌더링돼야 한다
+    assert '더보기' in body
+    assert '설계 포인트 1' in body

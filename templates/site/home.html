@@ -88,19 +88,9 @@
         <h2 class="text-xl font-bold">프로젝트</h2>
         <a href="{% url 'site:projects' %}" class="link link-hover text-sm">더보기 →</a>
       </div>
-      <div class="grid gap-4">
+      <div class="grid gap-4 md:grid-cols-2 items-start">
         {% for project in featured_projects %}
-        <article class="card bg-base-100 border border-base-300">
-          <div class="card-body">
-            <h3 class="card-title text-base">{{ project.title }}</h3>
-            <p class="text-sm">{{ project.description }}</p>
-            <div class="flex gap-2 flex-wrap">
-              {% for tag in project.tags %}
-              <span class="badge-tag">{{ tag }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        </article>
+        {% include "site/partials/project_card.html" %}
         {% endfor %}
       </div>
     </section>
