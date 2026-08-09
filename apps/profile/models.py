@@ -98,7 +98,6 @@ class Activity(models.Model):
     name = models.CharField(max_length=100, verbose_name='활동명')
     description = models.TextField(blank=True, verbose_name='설명')
     period = models.CharField(max_length=100, blank=True, verbose_name='기간')
-    link = models.URLField(blank=True, verbose_name='관련 링크')
     start_year = models.PositiveSmallIntegerField(verbose_name='시작 연도')
     end_year = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='종료 연도')
     links = models.JSONField(

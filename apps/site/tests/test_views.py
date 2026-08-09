@@ -2806,23 +2806,6 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
 
 
 @pytest.mark.django_db
-def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링한다() -> None:
-    from django.test import Client
-
-    from apps.profile.models import Activity
-
-    Activity.objects.create(
-        name='활동_링크_테스트', link='https://example.com/activity', start_year=2024, order=100,
-    )
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert '<a href="https://example.com/activity" target="_blank" rel="noopener" class="link link-hover">활동_링크_테스트</a>' in body
-
-
-@pytest.mark.django_db
 def test_home_자격증_카드는_고정_아이콘과_2열_grid를_사용한다() -> None:
     from django.test import Client
 
