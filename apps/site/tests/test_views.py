@@ -2791,7 +2791,7 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
 
     Activity.objects.create(
         name='AROM Spring Boot 심화반 테스트용', description='설명 테스트',
-        period='2099.1학기', order=100,
+        period='2099.1학기', start_year=2099, order=100,
     )
 
     client = Client()
@@ -2812,7 +2812,7 @@ def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링�
     from apps.profile.models import Activity
 
     Activity.objects.create(
-        name='활동_링크_테스트', link='https://example.com/activity', order=100,
+        name='활동_링크_테스트', link='https://example.com/activity', start_year=2024, order=100,
     )
 
     client = Client()

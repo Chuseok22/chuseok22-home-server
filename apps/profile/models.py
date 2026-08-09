@@ -98,6 +98,15 @@ class Activity(models.Model):
     description = models.TextField(blank=True, verbose_name='설명')
     period = models.CharField(max_length=100, blank=True, verbose_name='기간')
     link = models.URLField(blank=True, verbose_name='관련 링크')
+    start_year = models.PositiveSmallIntegerField(verbose_name='시작 연도')
+    end_year = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='종료 연도')
+    links = models.JSONField(
+        default=list, blank=True, verbose_name='관련 링크 목록',
+        help_text=(
+            '예: [{"type": "github", "url": "https://..."}]. '
+            'type은 official/github/youtube/instagram/linkedin/presentation/article/other 중 하나.'
+        ),
+    )
     order = models.PositiveIntegerField(default=0, verbose_name='정렬 순서')
 
     class Meta:
@@ -107,6 +116,11 @@ class Activity(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def years(self) -> list[int]:
+        """start_year~end_year(없으면 start_year 하나)를 펼친 연도 목록. 연도 필터 매칭에 쓰인다."""
+        return list(range(self.start_year, (self.end_year or self.start_year) + 1))
 
 
 class Certification(models.Model):

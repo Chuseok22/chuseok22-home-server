@@ -71,9 +71,23 @@ def test_career는_order_순으로_정렬된다() -> None:
 
 @pytest.mark.django_db
 def test_activity_str_representation은_이름을_반환한다() -> None:
-    activity = Activity.objects.create(name='동아리 스터디 운영', order=0)
+    activity = Activity.objects.create(name='동아리 스터디 운영', start_year=2024, order=0)
 
     assert str(activity) == '동아리 스터디 운영'
+
+
+@pytest.mark.django_db
+def test_activity_years는_start_year만_있으면_단일_연도_리스트를_반환한다() -> None:
+    activity = Activity.objects.create(name='단일연도 활동', start_year=2026, order=0)
+
+    assert activity.years == [2026]
+
+
+@pytest.mark.django_db
+def test_activity_years는_start_year와_end_year_사이_모든_연도를_반환한다() -> None:
+    activity = Activity.objects.create(name='다년도 활동', start_year=2022, end_year=2023, order=0)
+
+    assert activity.years == [2022, 2023]
 
 
 @pytest.mark.django_db
