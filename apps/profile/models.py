@@ -1,3 +1,4 @@
+from django.core.validators import FileExtensionValidator
 from django.db import models
 
 
@@ -121,6 +122,41 @@ class Activity(models.Model):
     def years(self) -> list[int]:
         """start_year~end_year(없으면 start_year 하나)를 펼친 연도 목록. 연도 필터 매칭에 쓰인다."""
         return list(range(self.start_year, (self.end_year or self.start_year) + 1))
+
+
+_ACTIVITY_ATTACHMENT_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png'}
+
+
+class ActivityAttachment(models.Model):
+    """활동 증빙자료·문서·사진 등 첨부파일. 타임라인에는 클립 아이콘 드롭다운으로만 노출된다."""
+
+    activity = models.ForeignKey(Activity, related_name='attachments', on_delete=models.CASCADE)
+    file = models.FileField(
+        upload_to='activities/attachments/%Y/%m/',
+        validators=[FileExtensionValidator(['pdf', 'ppt', 'pptx', 'doc', 'docx', 'jpg', 'jpeg', 'png'])],
+        verbose_name='첨부파일',
+    )
+    label = models.CharField(max_length=100, blank=True, verbose_name='표시명')
+    order = models.PositiveIntegerField(default=0, verbose_name='정렬 순서')
+
+    class Meta:
+        verbose_name = '활동 첨부파일'
+        verbose_name_plural = '활동 첨부파일 목록'
+        ordering = ('order',)
+
+    def __str__(self) -> str:
+        return self.label or self.display_name
+
+    @property
+    def display_name(self) -> str:
+        """label이 없을 때 대체 표시할 파일명. file.name은 업로드 경로가 포함돼 있어 basename만 뽑는다."""
+        return self.file.name.rsplit('/', 1)[-1]
+
+    @property
+    def emoji(self) -> str:
+        """확장자로 문서(📄)와 이미지(🖼)를 구분해 첨부파일 드롭다운 항목 앞에 붙일 이모지."""
+        extension = self.file.name.rsplit('.', 1)[-1].lower() if '.' in self.file.name else ''
+        return '🖼' if extension in _ACTIVITY_ATTACHMENT_IMAGE_EXTENSIONS else '📄'
 
 
 class Certification(models.Model):

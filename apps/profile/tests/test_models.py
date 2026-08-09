@@ -2,6 +2,7 @@ import pytest
 
 from apps.profile.models import (
     Activity,
+    ActivityAttachment,
     Career,
     Certification,
     Profile,
@@ -88,6 +89,76 @@ def test_activity_years는_start_year와_end_year_사이_모든_연도를_반환
     activity = Activity.objects.create(name='다년도 활동', start_year=2022, end_year=2023, order=0)
 
     assert activity.years == [2022, 2023]
+
+
+@pytest.mark.django_db
+def test_activity_attachment_str_representation은_label을_반환한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='첨부파일 테스트 활동', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'), label='수료증',
+    )
+
+    assert str(attachment) == '수료증'
+
+
+@pytest.mark.django_db
+def test_activity_attachment_str_representation은_label이_없으면_파일명만_반환한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='첨부파일 테스트 활동2', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('notes.pdf', b'dummy-bytes'),
+    )
+
+    # file.name은 'activities/attachments/2026/08/notes.pdf'처럼 업로드 경로가 붙으므로,
+    # display_name이 경로를 뺀 순수 파일명만 반환하는지 정확히 검증한다.
+    assert attachment.display_name == 'notes.pdf'
+    assert str(attachment) == 'notes.pdf'
+
+
+@pytest.mark.django_db
+def test_activity_attachment_emoji는_이미지_확장자면_사진_이모지를_반환한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='이모지 테스트 활동1', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('photo.jpg', b'dummy-bytes'),
+    )
+
+    assert attachment.emoji == '🖼'
+
+
+@pytest.mark.django_db
+def test_activity_attachment_emoji는_문서_확장자면_문서_이모지를_반환한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='이모지 테스트 활동2', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('report.pdf', b'dummy-bytes'),
+    )
+
+    assert attachment.emoji == '📄'
+
+
+@pytest.mark.django_db
+def test_activity가_삭제되면_attachment도_함께_삭제된다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='캐스케이드 테스트 활동', start_year=2026, order=0)
+    ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('a.pdf', b'dummy-bytes'), label='자료',
+    )
+
+    activity.delete()
+
+    assert ActivityAttachment.objects.count() == 0
 
 
 @pytest.mark.django_db
