@@ -2784,6 +2784,37 @@ def test_home_프로젝트_섹션은_project_card_파셜을_재사용한다() ->
 
 
 @pytest.mark.django_db
+def test_home_은_활동_연도_목록을_내림차순으로_정렬해서_전달한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='2024년 활동', start_year=2024, order=100)
+    Activity.objects.create(name='2022~2023년 활동', start_year=2022, end_year=2023, order=101)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert list(response.context['activity_years']) == [2024, 2023, 2022]
+
+
+@pytest.mark.django_db
+def test_home_은_다년도_활동의_연도를_모두_activity_years에_포함한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='다년도 활동', start_year=2020, end_year=2021, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert response.context['activity_years'] == [2021, 2020]
+
+
+@pytest.mark.django_db
 def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사용한다() -> None:
     from django.test import Client
 
