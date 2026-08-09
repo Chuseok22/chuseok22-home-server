@@ -4,6 +4,17 @@ register = template.Library()
 
 _SIMPLE_ICONS_CDN = 'https://cdn.simpleicons.org/'
 
+_ACTIVITY_LINK_ICONS = {
+    'official': ('공식 페이지', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/globe-alt.svg'),
+    'github': ('GitHub', 'github'),
+    'youtube': ('YouTube', 'youtube'),
+    'instagram': ('Instagram', 'instagram'),
+    'linkedin': ('LinkedIn', 'linkedin'),
+    'presentation': ('발표자료', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/document-text.svg'),
+    'article': ('관련기사', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/newspaper.svg'),
+    'other': ('링크', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/link.svg'),
+}
+
 
 @register.filter
 def skill_icon_url(icon_slug: str) -> str:
@@ -15,3 +26,10 @@ def skill_icon_url(icon_slug: str) -> str:
     if icon_slug.startswith('http://') or icon_slug.startswith('https://'):
         return icon_slug
     return f'{_SIMPLE_ICONS_CDN}{icon_slug}'
+
+
+@register.filter
+def activity_link_icon(link_type: str) -> dict:
+    """활동 링크 type을 라벨·아이콘 URL 딕셔너리로 변환한다. 정의되지 않은 type은 'other'로 대체한다."""
+    label, icon = _ACTIVITY_LINK_ICONS.get(link_type, _ACTIVITY_LINK_ICONS['other'])
+    return {'label': label, 'icon_url': icon if icon.startswith('http') else skill_icon_url(icon)}
