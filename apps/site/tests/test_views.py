@@ -2896,6 +2896,43 @@ def test_home_활동_섹션은_첨부파일이_있으면_클립_아이콘과_개
 
 
 @pytest.mark.django_db
+def test_home_활동_섹션의_첨부파일_드롭다운은_wrapper에서_esc키로_닫힌다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='ESC 테스트 활동', start_year=2026, order=100)
+    ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # 드롭다운 트리거 버튼이 아니라 wrapper div에 @keydown.escape가 있어야, 메뉴 항목에
+    # 포커스가 가 있을 때도 Escape로 닫힌다(버튼에만 있으면 포커스가 벗어나면 무반응).
+    assert '<div class="dropdown" x-data="{ open: false }" :class="{ \'dropdown-open\': open }" @keydown.escape="open = false">' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션의_다년도_활동은_data_years_속성에_전체_연도가_담긴다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(name='다년도 data-years 테스트', start_year=2022, end_year=2023, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'data-years="2022,2023"' in body
+
+
+@pytest.mark.django_db
 def test_home_활동_섹션은_링크와_첨부파일이_모두_없으면_아이콘_줄을_생략한다(settings, tmp_path) -> None:
     from django.core.files.uploadedfile import SimpleUploadedFile
     from django.test import Client

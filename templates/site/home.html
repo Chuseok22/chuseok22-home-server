@@ -191,13 +191,12 @@
             {% endwith %}
             {% endfor %}
             {% if activity.attachments.all %}
-            <div class="dropdown" x-data="{ open: false }" :class="{ 'dropdown-open': open }">
+            <div class="dropdown" x-data="{ open: false }" :class="{ 'dropdown-open': open }" @keydown.escape="open = false">
               <button
                 type="button"
                 class="link link-hover inline-flex items-center gap-1"
                 :aria-expanded="open.toString()"
                 @click="open = !open"
-                @keydown.escape="open = false"
               >
                 <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/paper-clip.svg" alt="" class="w-4 h-4 shrink-0">
                 <span class="text-xs">{{ activity.attachments.all|length }}</span>
