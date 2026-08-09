@@ -146,19 +146,72 @@
     {% endif %}
 
     {% if activities %}
-    <section class="section-box">
-      <span class="eyebrow">Activities</span>
-      <h2 class="text-xl font-bold mb-4">활동</h2>
+    <section class="section-box" x-data="{ activeYear: 'all' }">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <span class="eyebrow">Activities</span>
+          <h2 class="text-xl font-bold">활동</h2>
+        </div>
+        <div class="year-segment-group">
+          <button
+            type="button"
+            class="year-segment-item"
+            :class="activeYear === 'all' ? 'is-active' : ''"
+            :aria-pressed="activeYear === 'all'"
+            @click="activeYear = 'all'"
+          >전체</button>
+          {% for year in activity_years %}
+          <button
+            type="button"
+            class="year-segment-item"
+            :class="activeYear === '{{ year }}' ? 'is-active' : ''"
+            :aria-pressed="activeYear === '{{ year }}'"
+            @click="activeYear = '{{ year }}'"
+          >{{ year }}</button>
+          {% endfor %}
+        </div>
+      </div>
       <ul class="flex flex-col gap-4 border-l-2 border-base-300 pl-4">
         {% for activity in activities %}
-        <li>
+        <li
+          data-years="{{ activity.years|join:',' }}"
+          x-show="activeYear === 'all' || $el.dataset.years.split(',').includes(activeYear)"
+          x-cloak
+          x-transition
+        >
           {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
-          {% if activity.link %}
-          <p class="font-medium"><a href="{{ activity.link }}" target="_blank" rel="noopener" class="link link-hover">{{ activity.name }}</a></p>
-          {% else %}
           <p class="font-medium">{{ activity.name }}</p>
-          {% endif %}
           {% if activity.description %}<p class="text-sm opacity-70">{{ activity.description }}</p>{% endif %}
+          {% if activity.links or activity.attachments.all %}
+          <div class="flex items-center gap-2 mt-2 text-sm opacity-70">
+            {% for link in activity.links %}
+            {% with icon=link.type|activity_link_icon %}
+            <a href="{{ link.url }}" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="{{ icon.label }}">
+              <img src="{{ icon.icon_url }}" alt="" class="w-4 h-4 shrink-0">
+            </a>
+            {% endwith %}
+            {% endfor %}
+            {% if activity.attachments.all %}
+            <div class="dropdown" x-data="{ open: false }" :class="{ 'dropdown-open': open }">
+              <button
+                type="button"
+                class="link link-hover inline-flex items-center gap-1"
+                :aria-expanded="open.toString()"
+                @click="open = !open"
+                @keydown.escape="open = false"
+              >
+                <img src="https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/paper-clip.svg" alt="" class="w-4 h-4 shrink-0">
+                <span class="text-xs">{{ activity.attachments.all|length }}</span>
+              </button>
+              <ul x-show="open" x-cloak @click.outside="open = false" class="dropdown-content menu bg-base-100 rounded-box z-10 w-56 p-2 shadow border border-base-300">
+                {% for attachment in activity.attachments.all %}
+                <li><a href="{{ attachment.file.url }}" target="_blank" rel="noopener">{{ attachment.emoji }} {{ attachment.label|default:attachment.display_name }}</a></li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>

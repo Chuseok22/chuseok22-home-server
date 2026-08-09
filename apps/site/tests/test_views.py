@@ -2837,6 +2837,95 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
 
 
 @pytest.mark.django_db
+def test_home_활동_섹션은_연도_세그먼트_필터를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='필터 테스트 활동', start_year=2025, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'year-segment-group' in body
+    assert '>전체<' in body
+    assert '>2025<' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_links의_타입별로_아이콘_링크를_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(
+        name='아이콘 링크 테스트', start_year=2026, order=100,
+        links=[{'type': 'github', 'url': 'https://github.com/example'}],
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert '<a href="https://github.com/example" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub">' in body
+    assert 'https://cdn.simpleicons.org/github' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_첨부파일이_있으면_클립_아이콘과_개수를_보여준다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='첨부파일 렌더링 테스트', start_year=2026, order=100)
+    ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'), label='수료증',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'paper-clip.svg' in body
+    assert '>1</span>' in body
+    assert '📄 수료증' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_링크와_첨부파일이_모두_없으면_아이콘_줄을_생략한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    Activity.objects.create(name='아이콘_없음_테스트', start_year=2026, order=100)
+    with_attachment = Activity.objects.create(name='아이콘_있음_테스트', start_year=2026, order=101)
+    ActivityAttachment.objects.create(
+        activity=with_attachment, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # order=100인 '아이콘_없음_테스트'가 먼저, order=101인 '아이콘_있음_테스트'가 뒤에 렌더링된다.
+    # 아이콘 줄 컨테이너(flex items-center gap-2 mt-2)가 전자 구간에는 없고 후자 구간에는
+    # 있어야 "아예 렌더링 안 함"과 "우연히 아무 데도 없었음"을 구분해서 검증할 수 있다.
+    no_icon_index = body.find('아이콘_없음_테스트')
+    with_icon_index = body.find('아이콘_있음_테스트')
+    no_icon_section = body[no_icon_index:with_icon_index]
+    with_icon_section = body[with_icon_index:with_icon_index + 800]
+
+    assert 'flex items-center gap-2 mt-2' not in no_icon_section
+    assert 'flex items-center gap-2 mt-2' in with_icon_section
+
+
+@pytest.mark.django_db
 def test_home_자격증_카드는_고정_아이콘과_2열_grid를_사용한다() -> None:
     from django.test import Client
 
