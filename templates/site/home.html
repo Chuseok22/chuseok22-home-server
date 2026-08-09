@@ -176,7 +176,6 @@
         <li
           data-years="{{ activity.years|join:',' }}"
           x-show="activeYear === 'all' || $el.dataset.years.split(',').includes(activeYear)"
-          x-cloak
           x-transition
         >
           {% if activity.period %}<p class="text-xs opacity-60">{{ activity.period }}</p>{% endif %}
