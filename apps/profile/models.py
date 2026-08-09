@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
@@ -92,6 +93,30 @@ class Career(models.Model):
         return f'[{self.get_category_display()}] {self.organization} — {self.role}'
 
 
+# apps/site/templatetags/profile_tags.py의 _ACTIVITY_LINK_ICONS 아이콘 매핑과 동일한 키 집합을
+# 유지해야 한다 — 여기서 허용하지 않은 type은 애초에 저장되지 않으므로 그쪽에서 'other' 폴백으로
+# 빠질 일이 없다. 두 앱 사이의 계층 규칙(site → profile만 허용) 때문에 이 목록을 공유 import로
+# 묶지 않고 독립적으로 유지한다.
+_ACTIVITY_LINK_TYPES = {
+    'official', 'github', 'youtube', 'instagram', 'linkedin', 'presentation', 'article', 'other',
+}
+
+
+def validate_activity_links(value: list) -> None:
+    """Activity.links의 구조를 검증한다: type/url을 가진 객체 리스트여야 하고,
+    type은 허용된 값 중 하나, url은 http(s) 스킴이어야 한다(javascript: 등 위험한 스킴 차단)."""
+    if not isinstance(value, list):
+        raise ValidationError('links는 리스트여야 합니다.')
+    for item in value:
+        if not isinstance(item, dict) or 'type' not in item or 'url' not in item:
+            raise ValidationError('links의 각 항목은 type과 url을 가진 객체여야 합니다.')
+        if item['type'] not in _ACTIVITY_LINK_TYPES:
+            raise ValidationError(f'허용되지 않은 링크 type입니다: {item["type"]}')
+        url = item['url']
+        if not isinstance(url, str) or not url.startswith(('http://', 'https://')):
+            raise ValidationError('url은 http:// 또는 https://로 시작해야 합니다.')
+
+
 class Activity(models.Model):
     """대외활동(동아리, 커뮤니티 등) 카드."""
 
@@ -102,6 +127,7 @@ class Activity(models.Model):
     end_year = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name='종료 연도')
     links = models.JSONField(
         default=list, blank=True, verbose_name='관련 링크 목록',
+        validators=[validate_activity_links],
         help_text=(
             '예: [{"type": "github", "url": "https://..."}]. '
             'type은 official/github/youtube/instagram/linkedin/presentation/article/other 중 하나.'
@@ -113,9 +139,21 @@ class Activity(models.Model):
         verbose_name = '활동'
         verbose_name_plural = '활동 목록'
         ordering = ('order',)
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_year__isnull=True) | models.Q(end_year__gte=models.F('start_year')),
+                name='activity_end_year_gte_start_year',
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        # CheckConstraint는 DB 레벨 최종 방어선이고, 이 clean()은 Admin 저장 시(ModelForm이
+        # full_clean을 호출) 필드 단위 에러 메시지로 바로 보여주기 위한 것이다.
+        if self.end_year is not None and self.end_year < self.start_year:
+            raise ValidationError({'end_year': '종료 연도는 시작 연도보다 빠를 수 없습니다.'})
 
     @property
     def years(self) -> list[int]:

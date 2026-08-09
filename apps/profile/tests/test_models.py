@@ -92,6 +92,108 @@ def test_activity_years는_start_year와_end_year_사이_모든_연도를_반환
 
 
 @pytest.mark.django_db
+def test_activity_clean은_end_year가_start_year보다_빠르면_검증오류를_발생시킨다() -> None:
+    from django.core.exceptions import ValidationError
+
+    activity = Activity(name='역전된 연도 활동', start_year=2024, end_year=2020, order=0)
+
+    with pytest.raises(ValidationError) as exc_info:
+        activity.clean()
+
+    assert 'end_year' in exc_info.value.message_dict
+
+
+@pytest.mark.django_db
+def test_activity는_end_year가_start_year보다_빠르면_db_제약으로_저장을_거부한다() -> None:
+    from django.db import IntegrityError, transaction
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        Activity.objects.create(name='역전된 연도 활동(DB)', start_year=2024, end_year=2020, order=0)
+
+
+@pytest.mark.django_db
+def test_activity_links는_리스트가_아니면_검증오류를_발생시킨다() -> None:
+    from django.core.exceptions import ValidationError
+
+    activity = Activity(name='links 검증 테스트1', start_year=2026, links={'type': 'github', 'url': 'https://x'}, order=0)
+
+    with pytest.raises(ValidationError):
+        activity.full_clean()
+
+
+@pytest.mark.django_db
+def test_activity_links는_허용되지_않은_type이면_검증오류를_발생시킨다() -> None:
+    from django.core.exceptions import ValidationError
+
+    activity = Activity(
+        name='links 검증 테스트2', start_year=2026,
+        links=[{'type': '알수없는타입', 'url': 'https://example.com'}], order=0,
+    )
+
+    with pytest.raises(ValidationError):
+        activity.full_clean()
+
+
+@pytest.mark.django_db
+def test_activity_links는_http_https가_아닌_url이면_검증오류를_발생시킨다() -> None:
+    from django.core.exceptions import ValidationError
+
+    activity = Activity(
+        name='links 검증 테스트3', start_year=2026,
+        links=[{'type': 'official', 'url': 'javascript:alert(1)'}], order=0,
+    )
+
+    with pytest.raises(ValidationError):
+        activity.full_clean()
+
+
+@pytest.mark.django_db
+def test_activity_links는_유효한_링크는_검증을_통과한다() -> None:
+    activity = Activity(
+        name='links 검증 테스트4', start_year=2026,
+        links=[{'type': 'github', 'url': 'https://github.com/example'}], order=0,
+    )
+
+    activity.full_clean()  # 예외가 발생하지 않아야 한다
+
+
+@pytest.mark.django_db
+def test_activityattachment_삭제시_저장소_파일도_함께_삭제된다(settings, tmp_path) -> None:
+    from django.core.files.storage import default_storage
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='파일삭제 테스트 활동', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cleanup.pdf', b'dummy-bytes'),
+    )
+    file_path = attachment.file.name
+    assert default_storage.exists(file_path)
+
+    attachment.delete()
+
+    assert not default_storage.exists(file_path)
+
+
+@pytest.mark.django_db
+def test_activity_삭제시_연결된_attachment_파일도_함께_삭제된다(settings, tmp_path) -> None:
+    from django.core.files.storage import default_storage
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='캐스케이드 파일삭제 테스트 활동', start_year=2026, order=0)
+    attachment = ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cascade.pdf', b'dummy-bytes'),
+    )
+    file_path = attachment.file.name
+    assert default_storage.exists(file_path)
+
+    activity.delete()
+
+    assert not default_storage.exists(file_path)
+
+
+@pytest.mark.django_db
 def test_activity_attachment_str_representation은_label을_반환한다(settings, tmp_path) -> None:
     from django.core.files.uploadedfile import SimpleUploadedFile
 
