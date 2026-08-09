@@ -105,6 +105,9 @@ def home(request: HttpRequest) -> HttpResponse:
     VisitorCounter.objects.filter(pk=1).update(count=F('count') + 1)
     total_stars = GithubProfileStats.objects.filter(pk=1).values_list('total_stars', flat=True).first() or 0
 
+    activities = Activity.objects.prefetch_related('attachments')
+    activity_years = sorted({year for activity in activities for year in activity.years}, reverse=True)
+
     return render(request, 'site/home.html', {
         'profile': profile,
         'bio_html': bio_html,
@@ -113,7 +116,8 @@ def home(request: HttpRequest) -> HttpResponse:
         'featured_projects': Project.objects.filter(is_featured=True).order_by('order'),
         'careers_by_category': careers_by_category,
         'awards': awards,
-        'activities': Activity.objects.all(),
+        'activities': activities,
+        'activity_years': activity_years,
         'certifications': Certification.objects.all(),
         'recent_posts': Post.objects.filter(is_published=True).order_by('-published_at')[:3],
         'total_stars': total_stars,

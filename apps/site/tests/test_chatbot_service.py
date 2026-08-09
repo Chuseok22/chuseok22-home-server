@@ -562,7 +562,7 @@ def test_대외활동_정보가_있으면_컨텍스트에_포함된다() -> None
         feature=CHATBOT_FEATURE, name='기본', system_prompt='시스템',
         model='functiongemma', is_active=True,
     )
-    Activity.objects.create(name='OO 개발자 커뮤니티', period='2023~2024', description='정기 스터디 운영')
+    Activity.objects.create(name='OO 개발자 커뮤니티', period='2023~2024', description='정기 스터디 운영', start_year=2024)
 
     with patch('apps.site.services.chatbot.SuhAiderClient') as mock_client_cls:
         mock_client_cls.return_value.chat.return_value = '응답'
@@ -611,7 +611,7 @@ def test_경력_자격증_대외활동_PR이_모두_있으면_이_순서로_배�
         period_start=date(2024, 3, 1),
     )
     Certification.objects.create(name='정보처리기사', issuer='한국산업인력공단', acquired_date=date(2023, 5, 1))
-    Activity.objects.create(name='OO 커뮤니티')
+    Activity.objects.create(name='OO 커뮤니티', start_year=2024)
     PullRequestHighlight.objects.create(
         title='버그 수정 PR', repo_name='chuseok22/some-repo',
         pr_url='https://github.com/chuseok22/some-repo/pull/1',

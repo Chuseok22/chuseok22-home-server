@@ -46,6 +46,14 @@ def test_section_box_eyebrow가_정의되어_있다() -> None:
     assert '.section-box .eyebrow::before' in content
 
 
+def test_year_segment_group이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    assert '.year-segment-group' in content
+    assert '.year-segment-item' in content
+    assert '.year-segment-item.is-active' in content
+
+
 def test_stat_chip은_더_이상_정의되어_있지_않다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 

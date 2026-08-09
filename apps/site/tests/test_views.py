@@ -2784,6 +2784,37 @@ def test_home_프로젝트_섹션은_project_card_파셜을_재사용한다() ->
 
 
 @pytest.mark.django_db
+def test_home_은_활동_연도_목록을_내림차순으로_정렬해서_전달한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='2024년 활동', start_year=2024, order=100)
+    Activity.objects.create(name='2022~2023년 활동', start_year=2022, end_year=2023, order=101)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert list(response.context['activity_years']) == [2024, 2023, 2022]
+
+
+@pytest.mark.django_db
+def test_home_은_다년도_활동의_연도를_모두_activity_years에_포함한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='다년도 활동', start_year=2020, end_year=2021, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+
+    assert response.context['activity_years'] == [2021, 2020]
+
+
+@pytest.mark.django_db
 def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사용한다() -> None:
     from django.test import Client
 
@@ -2791,7 +2822,7 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
 
     Activity.objects.create(
         name='AROM Spring Boot 심화반 테스트용', description='설명 테스트',
-        period='2099.1학기', order=100,
+        period='2099.1학기', start_year=2099, order=100,
     )
 
     client = Client()
@@ -2806,20 +2837,129 @@ def test_home_활동_섹션은_이력과_동일한_타임라인_마크업을_사
 
 
 @pytest.mark.django_db
-def test_home_활동_섹션은_link이_있으면_이름을_링크로_렌더링한다() -> None:
+def test_home_활동_섹션은_연도_세그먼트_필터를_보여준다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.all().delete()
+    Activity.objects.create(name='필터 테스트 활동', start_year=2025, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'year-segment-group' in body
+    assert '>전체<' in body
+    assert '>2025<' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_links의_타입별로_아이콘_링크를_렌더링한다() -> None:
     from django.test import Client
 
     from apps.profile.models import Activity
 
     Activity.objects.create(
-        name='활동_링크_테스트', link='https://example.com/activity', order=100,
+        name='아이콘 링크 테스트', start_year=2026, order=100,
+        links=[{'type': 'github', 'url': 'https://github.com/example'}],
     )
 
     client = Client()
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert '<a href="https://example.com/activity" target="_blank" rel="noopener" class="link link-hover">활동_링크_테스트</a>' in body
+    assert '<a href="https://github.com/example" class="link link-hover inline-flex items-center" target="_blank" rel="noopener" aria-label="GitHub">' in body
+    assert 'https://cdn.simpleicons.org/github' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_첨부파일이_있으면_클립_아이콘과_개수를_보여준다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='첨부파일 렌더링 테스트', start_year=2026, order=100)
+    ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'), label='수료증',
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'paper-clip.svg' in body
+    assert '>1</span>' in body
+    assert '📄 수료증' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션의_첨부파일_드롭다운은_wrapper에서_esc키로_닫힌다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    activity = Activity.objects.create(name='ESC 테스트 활동', start_year=2026, order=100)
+    ActivityAttachment.objects.create(
+        activity=activity, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # 드롭다운 트리거 버튼이 아니라 wrapper div에 @keydown.escape가 있어야, 메뉴 항목에
+    # 포커스가 가 있을 때도 Escape로 닫힌다(버튼에만 있으면 포커스가 벗어나면 무반응).
+    assert '<div class="dropdown" x-data="{ open: false }" :class="{ \'dropdown-open\': open }" @keydown.escape="open = false">' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션의_다년도_활동은_data_years_속성에_전체_연도가_담긴다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Activity
+
+    Activity.objects.create(name='다년도 data-years 테스트', start_year=2022, end_year=2023, order=100)
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'data-years="2022,2023"' in body
+
+
+@pytest.mark.django_db
+def test_home_활동_섹션은_링크와_첨부파일이_모두_없으면_아이콘_줄을_생략한다(settings, tmp_path) -> None:
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import Client
+
+    from apps.profile.models import Activity, ActivityAttachment
+
+    settings.MEDIA_ROOT = tmp_path
+    Activity.objects.create(name='아이콘_없음_테스트', start_year=2026, order=100)
+    with_attachment = Activity.objects.create(name='아이콘_있음_테스트', start_year=2026, order=101)
+    ActivityAttachment.objects.create(
+        activity=with_attachment, file=SimpleUploadedFile('cert.pdf', b'dummy-bytes'),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:home'))
+    body = response.content.decode()
+
+    # order=100인 '아이콘_없음_테스트'가 먼저, order=101인 '아이콘_있음_테스트'가 뒤에 렌더링된다.
+    # 아이콘 줄 컨테이너(flex items-center gap-2 mt-2)가 전자 구간에는 없고 후자 구간에는
+    # 있어야 "아예 렌더링 안 함"과 "우연히 아무 데도 없었음"을 구분해서 검증할 수 있다.
+    no_icon_index = body.find('아이콘_없음_테스트')
+    with_icon_index = body.find('아이콘_있음_테스트')
+    no_icon_section = body[no_icon_index:with_icon_index]
+    with_icon_section = body[with_icon_index:with_icon_index + 800]
+
+    assert 'flex items-center gap-2 mt-2' not in no_icon_section
+    assert 'flex items-center gap-2 mt-2' in with_icon_section
 
 
 @pytest.mark.django_db

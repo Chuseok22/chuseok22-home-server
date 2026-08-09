@@ -124,3 +124,15 @@ def test_change_화면에서_아바타를_교체해도_크롭_좌표대로_저�
     profile.refresh_from_db()
     with Image.open(profile.avatar.path) as saved_image:
         assert saved_image.size == (50, 50)
+
+
+@pytest.mark.django_db
+def test_activity_change_화면에_첨부파일_인라인이_보인다(admin_client: Client) -> None:
+    from apps.profile.models import Activity
+
+    activity = Activity.objects.create(name='인라인 테스트 활동', start_year=2026, order=0)
+
+    response = admin_client.get(reverse('admin:profile_activity_change', args=[activity.pk]))
+
+    assert response.status_code == 200
+    assert 'name="attachments-0-file"' in response.content.decode()

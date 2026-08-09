@@ -5,6 +5,7 @@ from django.http import HttpRequest
 
 from apps.profile.models import (
     Activity,
+    ActivityAttachment,
     Career,
     Certification,
     Profile,
@@ -88,11 +89,17 @@ class CareerAdmin(admin.ModelAdmin):
     ordering = ('order',)
 
 
+class ActivityAttachmentInline(admin.TabularInline):
+    model = ActivityAttachment
+    extra = 1
+
+
 @admin.register(Activity)
 class ActivityAdmin(admin.ModelAdmin):
-    list_display = ('name', 'period', 'order')
+    list_display = ('name', 'period', 'start_year', 'end_year', 'order')
     list_editable = ('order',)
     ordering = ('order',)
+    inlines = [ActivityAttachmentInline]
 
 
 @admin.register(Certification)
