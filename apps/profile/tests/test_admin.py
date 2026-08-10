@@ -136,3 +136,18 @@ def test_activity_change_화면에_첨부파일_인라인이_보인다(admin_cli
 
     assert response.status_code == 200
     assert 'name="attachments-0-file"' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_activity_change_화면에_링크_위젯_정적_자산이_포함된다(admin_client: Client) -> None:
+    from apps.profile.models import Activity
+
+    activity = Activity.objects.create(name='링크 위젯 테스트 활동', start_year=2026, order=0)
+
+    response = admin_client.get(reverse('admin:profile_activity_change', args=[activity.pk]))
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'id="id_links"' in content
+    assert 'profile/admin/activity_links_widget.js' in content
+    assert 'profile/admin/activity_links_widget.css' in content
