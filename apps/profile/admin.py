@@ -101,6 +101,10 @@ class ActivityAdmin(admin.ModelAdmin):
     ordering = ('order',)
     inlines = [ActivityAttachmentInline]
 
+    class Media:
+        js = ('profile/admin/activity_links_widget.js',)
+        css = {'all': ('profile/admin/activity_links_widget.css',)}
+
 
 @admin.register(Certification)
 class CertificationAdmin(admin.ModelAdmin):
