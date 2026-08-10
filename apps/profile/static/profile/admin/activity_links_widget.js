@@ -47,8 +47,14 @@
     const rowsContainer = document.createElement('div');
     rowsContainer.className = 'activity-links-rows';
 
+    // 각 행의 원본 링크 객체를 DOM 요소에 매핑해둔다 — validate_activity_links는
+    // type/url 외의 키를 금지하지 않으므로, syncTextarea()가 그 부가 키를 잃지 않고
+    // type/url만 갱신해 다시 직렬화할 수 있게 한다.
+    const rowLinkData = new WeakMap();
+
     function syncTextarea() {
       const links = Array.from(rowsContainer.children).map((row) => ({
+        ...rowLinkData.get(row),
         type: row.querySelector('.activity-links-type').value,
         url: row.querySelector('.activity-links-url').value,
       }));
@@ -71,6 +77,7 @@
     function createRow(link) {
       const row = document.createElement('div');
       row.className = 'activity-links-row';
+      rowLinkData.set(row, link);
 
       const select = document.createElement('select');
       select.className = 'activity-links-type';
@@ -88,6 +95,7 @@
 
       const urlInput = document.createElement('input');
       urlInput.type = 'url';
+      urlInput.setAttribute('aria-label', '링크 URL');
       urlInput.required = true;
       urlInput.placeholder = 'https://...';
       urlInput.className = 'activity-links-url';
