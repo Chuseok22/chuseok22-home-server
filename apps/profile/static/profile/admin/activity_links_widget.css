@@ -1,0 +1,117 @@
+.activity-links-widget {
+  margin-top: 4px;
+}
+
+.activity-links-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.activity-links-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-links-type {
+  flex: 0 0 140px;
+}
+
+.activity-links-url {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.activity-links-move-up,
+.activity-links-move-down,
+.activity-links-delete,
+.activity-links-add {
+  padding: 4px 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: #f5f5f5;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.activity-links-move-up:hover,
+.activity-links-move-down:hover,
+.activity-links-delete:hover,
+.activity-links-add:hover {
+  background: #e8e8e8;
+}
+
+.activity-links-move-up:disabled,
+.activity-links-move-down:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.activity-links-delete {
+  color: #ba2121;
+}
+
+/* Django Admin 5.1의 다크모드는 OS 설정(prefers-color-scheme)을 따르는 "자동" 모드와,
+   사용자가 우측 상단 토글로 OS 설정과 무관하게 강제 선택하는 명시적 모드(data-theme="dark"/"light")를
+   모두 지원한다(blog/admin/post_markdown_editor.css와 동일한 패턴). */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .activity-links-type,
+  html:not([data-theme="light"]) .activity-links-url {
+    background: #1b1b1b;
+    color: #e5e5e5;
+    border-color: #444;
+  }
+
+  html:not([data-theme="light"]) .activity-links-move-up,
+  html:not([data-theme="light"]) .activity-links-move-down,
+  html:not([data-theme="light"]) .activity-links-delete,
+  html:not([data-theme="light"]) .activity-links-add {
+    background: #1b1b1b;
+    border-color: #555;
+    color: #e5e5e5;
+  }
+
+  html:not([data-theme="light"]) .activity-links-move-up:hover,
+  html:not([data-theme="light"]) .activity-links-move-down:hover,
+  html:not([data-theme="light"]) .activity-links-delete:hover,
+  html:not([data-theme="light"]) .activity-links-add:hover {
+    background: #333;
+  }
+
+  /* 위 공통 버튼 규칙(.activity-links-delete 포함)이 라이트의 위험색(#ba2121)을 회색으로
+     덮어써 삭제 버튼이 다른 버튼과 구분되지 않는 문제를 막는다. 동일 특이도이므로 소스
+     순서상 뒤에 두어 우선 적용시킨다. */
+  html:not([data-theme="light"]) .activity-links-delete {
+    color: #e88989;
+  }
+}
+
+html[data-theme="dark"] .activity-links-type,
+html[data-theme="dark"] .activity-links-url {
+  background: #1b1b1b;
+  color: #e5e5e5;
+  border-color: #444;
+}
+
+html[data-theme="dark"] .activity-links-move-up,
+html[data-theme="dark"] .activity-links-move-down,
+html[data-theme="dark"] .activity-links-delete,
+html[data-theme="dark"] .activity-links-add {
+  background: #1b1b1b;
+  border-color: #555;
+  color: #e5e5e5;
+}
+
+html[data-theme="dark"] .activity-links-move-up:hover,
+html[data-theme="dark"] .activity-links-move-down:hover,
+html[data-theme="dark"] .activity-links-delete:hover,
+html[data-theme="dark"] .activity-links-add:hover {
+  background: #333;
+}
+
+html[data-theme="dark"] .activity-links-delete {
+  color: #e88989;
+}
