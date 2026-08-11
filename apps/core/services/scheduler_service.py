@@ -9,6 +9,7 @@ def update_job_schedule(
     day_of_week: str,
     interval_hours: int | None = None,
     interval_minute: int = 0,
+    interval_minutes: int | None = None,
     fixed_hours: str = '',
     fixed_minute: int = 0,
 ) -> None:
@@ -19,6 +20,7 @@ def update_job_schedule(
     config.cron_day_of_week = day_of_week
     config.interval_hours = interval_hours
     config.interval_minute = interval_minute
+    config.interval_minutes = interval_minutes
     config.fixed_hours = fixed_hours
     config.fixed_minute = fixed_minute
     config.save()

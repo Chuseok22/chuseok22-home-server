@@ -51,7 +51,7 @@ class ScheduledJobConfigForm(forms.ModelForm):
         model = ScheduledJobConfig
         # cron_day_of_week, fixed_hours는 여기서 제외한다 — weekdays/fixed_hour_list 체크박스로만
         # 입력받고, clean()에서 콤마 문자열로 합성해 인스턴스에 직접 반영한다.
-        fields = ['is_enabled', 'schedule_mode', 'interval_hours', 'interval_minute', 'fixed_minute']
+        fields = ['is_enabled', 'schedule_mode', 'interval_hours', 'interval_minute', 'interval_minutes', 'fixed_minute']
 
     class Media:
         js = ('core/admin/schedule_mode_toggle.js',)
@@ -131,6 +131,8 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
     def schedule_summary(self, obj: ScheduledJobConfig) -> str:
         if obj.schedule_mode == 'interval':
             core = f'{obj.interval_hours}시간마다 :{obj.interval_minute:02d}'
+        elif obj.schedule_mode == 'interval_minutes':
+            core = f'{obj.interval_minutes}분마다'
         else:
             hours = '/'.join(f'{int(h):02d}' for h in obj.fixed_hours.split(',')) if obj.fixed_hours else '-'
             core = f'{hours}시 :{obj.fixed_minute:02d}'
@@ -181,6 +183,7 @@ class ScheduledJobConfigAdmin(admin.ModelAdmin):
                 day_of_week=obj.cron_day_of_week,
                 interval_hours=obj.interval_hours,
                 interval_minute=obj.interval_minute,
+                interval_minutes=obj.interval_minutes,
                 fixed_hours=obj.fixed_hours,
                 fixed_minute=obj.fixed_minute,
             )

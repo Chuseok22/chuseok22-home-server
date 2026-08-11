@@ -47,7 +47,7 @@ def test_fixed_times_모드로_저장_시_update_job_schedule이_호출된다(ad
     assert response.status_code == 302
     mock_update.assert_called_once_with(
         'check_new_notices', is_enabled=True, schedule_mode='fixed_times', day_of_week='mon',
-        interval_hours=None, interval_minute=0, fixed_hours='9,15', fixed_minute=30,
+        interval_hours=None, interval_minute=0, interval_minutes=None, fixed_hours='9,15', fixed_minute=30,
     )
 
 
@@ -72,7 +72,32 @@ def test_interval_모드로_저장_시_update_job_schedule이_호출된다(admin
     assert response.status_code == 302
     mock_update.assert_called_once_with(
         'fetch_github_activities', is_enabled=True, schedule_mode='interval', day_of_week='*',
-        interval_hours=6, interval_minute=0, fixed_hours='', fixed_minute=0,
+        interval_hours=6, interval_minute=0, interval_minutes=None, fixed_hours='', fixed_minute=0,
+    )
+
+
+@pytest.mark.django_db
+def test_interval_minutes_모드로_저장_시_update_job_schedule이_호출된다(admin_client: Client) -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', schedule_mode='fixed_times', fixed_hours='8',
+    )
+    url = reverse('admin:core_scheduledjobconfig_change', args=[config.pk])
+
+    with patch('apps.core.admin.update_job_schedule') as mock_update:
+        response = admin_client.post(url, {
+            'is_enabled': 'on',
+            'schedule_mode': 'interval_minutes',
+            'interval_minutes': 5,
+            'interval_minute': 0,
+            'fixed_minute': 0,
+            'weekdays': ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'],
+            '_save': 'Save',
+        })
+
+    assert response.status_code == 302
+    mock_update.assert_called_once_with(
+        'check_new_notices', is_enabled=True, schedule_mode='interval_minutes', day_of_week='*',
+        interval_hours=None, interval_minute=0, interval_minutes=5, fixed_hours='', fixed_minute=0,
     )
 
 
