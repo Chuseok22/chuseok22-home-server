@@ -17,10 +17,12 @@ CRON_DAY_OF_WEEK_CHOICES = [
 
 SCHEDULE_MODE_CHOICES = [
     ('interval', 'N시간마다'),
+    ('interval_minutes', 'N분마다'),
     ('fixed_times', '특정 시각'),
 ]
 
 INTERVAL_HOURS_CHOICES = [(h, f'{h}시간마다') for h in (1, 2, 3, 4, 6, 8, 12, 24)]
+INTERVAL_MINUTES_CHOICES = [(m, f'{m}분마다') for m in (5, 10, 15, 30)]
 
 
 class ScheduledJobConfig(models.Model):
@@ -44,6 +46,11 @@ class ScheduledJobConfig(models.Model):
     # interval 모드 전용 — schedule_mode='interval'일 때만 사용
     interval_hours = models.PositiveSmallIntegerField(choices=INTERVAL_HOURS_CHOICES, null=True, blank=True)
     interval_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
+    # interval_minutes 모드 전용 — schedule_mode='interval_minutes'일 때만 사용 (5분 간격 감시처럼
+    # 시간 단위로 표현할 수 없는 짧은 주기가 필요한 잡을 위해 도입)
+    interval_minutes = models.PositiveSmallIntegerField(
+        choices=INTERVAL_MINUTES_CHOICES, null=True, blank=True,
+    )
     # fixed_times 모드 전용 — schedule_mode='fixed_times'일 때만 사용. 콤마 구분 시(hour) 목록, 예: "3,9,15,21"
     fixed_hours = models.CharField(max_length=100, default='', blank=True)
     fixed_minute = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(59)])
@@ -52,12 +59,18 @@ class ScheduledJobConfig(models.Model):
 
     def clean(self) -> None:
         # 어드민 폼을 거치지 않고 생성/저장되는 경로(management command, 쉘 등)에 대한
-        # 방어선 — schedule_mode가 두 유효값 밖이면 뒤 분기(interval/fixed_times)가 모두
-        # 스킵되어 필수값 검증이 통째로 우회되므로 여기서 먼저 막는다.
-        if self.schedule_mode not in ('interval', 'fixed_times'):
-            raise ValidationError({'schedule_mode': 'schedule_mode는 interval 또는 fixed_times여야 합니다.'})
+        # 방어선 — schedule_mode가 세 유효값 밖이면 뒤 분기(interval/interval_minutes/
+        # fixed_times)가 모두 스킵되어 필수값 검증이 통째로 우회되므로 여기서 먼저 막는다.
+        if self.schedule_mode not in ('interval', 'interval_minutes', 'fixed_times'):
+            raise ValidationError({
+                'schedule_mode': 'schedule_mode는 interval, interval_minutes, fixed_times 중 하나여야 합니다.',
+            })
         if self.schedule_mode == 'interval' and self.interval_hours is None:
             raise ValidationError({'interval_hours': 'interval 모드에서는 interval_hours가 필수입니다.'})
+        if self.schedule_mode == 'interval_minutes' and self.interval_minutes is None:
+            raise ValidationError({
+                'interval_minutes': 'interval_minutes 모드에서는 interval_minutes가 필수입니다.',
+            })
         if self.schedule_mode == 'fixed_times' and not self.fixed_hours:
             # 이 메시지는 필드 키가 아니라 NON_FIELD_ERRORS로 발생시킨다 — fixed_hours는
             # apps/core/admin.py의 ScheduledJobConfigForm에서 항상 Meta.fields 밖으로
