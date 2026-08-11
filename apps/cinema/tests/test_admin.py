@@ -35,6 +35,9 @@ def test_용산_IMAX_감시_목록_화면은_해당_상영관_행만_보여준�
 def test_용산_IMAX_감시_등록시_영화_드롭다운은_해당_상영관의_NowShowingMovie만_포함한다(admin_client: Client) -> None:
     NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
     NowShowingMovie.objects.create(cinema_screen='lotte_jamsil_superplex', movie_code='B', title='B')
+    NowShowingMovie.objects.create(
+        cinema_screen='cgv_yongsan_imax', movie_code='C', title='C', is_currently_showing=False,
+    )
 
     response = admin_client.get(reverse('admin:cinema_yongsanimaxwatch_add'))
 
@@ -56,6 +59,30 @@ def test_용산_IMAX_감시_등록시_cinema_screen이_자동으로_고정된다
     assert response.status_code == 302
     tracked = TrackedMovie.objects.get(movie=movie)
     assert tracked.cinema_screen == 'cgv_yongsan_imax'
+
+
+@pytest.mark.django_db
+def test_상영_종료된_영화의_감시_수정_화면_저장은_성공한다(admin_client: Client) -> None:
+    movie = NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
+    tracked = TrackedMovie.objects.create(
+        cinema_screen='cgv_yongsan_imax', movie=movie, discord_webhook_url='https://discord.com/api/webhooks/1/a',
+    )
+    # sync_now_showing_movies가 상영 종료된 영화를 삭제하지 않고 플래그만 내리는 상황을 재현한다 —
+    # formfield_for_foreignkey가 is_currently_showing=True로만 드롭다운을 제한하면, 이 시점에
+    # 이미 선택된 movie가 queryset에서 빠져 ModelChoiceField가 invalid_choice로 저장을 막는다.
+    movie.is_currently_showing = False
+    movie.save()
+    url = reverse('admin:cinema_yongsanimaxwatch_change', args=[tracked.pk])
+
+    response = admin_client.post(url, {
+        'movie': movie.pk, 'is_active': '',
+        'discord_webhook_url': 'https://discord.com/api/webhooks/1/a',
+    })
+
+    assert response.status_code == 302
+    tracked.refresh_from_db()
+    assert tracked.is_active is False
+    assert tracked.movie_id == movie.pk
 
 
 @pytest.mark.django_db

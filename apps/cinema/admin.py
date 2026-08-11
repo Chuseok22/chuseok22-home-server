@@ -51,6 +51,18 @@ class _ScreenBoundTrackedMovieAdmin(admin.ModelAdmin):
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def get_form(
+        self, request: HttpRequest, obj: TrackedMovie | None = None, **kwargs: Any,
+    ) -> type[forms.ModelForm]:
+        form = super().get_form(request, obj, **kwargs)
+        if obj is not None:
+            # 상영 종료(is_currently_showing=False)된 영화의 감시를 수정하려 할 때, formfield_for_foreignkey가
+            # 이미 상영 중인 영화로만 드롭다운을 제한해 현재 선택된 영화가 queryset에서 빠지면
+            # ModelChoiceField가 invalid_choice로 저장을 막는다 — 기존 값은 항상 선택 가능하게 합친다.
+            field = form.base_fields['movie']
+            field.queryset = field.queryset | NowShowingMovie.objects.filter(pk=obj.movie_id)
+        return form
+
     def save_model(
         self, request: HttpRequest, obj: TrackedMovie, form: forms.ModelForm, change: bool,
     ) -> None:
