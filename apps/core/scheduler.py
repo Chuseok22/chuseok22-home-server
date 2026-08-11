@@ -79,6 +79,22 @@ JOB_DEFINITIONS = {
         'default_interval_minutes': 5,
         'default_day_of_week': '*',
     },
+    'sync_now_showing_movies': {
+        'label': '영화관 상영작 목록 동기화 (CGV/롯데)',
+        'command': 'sync_now_showing_movies',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '6',
+        'default_fixed_minute': 0,
+        'default_day_of_week': '*',
+    },
+    'resync_movie_showtime_openings': {
+        'label': '영화 예매 오픈 전체 재확인 (CGV/롯데)',
+        'command': 'resync_movie_showtime_openings',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '6',
+        'default_fixed_minute': 30,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None
