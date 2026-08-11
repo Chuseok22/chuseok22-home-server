@@ -272,3 +272,14 @@ def test_GitHub_트렌딩_리포트_잡은_기본값이_매일_오전_9시다() 
     assert config.fixed_hours == '9'
     assert config.fixed_minute == 0
     assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
+def test_get_or_seed_job_config는_interval_minutes_모드_기본값으로_생성한다() -> None:
+    definition = JOB_DEFINITIONS['check_movie_showtime_openings']
+
+    config = get_or_seed_job_config('check_movie_showtime_openings', definition)
+
+    assert config.schedule_mode == 'interval_minutes'
+    assert config.interval_minutes == 5
+    assert config.cron_day_of_week == '*'

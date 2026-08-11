@@ -72,6 +72,13 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 0,
         'default_day_of_week': '*',
     },
+    'check_movie_showtime_openings': {
+        'label': '영화 예매 오픈 감지 (CGV/롯데)',
+        'command': 'check_movie_showtime_openings',
+        'default_schedule_mode': 'interval_minutes',
+        'default_interval_minutes': 5,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None
@@ -94,6 +101,8 @@ def get_or_seed_job_config(job_id: str, definition: dict) -> ScheduledJobConfig:
     if mode == 'interval':
         defaults['interval_hours'] = definition['default_interval_hours']
         defaults['interval_minute'] = definition['default_interval_minute']
+    elif mode == 'interval_minutes':
+        defaults['interval_minutes'] = definition['default_interval_minutes']
     else:
         defaults['fixed_hours'] = definition['default_fixed_hours']
         defaults['fixed_minute'] = definition['default_fixed_minute']
