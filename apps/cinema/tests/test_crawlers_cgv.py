@@ -53,6 +53,16 @@ class TestListNowShowing:
         with pytest.raises(CinemaCrawlerError):
             crawler.list_now_showing(reference_date=date(2026, 9, 1))
 
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_data가_리스트가_아니면_CinemaCrawlerError를_발생시킨다(self, mock_get, crawler) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {'data': {'unexpected': 'shape'}}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        with pytest.raises(CinemaCrawlerError):
+            crawler.list_now_showing(reference_date=date(2026, 9, 1))
+
 
 class TestGetOpenDatesBulk:
     @patch('apps.cinema.crawlers.cgv.requests.get')

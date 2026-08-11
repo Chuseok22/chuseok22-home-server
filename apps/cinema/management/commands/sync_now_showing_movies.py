@@ -31,6 +31,14 @@ class Command(BaseCommand):
             self.stderr.write(f'[{cinema_screen}] 동기화 실패: {e}')
             return
 
+        if not movies:
+            logger.warning(
+                '[%s] 크롤러가 빈 목록을 반환했습니다 — 응답 이상 가능성, 이번 동기화는 건너뜁니다',
+                cinema_screen,
+            )
+            self.stderr.write(f'[{cinema_screen}] 빈 목록 반환, 동기화 건너뜀')
+            return
+
         seen_codes = set()
         for movie in movies:
             seen_codes.add(movie.movie_code)

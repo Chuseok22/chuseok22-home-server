@@ -84,7 +84,7 @@ JOB_DEFINITIONS = {
         'command': 'sync_now_showing_movies',
         'default_schedule_mode': 'fixed_times',
         'default_fixed_hours': '6',
-        'default_fixed_minute': 0,
+        'default_fixed_minute': 2,
         'default_day_of_week': '*',
     },
     'resync_movie_showtime_openings': {
@@ -92,7 +92,7 @@ JOB_DEFINITIONS = {
         'command': 'resync_movie_showtime_openings',
         'default_schedule_mode': 'fixed_times',
         'default_fixed_hours': '6',
-        'default_fixed_minute': 30,
+        'default_fixed_minute': 32,
         'default_day_of_week': '*',
     },
 }

@@ -34,7 +34,9 @@ class Command(BaseCommand):
         discord = CinemaDiscordService()
         for cinema_screen, crawler in _CRAWLERS.items():
             tracked_movies = list(
-                TrackedMovie.objects.filter(cinema_screen=cinema_screen, is_active=True),
+                TrackedMovie.objects.filter(
+                    cinema_screen=cinema_screen, is_active=True, movie__is_currently_showing=True,
+                ).select_related('movie'),
             )
             candidate_dates = self._build_candidate_dates(tracked_movies)
             notified_count = run_showtime_check(
@@ -51,7 +53,7 @@ class Command(BaseCommand):
         dates: set[date] = set()
         for tracked_movie in tracked_movies:
             last_opened = OpenedShowDate.objects.filter(
-                tracked_movie=tracked_movie,
+                tracked_movie=tracked_movie, notify_succeeded=True,
             ).order_by('-show_date').values_list('show_date', flat=True).first()
             frontier_start = max(last_opened + timedelta(days=1), today) if last_opened else today
             for offset in range(_FRONTIER_BUFFER_DAYS):

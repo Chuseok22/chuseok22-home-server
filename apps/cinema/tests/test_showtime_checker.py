@@ -113,6 +113,55 @@ def test_감시_대상이_없으면_크롤러를_호출하지_않는다() -> Non
 
 
 @pytest.mark.django_db
+def test_candidate_dates가_비어있으면_크롤러를_호출하지_않고_실패_카운터도_건드리지_않는다(
+    tracked_movie,
+) -> None:
+    CinemaScreenWatchStatus.objects.create(
+        cinema_screen=_SCREEN, consecutive_failure_count=3, alert_sent=False,
+    )
+    crawler = MagicMock()
+    discord = MagicMock()
+
+    notified_count = run_showtime_check(_SCREEN, crawler, [], _LABEL, _BOOKING_URL, discord)
+
+    assert notified_count == 0
+    crawler.get_open_dates_bulk.assert_not_called()
+    status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
+    assert status.consecutive_failure_count == 3
+
+
+@pytest.mark.django_db
+def test_예상치_못한_예외도_실패_카운터를_증가시킨다(tracked_movie) -> None:
+    crawler = MagicMock()
+    crawler.get_open_dates_bulk.side_effect = AttributeError('예상 못 한 크롤러 내부 오류')
+    discord = MagicMock()
+
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+
+    status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
+    assert status.consecutive_failure_count == 1
+
+
+@pytest.mark.django_db
+def test_상영_종료된_영화의_감시_대상은_제외된다() -> None:
+    movie = NowShowingMovie.objects.create(
+        cinema_screen=_SCREEN, movie_code='종료된영화', title='종료된영화', is_currently_showing=False,
+    )
+    TrackedMovie.objects.create(
+        cinema_screen=_SCREEN, movie=movie, discord_webhook_url='https://discord.com/api/webhooks/1/a',
+    )
+    crawler = MagicMock()
+    discord = MagicMock()
+
+    notified_count = run_showtime_check(
+        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
+    )
+
+    assert notified_count == 0
+    crawler.get_open_dates_bulk.assert_not_called()
+
+
+@pytest.mark.django_db
 def test_크롤링_실패시_연속_실패_카운터가_증가한다(tracked_movie) -> None:
     crawler = MagicMock()
     crawler.get_open_dates_bulk.side_effect = CinemaCrawlerError('실패')

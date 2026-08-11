@@ -74,7 +74,10 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
             # CGV 크롤러의 _fetch와 동일한 이유로 response.json()도 try 안에서 호출한다 —
             # JSONDecodeError가 CinemaCrawlerError로 감싸이지 않으면 실패 카운터가 증가하지
             # 않고 handle() 루프가 중단될 수 있다.
-            return response.json()
+            data = response.json()
+            if not isinstance(data, dict):
+                raise CinemaCrawlerError(f'롯데시네마 응답 형식이 예상과 다릅니다: {method_name}')
+            return data
         except requests.RequestException as e:
             logger.error('롯데시네마 요청 실패 (method=%s): %s', method_name, type(e).__name__)
             raise CinemaCrawlerError(f'롯데시네마 요청 실패: {method_name}') from e

@@ -75,6 +75,16 @@ class TestListNowShowing:
         with pytest.raises(CinemaCrawlerError):
             crawler.list_now_showing(reference_date=date(2026, 8, 11))
 
+    @patch('apps.cinema.crawlers.lotte.requests.post')
+    def test_응답이_dict가_아니면_CinemaCrawlerError를_발생시킨다(self, mock_post, crawler) -> None:
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = ['unexpected', 'shape']
+        mock_post.return_value = response
+
+        with pytest.raises(CinemaCrawlerError):
+            crawler.list_now_showing(reference_date=date(2026, 8, 11))
+
 
 class TestGetOpenDatesBulk:
     @patch('apps.cinema.crawlers.lotte.requests.post')

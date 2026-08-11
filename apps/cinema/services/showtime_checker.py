@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from apps.cinema.crawlers.base import BaseCinemaCrawler, CinemaCrawlerError
+from apps.cinema.crawlers.base import BaseCinemaCrawler
 from apps.cinema.models import CinemaScreenWatchStatus, OpenedShowDate, TrackedMovie
 from apps.cinema.services.discord import CinemaDiscordService
 
@@ -21,16 +21,21 @@ def run_showtime_check(
     """cinema_screen에서 활성 감시 대상의 candidate_dates 중 새로 열린 날짜를 찾아 알림을
     보낸다. 새로 알림을 보낸 날짜 수를 반환한다."""
     tracked_movies = list(
-        TrackedMovie.objects.filter(cinema_screen=cinema_screen, is_active=True).select_related('movie'),
+        TrackedMovie.objects.filter(
+            cinema_screen=cinema_screen, is_active=True, movie__is_currently_showing=True,
+        ).select_related('movie'),
     )
-    if not tracked_movies:
+    if not tracked_movies or not candidate_dates:
         return 0
 
     movie_codes = [tm.movie.movie_code for tm in tracked_movies]
     try:
         open_dates = crawler.get_open_dates_bulk(movie_codes, candidate_dates)
-    except CinemaCrawlerError as e:
-        logger.error('[%s] 크롤링 실패: %s', cinema_screen, e)
+    except Exception as e:
+        # CinemaCrawlerError뿐 아니라 크롤러 내부에서 예상 못 한 예외(AttributeError 등)가
+        # 나도 실패 카운터를 증가시켜야 한다 — 좁은 except로 두면 이런 예외가 그대로
+        # 전파되어 handle() 루프가 다른 상영관 체크까지 중단시킨다.
+        logger.error('[%s] 크롤링 실패: %s: %s', cinema_screen, type(e).__name__, e)
         _record_failure(cinema_screen, cinema_screen_label, tracked_movies, discord)
         return 0
 

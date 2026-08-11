@@ -87,7 +87,10 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             # 안전장치 무력화) check_movie_showtime_openings의 다음 상영관(롯데) 처리까지
             # 중단시킬 수 있다. requests의 JSONDecodeError는 RequestException의 서브클래스라
             # 아래 except가 그대로 잡는다.
-            return response.json().get('data', [])
+            rows = response.json().get('data')
+            if not isinstance(rows, list):
+                raise CinemaCrawlerError(f'CGV 응답 형식이 예상과 다릅니다: {target_date}')
+            return rows
         except requests.RequestException as e:
             logger.error('CGV 상영 정보 요청 실패 (date=%s): %s', target_date, type(e).__name__)
             raise CinemaCrawlerError(f'CGV 요청 실패: {target_date}') from e
