@@ -124,6 +124,21 @@ def test_build_cron_trigger는_interval_hours가_24면_매일_0시_표현식으�
 
 
 @pytest.mark.django_db
+def test_build_cron_trigger는_interval_minutes_모드에서_N분마다_표현식을_만든다() -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices',
+        schedule_mode='interval_minutes', interval_minutes=5, cron_day_of_week='*',
+    )
+
+    trigger = build_cron_trigger(config)
+    fields = {f.name: str(f) for f in trigger.fields}
+
+    assert fields['hour'] == '*'
+    assert fields['minute'] == '*/5'
+    assert fields['day_of_week'] == '*'
+
+
+@pytest.mark.django_db
 def test_카카오_즐겨찾기_동기화_잡은_기본값이_일요일_새벽_5시30분이다() -> None:
     definition = JOB_DEFINITIONS['sync_kakao_favorites']
 

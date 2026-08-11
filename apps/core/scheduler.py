@@ -114,7 +114,10 @@ def build_cron_trigger(config: ScheduledJobConfig) -> CronTrigger:
             hour_expr: str | int = '0'
         else:
             hour_expr = f'*/{config.interval_hours}'
-        minute_expr = config.interval_minute
+        minute_expr: str | int = config.interval_minute
+    elif config.schedule_mode == 'interval_minutes':
+        hour_expr = '*'
+        minute_expr = f'*/{config.interval_minutes}'
     else:
         hour_expr = config.fixed_hours
         minute_expr = config.fixed_minute
