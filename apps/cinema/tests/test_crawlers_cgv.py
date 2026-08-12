@@ -33,7 +33,41 @@ def crawler() -> CgvYongsanImaxCrawler:
     return CgvYongsanImaxCrawler()
 
 
+_SAMPLE_RESPONSE_WITH_MOVNO = {
+    'data': [
+        {
+            'movNo': 'M12345', 'movNm': '스파이더맨: 브랜드 뉴 데이', 'scnsNm': '1관(IMAX)',
+            'movkndDsplNm': '2D', 'scnsrtTm': '1030', 'scnendTm': '1250',
+            'frSeatCnt': 50, 'stcnt': 300, 'scnsNo': '01', 'scnSseq': '1',
+        },
+    ],
+}
+
+
 class TestListNowShowing:
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_movNo가_있으면_movNm_대신_movie_code로_사용한다(self, mock_get, crawler) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = _SAMPLE_RESPONSE_WITH_MOVNO
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        result = crawler.list_now_showing(reference_date=date(2026, 9, 1))
+
+        assert result[0].movie_code == 'M12345'
+        assert result[0].title == '스파이더맨: 브랜드 뉴 데이'
+
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_movNo가_없으면_movNm으로_폴백한다(self, mock_get, crawler) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = _SAMPLE_RESPONSE
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        result = crawler.list_now_showing(reference_date=date(2026, 9, 1))
+
+        assert result[0].movie_code == '스파이더맨: 브랜드 뉴 데이'
+
     @patch('apps.cinema.crawlers.cgv.requests.get')
     def test_IMAX_상영관만_추리고_중복_영화명은_제거한다(self, mock_get, crawler) -> None:
         mock_response = MagicMock()
@@ -65,6 +99,19 @@ class TestListNowShowing:
 
 
 class TestGetOpenDatesBulk:
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_movNo가_있으면_movNo_기준으로_매칭한다(self, mock_get, crawler) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = _SAMPLE_RESPONSE_WITH_MOVNO
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        result = crawler.get_open_dates_bulk(
+            movie_codes=['M12345'], candidate_dates=[date(2026, 9, 1)],
+        )
+
+        assert result['M12345'][date(2026, 9, 1)] == ['10:30']
+
     @patch('apps.cinema.crawlers.cgv.requests.get')
     def test_감시중인_영화의_IMAX_상영시간만_모아_반환한다(self, mock_get, crawler) -> None:
         mock_response = MagicMock()

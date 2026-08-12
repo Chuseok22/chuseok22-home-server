@@ -1,4 +1,23 @@
+from urllib.parse import urlparse
+
+from django.core.exceptions import ValidationError
 from django.db import models
+
+_ALLOWED_DISCORD_WEBHOOK_HOSTS = {'discord.com', 'discordapp.com', 'canary.discord.com', 'ptb.discord.com'}
+
+
+def validate_discord_webhook_url(value: str) -> None:
+    """Discord 웹훅 URL만 허용한다. Admin 전용 입력이라 실질 위험은 낮지만, 검증 없이 임의
+    URL을 저장하면 서버가 그 URL로 POST 요청을 보내는 SSRF 벡터가 될 수 있어 저비용으로
+    호스트·경로를 제한한다."""
+    parsed = urlparse(value)
+    if (
+        parsed.scheme != 'https'
+        or parsed.hostname not in _ALLOWED_DISCORD_WEBHOOK_HOSTS
+        or not parsed.path.startswith('/api/webhooks/')
+    ):
+        raise ValidationError('Discord 웹훅 URL 형식이 아닙니다 (https://discord.com/api/webhooks/... 형태여야 합니다).')
+
 
 CINEMA_SCREEN_CHOICES = [
     ('cgv_yongsan_imax', 'CGV 용산아이파크몰 IMAX'),
@@ -37,7 +56,9 @@ class TrackedMovie(models.Model):
         NowShowingMovie, on_delete=models.PROTECT, related_name='tracked_movies', verbose_name='영화',
     )
     is_active = models.BooleanField(default=True, verbose_name='감시 활성화')
-    discord_webhook_url = models.URLField(verbose_name='Discord 웹훅 URL')
+    discord_webhook_url = models.URLField(
+        verbose_name='Discord 웹훅 URL', validators=[validate_discord_webhook_url],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -46,6 +67,17 @@ class TrackedMovie(models.Model):
 
     def __str__(self) -> str:
         return f'[{self.get_cinema_screen_display()}] {self.movie.title}'
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        # cinema_screen은 NowShowingMovie.cinema_screen과 별도로 저장되는 값이라, Admin(고정된
+        # 화면 + formfield_for_foreignkey로 스코프된 movie 선택지) 밖의 경로(쉘, 커맨드 등)로
+        # 생성/수정하면 상영관이 다른 movie가 연결될 수 있다 — 저장 시점에 항상 일치를 강제한다.
+        if self.movie_id and self.cinema_screen != self.movie.cinema_screen:
+            raise ValueError(
+                f'TrackedMovie.cinema_screen({self.cinema_screen})이 '
+                f'movie.cinema_screen({self.movie.cinema_screen})과 일치하지 않습니다.',
+            )
+        super().save(*args, **kwargs)
 
 
 class OpenedShowDate(models.Model):

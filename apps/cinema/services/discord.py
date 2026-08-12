@@ -33,14 +33,17 @@ class CinemaDiscordService:
         ]
         return self._send('\n'.join(lines), webhook_url)
 
-    def send_failure_alert(self, webhook_urls: list[str], cinema_screen_label: str) -> None:
-        """연속 실패 임계치 도달 시 경고 알림을 대상 웹훅 전체에 1회씩 발송한다."""
+    def send_failure_alert(self, webhook_urls: list[str], cinema_screen_label: str) -> bool:
+        """연속 실패 임계치 도달 시 경고 알림을 대상 웹훅 전체에 1회씩 발송한다. 웹훅 중
+        하나라도 실패하면 호출자가 다음 실패 시 재시도할 수 있도록 False를 반환한다(모든
+        웹훅이 성공했을 때만 True) — 리스트 컴프리헨션으로 모든 웹훅을 먼저 시도한 뒤
+        결과를 판단하므로 중간에 실패해도 나머지 웹훅 발송은 건너뛰지 않는다."""
         message = (
             f'⚠️ 감시 상태 이상\n**[{cinema_screen_label}]** 크롤링이 5회 연속 실패했습니다. '
             '사이트 구조 변경이나 접근 차단 가능성이 있으니 확인이 필요합니다.'
         )
-        for webhook_url in webhook_urls:
-            self._send(message, webhook_url)
+        results = [self._send(message, webhook_url) for webhook_url in webhook_urls]
+        return all(results)
 
     def _send(self, content: str, webhook_url: str) -> bool:
         payload = {
@@ -49,7 +52,10 @@ class CinemaDiscordService:
             'allowed_mentions': {'parse': []},
         }
         try:
-            response = requests.post(webhook_url, json=payload, timeout=_REQUEST_TIMEOUT)
+            # 리디렉션을 따라가지 않는다 — 저장된 웹훅 URL이 모델 검증을 우회해 다른 호스트를
+            # 가리키더라도, 그 호스트가 임의의 내부/외부 주소로 리디렉션시켜 서버가 그 주소에
+            # 요청을 보내는 SSRF 경로를 추가로 차단한다.
+            response = requests.post(webhook_url, json=payload, timeout=_REQUEST_TIMEOUT, allow_redirects=False)
             response.raise_for_status()
             return True
         except requests.HTTPError as e:

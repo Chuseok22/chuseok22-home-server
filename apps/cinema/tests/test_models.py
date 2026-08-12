@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
 from apps.cinema.models import CinemaScreenWatchStatus, NowShowingMovie, OpenedShowDate, TrackedMovie
@@ -26,6 +27,32 @@ def test_TrackedMovie_생성_및_movie_FK_연결() -> None:
     )
     assert tracked.is_active is True
     assert tracked.movie.title == '스파이더맨'
+
+
+@pytest.mark.django_db
+def test_TrackedMovie_cinema_screen이_movie와_다르면_저장을_거부한다() -> None:
+    movie = NowShowingMovie.objects.create(
+        cinema_screen='lotte_jamsil_superplex', movie_code='24329', title='스파이더맨',
+    )
+    tracked = TrackedMovie(
+        cinema_screen='cgv_yongsan_imax', movie=movie,
+        discord_webhook_url='https://discord.com/api/webhooks/1/a',
+    )
+    with pytest.raises(ValueError, match='cinema_screen'):
+        tracked.save()
+
+
+@pytest.mark.django_db
+def test_TrackedMovie_discord_webhook_url이_discord_호스트가_아니면_검증에_실패한다() -> None:
+    movie = NowShowingMovie.objects.create(
+        cinema_screen='cgv_yongsan_imax', movie_code='영화C', title='영화C',
+    )
+    tracked = TrackedMovie(
+        cinema_screen='cgv_yongsan_imax', movie=movie,
+        discord_webhook_url='https://evil.example.com/api/webhooks/1/a',
+    )
+    with pytest.raises(ValidationError):
+        tracked.full_clean()
 
 
 @pytest.mark.django_db

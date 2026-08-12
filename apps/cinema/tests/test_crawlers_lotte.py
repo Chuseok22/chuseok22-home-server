@@ -99,3 +99,13 @@ class TestGetOpenDatesBulk:
         )
 
         assert result['24329'][date(2026, 8, 11)] == ['08:00']
+
+    @patch('apps.cinema.crawlers.lotte.requests.post')
+    def test_IsOK가_False면_CinemaCrawlerError를_발생시킨다(self, mock_post, crawler) -> None:
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {'IsOK': False, 'ErrorMessage': '일시적인 오류'}
+        mock_post.return_value = response
+
+        with pytest.raises(CinemaCrawlerError):
+            crawler.get_open_dates_bulk(movie_codes=['24329'], candidate_dates=[date(2026, 8, 11)])

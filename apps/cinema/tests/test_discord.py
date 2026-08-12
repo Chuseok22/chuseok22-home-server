@@ -51,9 +51,43 @@ class TestSendFailureAlert:
         mock_post.return_value = MagicMock(raise_for_status=lambda: None)
         service = CinemaDiscordService()
 
-        service.send_failure_alert([_WEBHOOK_URL, 'https://discord.com/api/webhooks/999/other'], 'CGV 용산아이파크몰 IMAX')
+        result = service.send_failure_alert(
+            [_WEBHOOK_URL, 'https://discord.com/api/webhooks/999/other'], 'CGV 용산아이파크몰 IMAX',
+        )
 
+        assert result is True
         assert mock_post.call_count == 2
         first_content = mock_post.call_args_list[0].kwargs['json']['content']
         assert '5회 연속' in first_content
         assert 'CGV 용산아이파크몰 IMAX' in first_content
+
+    @patch('apps.cinema.services.discord.requests.post')
+    def test_일부_웹훅만_실패해도_모든_웹훅을_시도하고_False를_반환한다(self, mock_post) -> None:
+        ok_response = MagicMock(raise_for_status=lambda: None)
+
+        def _side_effect(url, **kwargs):
+            if url == _WEBHOOK_URL:
+                raise requests.ConnectionError('boom')
+            return ok_response
+
+        mock_post.side_effect = _side_effect
+        service = CinemaDiscordService()
+
+        result = service.send_failure_alert(
+            [_WEBHOOK_URL, 'https://discord.com/api/webhooks/999/other'], 'CGV 용산아이파크몰 IMAX',
+        )
+
+        assert result is False
+        assert mock_post.call_count == 2
+
+    @patch('apps.cinema.services.discord.requests.post')
+    def test_리디렉션을_따라가지_않는다(self, mock_post) -> None:
+        mock_post.return_value = MagicMock(raise_for_status=lambda: None)
+        service = CinemaDiscordService()
+
+        service.send_new_date_alert(
+            webhook_url=_WEBHOOK_URL, cinema_screen_label='테스트', movie_title='테스트',
+            show_date=date(2026, 9, 5), showtimes=['10:00'], booking_url='https://example.com',
+        )
+
+        assert mock_post.call_args.kwargs['allow_redirects'] is False

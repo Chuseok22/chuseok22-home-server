@@ -180,6 +180,7 @@ def test_연속_5회_실패시_실패_알림을_1회_보낸다(tracked_movie) ->
     crawler = MagicMock()
     crawler.get_open_dates_bulk.side_effect = CinemaCrawlerError('실패')
     discord = MagicMock()
+    discord.send_failure_alert.return_value = True
 
     run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
 
@@ -189,6 +190,22 @@ def test_연속_5회_실패시_실패_알림을_1회_보낸다(tracked_movie) ->
     discord.send_failure_alert.assert_called_once_with(
         ['https://discord.com/api/webhooks/1/a'], _LABEL,
     )
+
+
+@pytest.mark.django_db
+def test_실패_알림_발송이_전부_실패하면_alert_sent는_False로_남아_다음번에_재시도된다(tracked_movie) -> None:
+    CinemaScreenWatchStatus.objects.create(cinema_screen=_SCREEN, consecutive_failure_count=4)
+    crawler = MagicMock()
+    crawler.get_open_dates_bulk.side_effect = CinemaCrawlerError('실패')
+    discord = MagicMock()
+    discord.send_failure_alert.return_value = False
+
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+
+    status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
+    assert status.consecutive_failure_count == 5
+    assert status.alert_sent is False
+    discord.send_failure_alert.assert_called_once()
 
 
 @pytest.mark.django_db

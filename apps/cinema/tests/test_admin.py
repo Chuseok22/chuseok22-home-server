@@ -8,7 +8,9 @@ from apps.cinema.models import NowShowingMovie, TrackedMovie
 
 @pytest.fixture
 def admin_client(db) -> Client:
-    user = User.objects.create_superuser(username='admin', email='admin@example.com', password='pw12345!')
+    user = User.objects.create_superuser(  # noqa: S106 - force_login()만 쓰므로 실제 인증에 사용되지 않는 테스트 전용 값
+        username='admin', email='admin@example.com', password='pw12345!',
+    )
     client = Client()
     client.force_login(user)
     return client
@@ -83,6 +85,29 @@ def test_상영_종료된_영화의_감시_수정_화면_저장은_성공한다(
     tracked.refresh_from_db()
     assert tracked.is_active is False
     assert tracked.movie_id == movie.pk
+
+
+@pytest.mark.django_db
+def test_NowShowingMovie_캐시는_수정_화면_저장을_거부한다(admin_client: Client) -> None:
+    movie = NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
+    url = reverse('admin:cinema_nowshowingmovie_change', args=[movie.pk])
+
+    response = admin_client.post(url, {'cinema_screen': 'lotte_jamsil_superplex', 'movie_code': 'A', 'title': 'A'})
+
+    assert response.status_code == 403
+    movie.refresh_from_db()
+    assert movie.cinema_screen == 'cgv_yongsan_imax'
+
+
+@pytest.mark.django_db
+def test_NowShowingMovie_캐시는_삭제를_거부한다(admin_client: Client) -> None:
+    movie = NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
+    url = reverse('admin:cinema_nowshowingmovie_delete', args=[movie.pk])
+
+    response = admin_client.post(url, {'post': 'yes'})
+
+    assert response.status_code == 403
+    assert NowShowingMovie.objects.filter(pk=movie.pk).exists()
 
 
 @pytest.mark.django_db

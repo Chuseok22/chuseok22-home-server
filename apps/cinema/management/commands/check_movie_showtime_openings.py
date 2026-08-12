@@ -52,12 +52,22 @@ class Command(BaseCommand):
         today = timezone.localdate()
         dates: set[date] = set()
         for tracked_movie in tracked_movies:
-            last_opened = OpenedShowDate.objects.filter(
-                tracked_movie=tracked_movie, notify_succeeded=True,
+            opened_dates = OpenedShowDate.objects.filter(tracked_movie=tracked_movie)
+            last_opened = opened_dates.filter(
+                notify_succeeded=True,
             ).order_by('-show_date').values_list('show_date', flat=True).first()
             frontier_start = max(last_opened + timedelta(days=1), today) if last_opened else today
             for offset in range(_FRONTIER_BUFFER_DAYS):
                 candidate = frontier_start + timedelta(days=offset)
                 if (candidate - today).days <= _MAX_HORIZON_DAYS:
                     dates.add(candidate)
+            # 한 크롤에서 여러 날짜가 한꺼번에 열렸을 때 앞쪽 날짜의 발송만 실패하고 뒤쪽
+            # 날짜의 발송은 성공하면, 프런티어는 성공한(notify_succeeded=True) 뒤쪽 날짜
+            # 기준으로 전진해 실패한 앞쪽 날짜가 다음 프런티어 버퍼에 들지 못하고 건너뛰어질
+            # 수 있다 — 발송 실패(notify_succeeded=False)로 남은 날짜는 horizon 이내면
+            # 프런티어 위치와 무관하게 항상 후보에 포함해 다음 5분 주기에 재시도되게 한다.
+            failed_dates = opened_dates.filter(notify_succeeded=False).values_list('show_date', flat=True)
+            for failed_date in failed_dates:
+                if 0 <= (failed_date - today).days <= _MAX_HORIZON_DAYS:
+                    dates.add(failed_date)
         return sorted(dates)

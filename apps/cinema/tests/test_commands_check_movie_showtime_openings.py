@@ -40,7 +40,7 @@ def test_이미_알림_보낸_날짜가_있으면_그_다음날부터_확인한�
 
 
 @pytest.mark.django_db
-def test_발송_실패한_날짜는_프런티어를_넘기지_않고_다음_주기_후보에_남는다() -> None:
+def test_발송_실패한_날짜는_프런티어_버퍼_밖이어도_후보에_남는다() -> None:
     movie = NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
     tracked = TrackedMovie.objects.create(
         cinema_screen='cgv_yongsan_imax', movie=movie, discord_webhook_url='https://discord.com/api/webhooks/1/a',
@@ -53,7 +53,33 @@ def test_발송_실패한_날짜는_프런티어를_넘기지_않고_다음_주�
 
     dates = command._build_candidate_dates([tracked])
 
-    assert dates == [today, today + timedelta(days=1), today + timedelta(days=2)]
+    assert dates == [today, today + timedelta(days=1), today + timedelta(days=2), today + timedelta(days=5)]
+
+
+@pytest.mark.django_db
+def test_발송_실패한_날짜는_더_늦은_날짜의_발송_성공으로_프런티어가_전진해도_후보에서_빠지지_않는다() -> None:
+    """한 크롤에서 여러 날짜가 열려 앞쪽 날짜(실패)와 뒤쪽 날짜(성공)가 함께 발견된 경우,
+    프런티어는 성공한 뒤쪽 날짜 기준으로 전진하지만 실패한 앞쪽 날짜는 계속 재시도돼야 한다."""
+    movie = NowShowingMovie.objects.create(cinema_screen='cgv_yongsan_imax', movie_code='A', title='A')
+    tracked = TrackedMovie.objects.create(
+        cinema_screen='cgv_yongsan_imax', movie=movie, discord_webhook_url='https://discord.com/api/webhooks/1/a',
+    )
+    today = timezone.localdate()
+    OpenedShowDate.objects.create(
+        tracked_movie=tracked, show_date=today + timedelta(days=5), showtimes=[], notify_succeeded=False,
+    )
+    OpenedShowDate.objects.create(
+        tracked_movie=tracked, show_date=today + timedelta(days=8), showtimes=[], notify_succeeded=True,
+    )
+    command = Command()
+
+    dates = command._build_candidate_dates([tracked])
+
+    assert today + timedelta(days=5) in dates
+    assert dates == [
+        today + timedelta(days=5), today + timedelta(days=9),
+        today + timedelta(days=10), today + timedelta(days=11),
+    ]
 
 
 @pytest.mark.django_db

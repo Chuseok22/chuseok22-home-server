@@ -58,6 +58,13 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
             'cinemaID': _CINEMA_ID,
             'representationMovieCode': movie_code,
         })
+        if data.get('IsOK') is False:
+            # IsOK=False는 유효한 JSON dict이면서 애플리케이션 레벨로는 실패한 응답이다 —
+            # 이 경우 PlaySeqs가 비어 있어 검증 없이 넘어가면 "회차 없음"과 구분이 안 돼
+            # run_showtime_check가 성공으로 기록하고 실패 카운터를 리셋해버린다.
+            raise CinemaCrawlerError(
+                f'롯데시네마 응답이 실패를 나타냅니다(IsOK=False): {movie_code} {target_date}',
+            )
         items = data.get('PlaySeqs', {}).get('Items', [])
         return [row for row in items if row.get('ScreenDivisionNameKR') == _SCREEN_DIVISION]
 

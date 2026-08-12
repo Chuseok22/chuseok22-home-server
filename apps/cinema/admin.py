@@ -90,6 +90,15 @@ class NowShowingMovieAdmin(admin.ModelAdmin):
         # sync_now_showing_movies 커맨드로만 채워지는 캐시 테이블 — 수동 생성을 막는다.
         return False
 
+    def has_change_permission(self, request: HttpRequest, obj: NowShowingMovie | None = None) -> bool:
+        # cinema_screen을 관리자가 직접 바꾸면 이미 연결된 TrackedMovie.cinema_screen과
+        # 어긋날 수 있다(TrackedMovie.save()가 저장 시점에 이를 막지만, 애초에 캐시 테이블을
+        # 수동으로 편집할 이유가 없으므로 변경 자체를 막는다).
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: NowShowingMovie | None = None) -> bool:
+        return False
+
 
 @admin.register(OpenedShowDate)
 class OpenedShowDateAdmin(admin.ModelAdmin):

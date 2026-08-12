@@ -30,8 +30,11 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
 
     응답 필드명(movNm, scnsNm, scnsrtTm, scnendTm 등)과 scnsrtTm/scnendTm의 "HHMM" 포맷은
     참고 오픈소스 구현(Heechan93/argos-cgv-imax)의 소스 코드를 읽어 확인한 것으로, 리서치
-    환경에서 매 요청이 403으로 막혀 실제 raw 응답 바디로 직접 검증하지는 못했다. 배포 후
-    홈서버에서 sync_now_showing_movies를 1회 수동 실행해 실제 필드 구성을 확인해야 한다.
+    환경에서 매 요청이 403으로 막혀 실제 raw 응답 바디로 직접 검증하지는 못했다. movNo(안정
+    영화 식별자) 필드는 별도의 두 독립 공개 문서(hmmhmmhm/daiso-mcp, NomaDamas/k-skill)가
+    이 엔드포인트 응답에 포함된다고 기록하고 있어 우선 사용하되, 실제로 없을 경우를 대비해
+    영화명(movNm) 폴백을 유지한다. 배포 후 홈서버에서 sync_now_showing_movies를 1회 수동
+    실행해 실제 필드 구성(movNo 존재 여부 포함)을 확인해야 한다.
     """
 
     def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
@@ -42,11 +45,12 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             if not self._is_imax_row(row):
                 continue
             title = row.get('movNm', '')
-            if not title or title in seen:
+            if not title:
                 continue
-            # CGV는 별도 영화 코드가 확인되지 않아, 응답의 영화명을 코드로 그대로 쓴다 —
-            # Admin 드롭다운에서 이 값을 그대로 저장하므로 오타 매칭 실패는 발생하지 않는다.
-            seen[title] = NowShowingMovieItem(movie_code=title, title=title)
+            movie_code = self._extract_movie_code(row, title)
+            if movie_code in seen:
+                continue
+            seen[movie_code] = NowShowingMovieItem(movie_code=movie_code, title=title)
         return list(seen.values())
 
     def get_open_dates_bulk(
@@ -59,17 +63,27 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             for row in rows:
                 if not self._is_imax_row(row):
                     continue
-                title = row.get('movNm', '')
-                if title not in movie_code_set:
+                movie_code = self._extract_movie_code(row, row.get('movNm', ''))
+                if movie_code not in movie_code_set:
                     continue
                 showtime = self._format_time(row.get('scnsrtTm', ''))
-                times = result[title].setdefault(target_date, [])
+                times = result[movie_code].setdefault(target_date, [])
                 if showtime not in times:
                     times.append(showtime)
         for movie_times in result.values():
             for times in movie_times.values():
                 times.sort()
         return result
+
+    def _extract_movie_code(self, row: dict, title: str) -> str:
+        """movNo(제목과 독립적인 안정 식별자)가 있으면 우선 사용하고, 없으면 영화명(movNm)
+        으로 폴백한다 — movNo가 이 엔드포인트 응답에 실제로 포함되는지는 raw 응답으로
+        검증하지 못했으므로(클래스 docstring 참고) 폴백을 유지한다. movNo를 쓰면 재개봉·
+        리마스터 등으로 제목 표기가 바뀌어도 감시 대상이 끊기지 않는다."""
+        movie_code = row.get('movNo')
+        if movie_code:
+            return str(movie_code)
+        return title
 
     def _fetch(self, target_date: date) -> list[dict]:
         params = {
