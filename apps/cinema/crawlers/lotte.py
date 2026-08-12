@@ -48,7 +48,7 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
     HAR로 확인됐다(실제 사이트도 페이지 최초 로드 시 이 방식으로 호출한다) — 영화별로 개별
     조회할 필요가 없어, 영화별 GetTicketingPageTOBE 조회 + 영화별 GetPlaySequence 조회로
     구성했던 이전 구현보다 요청 수가 크게 줄었다(발견 시 41콜 → _DISCOVERY_WINDOW_DAYS(3)콜,
-    확인 주기당 감시 영화 수 × 날짜 수 콜 → 날짜 수 콜). PlaySeqs.Items의 각 행이
+    확인 주기당 감시 영화 수 x 날짜 수 콜 → 날짜 수 콜). PlaySeqs.Items의 각 행이
     RepresentationMovieCode와 MovieNameKR을 함께 담고 있어, 상영작 발견에 별도로
     GetTicketingPageTOBE(전국 상영작 목록)를 쓸 필요도 없어졌다.
 
@@ -110,7 +110,15 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
             raise CinemaCrawlerError(
                 f'롯데시네마 응답이 실패를 나타냅니다(IsOK={is_ok!r}): {target_date}',
             )
-        items = data.get('PlaySeqs', {}).get('Items', [])
+        # PlaySeqs가 dict가 아니거나 Items가 list가 아니면 chained .get()/순회가 AttributeError나
+        # TypeError를 내 CinemaCrawlerError로 감싸이지 않고 그대로 전파된다 — _call의 최상위
+        # dict 검증만으로는 중첩 구조까지 보장되지 않아 여기서 한 번 더 검증한다.
+        play_seqs = data.get('PlaySeqs')
+        if not isinstance(play_seqs, dict):
+            raise CinemaCrawlerError(f'롯데시네마 응답 형식이 예상과 다릅니다: PlaySeqs ({target_date})')
+        items = play_seqs.get('Items')
+        if not isinstance(items, list) or not all(isinstance(row, dict) for row in items):
+            raise CinemaCrawlerError(f'롯데시네마 응답 형식이 예상과 다릅니다: PlaySeqs.Items ({target_date})')
         return [row for row in items if row.get('ScreenDivisionNameKR') == _SCREEN_DIVISION]
 
     def _call(self, method_name: str, extra_params: dict) -> dict:

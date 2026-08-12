@@ -150,6 +150,15 @@ class TestListNowShowing:
         with pytest.raises(CinemaCrawlerError):
             crawler.list_now_showing()
 
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_응답_자체가_dict가_아니면_CinemaCrawlerError를_발생시킨다(self, mock_get, crawler) -> None:
+        """이 API의 다른 필드(hldyYn 등)가 실제로 null을 내려보내는 것이 HAR로 확인되어,
+        응답 최상위가 예상과 다른 형태(list 등)로 올 가능성도 방어해야 한다."""
+        mock_get.return_value = _mock_response(['unexpected', 'shape'])
+
+        with pytest.raises(CinemaCrawlerError):
+            crawler.list_now_showing()
+
 
 class TestGetOpenDatesBulk:
     @patch('apps.cinema.crawlers.cgv.requests.get')
@@ -183,9 +192,61 @@ class TestGetOpenDatesBulk:
         )
 
         # 열린 날짜(20260812, 20260825) 중 후보에 없는 20260825는 조회 대상에서 빠져야 하므로
-        # searchSchByMov가 20260812에 대해서만 호출된다 — 하지만 픽스처상 8/12·8/25 응답이
-        # 동일하므로, 결과에 8/25가 없다는 사실 자체로 필터링을 검증한다.
+        # searchSchByMov가 20260812에 대해서만 호출된다.
         assert date(2026, 8, 25) not in result['30001323']
+
+        scheduled_dates = [
+            call.kwargs['params']['scnYmd']
+            for call in mock_get.call_args_list
+            if 'searchSchByMov' in call.args[0]
+        ]
+        assert scheduled_dates == ['20260812']
+
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_scnYmd가_null이어도_다른_날짜는_정상_처리한다(self, mock_get, crawler) -> None:
+        """hldyYn처럼 이 API의 다른 필드가 실제로 null을 내려보내는 것이 HAR로 확인되어,
+        scnYmd도 null일 가능성을 방어해야 한다 — 해당 행만 건너뛰고 나머지는 처리된다."""
+        def _side_effect(url, **kwargs):
+            if 'searchSiteScnscYmdListByMov' in url:
+                return _mock_response({
+                    'statusCode': 0,
+                    'data': [{'scnYmd': None, 'hldyYn': None}, {'scnYmd': '20260812', 'hldyYn': None}],
+                })
+            if 'searchSchByMov' in url:
+                return _mock_response(_SCHEDULE_RESPONSE)
+            raise AssertionError(f'예상치 못한 URL: {url}')
+
+        mock_get.side_effect = _side_effect
+
+        result = crawler.get_open_dates_bulk(
+            movie_codes=['30001323'], candidate_dates=[date(2026, 8, 12)],
+        )
+
+        assert date(2026, 8, 12) in result['30001323']
+
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_scnsNm이_null이어도_IMAX가_아닌_것으로_처리해_예외없이_필터링한다(self, mock_get, crawler) -> None:
+        def _side_effect(url, **kwargs):
+            if 'searchSiteScnscYmdListByMov' in url:
+                return _mock_response(_OPEN_DATES_RESPONSE)
+            if 'searchSchByMov' in url:
+                return _mock_response({
+                    'statusCode': 0,
+                    'data': [{
+                        'coCd': 'A420', 'siteNo': '0013', 'siteNm': 'CGV 용산아이파크몰',
+                        'scnsNo': '018', 'scnsNm': None, 'scnYmd': '20260825',
+                        'scnsrtTm': None, 'scnendTm': '1002', 'movNo': '30001323', 'movNm': '오디세이',
+                    }],
+                })
+            raise AssertionError(f'예상치 못한 URL: {url}')
+
+        mock_get.side_effect = _side_effect
+
+        result = crawler.get_open_dates_bulk(
+            movie_codes=['30001323'], candidate_dates=[date(2026, 8, 25)],
+        )
+
+        assert result['30001323'] == {}
 
     @patch('apps.cinema.crawlers.cgv.requests.get')
     def test_감시중이지_않은_영화나_열리지_않은_날짜는_결과에_없다(self, mock_get, crawler) -> None:

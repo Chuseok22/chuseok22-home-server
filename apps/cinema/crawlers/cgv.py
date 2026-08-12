@@ -109,7 +109,10 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             raw = row.get('scnYmd', '')
             try:
                 dates.append(datetime.strptime(raw, '%Y%m%d').date())
-            except ValueError:
+            except (TypeError, ValueError):
+                # hldyYn 등 이 API의 다른 필드가 실제로 null을 내려보내는 것이 HAR로 확인되어
+                # (test_crawlers_cgv.py의 hldyYn: None 픽스처 참고), scnYmd도 null일 가능성을
+                # 방어한다 — raw가 None이면 strptime이 ValueError가 아닌 TypeError를 낸다.
                 logger.warning('CGV scnYmd 형식이 예상과 다릅니다: %r', raw)
         return dates
 
@@ -133,7 +136,8 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             # 안전장치 무력화) check_movie_showtime_openings의 다음 상영관(롯데) 처리까지
             # 중단시킬 수 있다. requests의 JSONDecodeError는 RequestException의 서브클래스라
             # 아래 except가 그대로 잡는다.
-            rows = response.json().get('data')
+            payload = response.json()
+            rows = payload.get('data') if isinstance(payload, dict) else None
             if not isinstance(rows, list):
                 raise CinemaCrawlerError(f'CGV 응답 형식이 예상과 다릅니다: {url}')
             return rows
@@ -142,13 +146,17 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
             raise CinemaCrawlerError(f'CGV 요청 실패: {url}') from e
 
     def _is_imax_row(self, row: dict) -> bool:
-        return row.get('siteNo') == _SITE_NO and _IMAX_SCREEN_KEYWORD in row.get('scnsNm', '').lower()
+        # scnsNm이 키는 있으되 값이 null로 내려올 수 있어(hldyYn: None과 동일한 패턴) get()의
+        # 기본값만으로는 부족하다 — `or ''`로 None도 함께 정규화한다.
+        screen_name = row.get('scnsNm') or ''
+        return row.get('siteNo') == _SITE_NO and _IMAX_SCREEN_KEYWORD in screen_name.lower()
 
-    def _format_time(self, raw: str) -> str:
+    def _format_time(self, raw: str | None) -> str:
         """"HHMM" 4자리 문자열을 "HH:MM"으로 변환한다. 자정을 넘긴 심야 회차는 "2430"처럼
         24시 이후 표기로 내려오는데(예: 00:30 상영을 전날 스케줄의 연장으로 표시), 그대로
         "24:30"으로 변환한다 — CGV 사이트 자체의 표기 관행이라 굳이 보정하지 않는다.
-        예상과 다른 형식이면 원문을 그대로 둔다."""
+        예상과 다른 형식(None 포함)이면 빈 문자열로 정규화해 반환한다."""
+        raw = raw or ''
         if len(raw) != 4 or not raw.isdigit():
             return raw
         return f'{raw[:2]}:{raw[2:]}'
