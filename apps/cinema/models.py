@@ -29,9 +29,9 @@ class NowShowingMovie(models.Model):
     """상영관별 '지금 상영 중' 영화 캐시 — sync_now_showing_movies가 채우며, Admin에서
     TrackedMovie를 등록할 때 드롭다운 소스로 쓰인다."""
     cinema_screen = models.CharField(max_length=30, choices=CINEMA_SCREEN_CHOICES, verbose_name='상영관')
-    # CGV는 별도 영화 코드가 확인되지 않아 영화명(movNm) 원문을 그대로 저장한다(롯데는
-    # RepresentationMovieCode) — CGV 쪽 값은 title과 동일한 문자열이 들어가므로 title보다
-    # 짧게 잘리지 않도록 max_length를 title과 맞춘다.
+    # CGV는 movNo(안정 식별자)가 있으면 우선 쓰고 없으면 영화명(movNm) 원문으로 폴백한다
+    # (롯데는 RepresentationMovieCode) — movNm 폴백 시 title과 동일한 문자열이 들어가므로
+    # title보다 짧게 잘리지 않도록 max_length를 title과 맞춘다.
     movie_code = models.CharField(max_length=200, verbose_name='영화 코드')
     title = models.CharField(max_length=200, verbose_name='제목')
     is_currently_showing = models.BooleanField(default=True, verbose_name='현재 상영 중')

@@ -109,3 +109,15 @@ class TestGetOpenDatesBulk:
 
         with pytest.raises(CinemaCrawlerError):
             crawler.get_open_dates_bulk(movie_codes=['24329'], candidate_dates=[date(2026, 8, 11)])
+
+    @patch('apps.cinema.crawlers.lotte.requests.post')
+    def test_IsOK가_문자열_false여도_CinemaCrawlerError를_발생시킨다(self, mock_post, crawler) -> None:
+        """IsOK 응답값의 실제 타입(boolean/문자열)은 raw 응답으로 검증하지 못했으므로
+        문자열 "false"로 내려오는 경우도 함께 방어한다."""
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {'IsOK': 'false', 'ErrorMessage': '일시적인 오류'}
+        mock_post.return_value = response
+
+        with pytest.raises(CinemaCrawlerError):
+            crawler.get_open_dates_bulk(movie_codes=['24329'], candidate_dates=[date(2026, 8, 11)])
