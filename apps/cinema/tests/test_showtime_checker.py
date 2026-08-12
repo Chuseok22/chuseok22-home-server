@@ -9,7 +9,6 @@ from apps.cinema.services.showtime_checker import run_showtime_check
 
 _SCREEN = 'cgv_yongsan_imax'
 _LABEL = 'CGV 용산아이파크몰 IMAX'
-_BOOKING_URL = 'https://cgv.co.kr/cnm/movieBook/cinema?siteNo=0013'
 
 
 @pytest.fixture
@@ -24,20 +23,20 @@ def tracked_movie(db) -> TrackedMovie:
 def test_새로_열린_날짜가_있으면_OpenedShowDate를_만들고_알림을_보낸다(tracked_movie) -> None:
     crawler = MagicMock()
     crawler.get_open_dates_bulk.return_value = {'영화A': {date(2026, 9, 5): ['10:00', '15:00']}}
+    crawler.build_booking_url.return_value = 'https://cgv.co.kr/cnm/cgvChart/movieChart/영화A'
     discord = MagicMock()
     discord.send_new_date_alert.return_value = True
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 1
     opened = OpenedShowDate.objects.get(tracked_movie=tracked_movie, show_date=date(2026, 9, 5))
     assert opened.notify_succeeded is True
+    crawler.build_booking_url.assert_called_once_with('영화A', '영화A')
     discord.send_new_date_alert.assert_called_once_with(
         webhook_url='https://discord.com/api/webhooks/1/a',
         cinema_screen_label=_LABEL, movie_title='영화A', show_date=date(2026, 9, 5),
-        showtimes=['10:00', '15:00'], booking_url=_BOOKING_URL,
+        showtimes=['10:00', '15:00'], booking_url='https://cgv.co.kr/cnm/cgvChart/movieChart/영화A',
     )
 
 
@@ -51,9 +50,7 @@ def test_이미_성공적으로_알린_날짜는_다시_알리지_않는다(trac
     crawler.get_open_dates_bulk.return_value = {'영화A': {date(2026, 9, 5): ['10:00']}}
     discord = MagicMock()
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 0
     discord.send_new_date_alert.assert_not_called()
@@ -73,9 +70,7 @@ def test_이전에_발송_실패한_날짜는_다음_주기에_재시도된다(t
     discord = MagicMock()
     discord.send_new_date_alert.return_value = True
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 1
     discord.send_new_date_alert.assert_called_once()
@@ -90,9 +85,7 @@ def test_발송_실패시_notify_succeeded는_False로_남아_재시도_대상�
     discord = MagicMock()
     discord.send_new_date_alert.return_value = False
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 0
     opened = OpenedShowDate.objects.get(tracked_movie=tracked_movie, show_date=date(2026, 9, 5))
@@ -104,9 +97,7 @@ def test_감시_대상이_없으면_크롤러를_호출하지_않는다() -> Non
     crawler = MagicMock()
     discord = MagicMock()
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 0
     crawler.get_open_dates_bulk.assert_not_called()
@@ -122,7 +113,7 @@ def test_candidate_dates가_비어있으면_크롤러를_호출하지_않고_실
     crawler = MagicMock()
     discord = MagicMock()
 
-    notified_count = run_showtime_check(_SCREEN, crawler, [], _LABEL, _BOOKING_URL, discord)
+    notified_count = run_showtime_check(_SCREEN, crawler, [], _LABEL, discord)
 
     assert notified_count == 0
     crawler.get_open_dates_bulk.assert_not_called()
@@ -136,7 +127,7 @@ def test_예상치_못한_예외도_실패_카운터를_증가시킨다(tracked_
     crawler.get_open_dates_bulk.side_effect = AttributeError('예상 못 한 크롤러 내부 오류')
     discord = MagicMock()
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
     assert status.consecutive_failure_count == 1
@@ -153,9 +144,7 @@ def test_상영_종료된_영화의_감시_대상은_제외된다() -> None:
     crawler = MagicMock()
     discord = MagicMock()
 
-    notified_count = run_showtime_check(
-        _SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord,
-    )
+    notified_count = run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     assert notified_count == 0
     crawler.get_open_dates_bulk.assert_not_called()
@@ -167,7 +156,7 @@ def test_크롤링_실패시_연속_실패_카운터가_증가한다(tracked_mov
     crawler.get_open_dates_bulk.side_effect = CinemaCrawlerError('실패')
     discord = MagicMock()
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
     assert status.consecutive_failure_count == 1
@@ -182,7 +171,7 @@ def test_연속_5회_실패시_실패_알림을_1회_보낸다(tracked_movie) ->
     discord = MagicMock()
     discord.send_failure_alert.return_value = True
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
     assert status.consecutive_failure_count == 5
@@ -200,7 +189,7 @@ def test_실패_알림_발송이_전부_실패하면_alert_sent는_False로_남�
     discord = MagicMock()
     discord.send_failure_alert.return_value = False
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
     assert status.consecutive_failure_count == 5
@@ -217,7 +206,7 @@ def test_5회_이상_실패해도_alert_sent가_True면_재발송하지_않는�
     crawler.get_open_dates_bulk.side_effect = CinemaCrawlerError('실패')
     discord = MagicMock()
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     discord.send_failure_alert.assert_not_called()
 
@@ -231,7 +220,7 @@ def test_성공하면_연속_실패_카운터가_리셋된다(tracked_movie) -> 
     crawler.get_open_dates_bulk.return_value = {'영화A': {}}
     discord = MagicMock()
 
-    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, _BOOKING_URL, discord)
+    run_showtime_check(_SCREEN, crawler, [date(2026, 9, 5)], _LABEL, discord)
 
     status = CinemaScreenWatchStatus.objects.get(cinema_screen=_SCREEN)
     assert status.consecutive_failure_count == 0
