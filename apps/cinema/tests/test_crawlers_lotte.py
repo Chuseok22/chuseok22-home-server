@@ -96,6 +96,33 @@ class TestListNowShowing:
         assert titles['24329'] == '스파이더맨: 브랜드 뉴 데이'
 
     @patch('apps.cinema.crawlers.lotte.requests.post')
+    def test_기준일_당일에_회차가_없어도_발견_기간_내면_발견한다(self, mock_post, crawler) -> None:
+        """개봉 예정작처럼 기준일 당일엔 회차가 없고 며칠 뒤부터 열리는 영화도, 발견 기간
+        (_DISCOVERY_WINDOW_DAYS) 안이라면 list_now_showing이 놓치지 않아야 한다."""
+        future_only_response = {
+            'IsOK': 'true',
+            'PlaySeqs': {'Items': [{
+                'ScreenDivisionNameKR': '수퍼플렉스', 'ScreenDivisionCode': 940,
+                'CinemaID': 1016, 'PlayDt': '2026-08-14',
+                'RepresentationMovieCode': '99999', 'MovieCode': '99999', 'MovieNameKR': '개봉예정작',
+                'StartTime': '10:00', 'EndTime': '12:00',
+            }]},
+        }
+
+        def _side_effect(*args, **kwargs):
+            payload = json.loads(kwargs['files']['paramList'][1])
+            if payload['playDate'] == '2026-08-14':
+                return _mock_response(future_only_response)
+            return _mock_response({'IsOK': 'true', 'PlaySeqs': {'Items': []}})
+
+        mock_post.side_effect = _side_effect
+
+        result = crawler.list_now_showing(reference_date=date(2026, 8, 12))
+
+        assert {item.movie_code for item in result} == {'99999'}
+        assert mock_post.call_count == 3
+
+    @patch('apps.cinema.crawlers.lotte.requests.post')
     def test_요청_실패시_CinemaCrawlerError를_발생시킨다(self, mock_post, crawler) -> None:
         mock_post.side_effect = requests.ConnectionError('boom')
 

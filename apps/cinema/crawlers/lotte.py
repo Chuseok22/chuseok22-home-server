@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 import requests
 from django.utils import timezone
@@ -13,6 +13,10 @@ _BASE_URL = 'https://www.lottecinema.co.kr/LCWS/Ticketing/TicketingData.aspx'
 _CINEMA_ID = '1|0001|1016'  # 잠실 월드타워점
 _SCREEN_DIVISION = '수퍼플렉스'
 _REQUEST_TIMEOUT = 10
+# list_now_showing은 상영작 "발견"용이라, 오늘 하루만 보면 아직 오늘 회차가 없고 며칠 뒤부터
+# 개봉하는 영화(예: 개봉 예정작)를 놓칠 수 있다. check_movie_showtime_openings.py의
+# _FRONTIER_BUFFER_DAYS와 동일한 3일 창을 두어, 그 버퍼 안에서 발견되지 않는 영화가 없게 한다.
+_DISCOVERY_WINDOW_DAYS = 3
 _HEADERS = {
     'User-Agent': (
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -43,11 +47,15 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
     빈 문자열로 보내면 그 극장·날짜의 "모든 영화·모든 상영관" 회차를 한 번에 반환한다는 것이
     HAR로 확인됐다(실제 사이트도 페이지 최초 로드 시 이 방식으로 호출한다) — 영화별로 개별
     조회할 필요가 없어, 영화별 GetTicketingPageTOBE 조회 + 영화별 GetPlaySequence 조회로
-    구성했던 이전 구현보다 요청 수가 크게 줄었다(발견 시 41콜 → 1콜, 확인 주기당 감시
-    영화 수 × 날짜 수 콜 → 날짜 수 콜). PlaySeqs.Items의 각 행이 RepresentationMovieCode와
-    MovieNameKR을 함께 담고 있어, 상영작 발견에 별도로 GetTicketingPageTOBE(전국 상영작 목록)를
-    쓸 필요도 없어졌다.
+    구성했던 이전 구현보다 요청 수가 크게 줄었다(발견 시 41콜 → _DISCOVERY_WINDOW_DAYS(3)콜,
+    확인 주기당 감시 영화 수 × 날짜 수 콜 → 날짜 수 콜). PlaySeqs.Items의 각 행이
+    RepresentationMovieCode와 MovieNameKR을 함께 담고 있어, 상영작 발견에 별도로
+    GetTicketingPageTOBE(전국 상영작 목록)를 쓸 필요도 없어졌다.
 
+    - list_now_showing은 기준일 하루만 보면 아직 회차가 없는(며칠 뒤부터 개봉하는) 영화를
+      놓칠 수 있어 _DISCOVERY_WINDOW_DAYS(3일) 창을 스캔한다 — 실제 상영일 발견은
+      get_open_dates_bulk가 candidate_dates 전체를 다시 스캔하므로, 여기서는 감시 후보로
+      "등록"할 영화를 놓치지 않는 것이 목적이다.
     - ScreenDivisionNameKR로 상영관 등급을 구분하며 "수퍼플렉스"(ScreenDivisionCode 940)가
       실제 값으로 확인되었다.
     - IsOK는 JSON boolean이 아니라 문자열("true")로 내려오는 것이 라이브 응답으로 확인됨 —
@@ -56,14 +64,16 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
     """
 
     def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
-        target_date = reference_date or timezone.localdate()
+        start_date = reference_date or timezone.localdate()
         seen: dict[str, NowShowingMovieItem] = {}
-        for row in self._fetch_superplex_sessions_for_date(target_date):
-            movie_code = str(row.get('RepresentationMovieCode', ''))
-            title = row.get('MovieNameKR', '')
-            if not movie_code or not title or movie_code in seen:
-                continue
-            seen[movie_code] = NowShowingMovieItem(movie_code=movie_code, title=title)
+        for offset in range(_DISCOVERY_WINDOW_DAYS):
+            target_date = start_date + timedelta(days=offset)
+            for row in self._fetch_superplex_sessions_for_date(target_date):
+                movie_code = str(row.get('RepresentationMovieCode', ''))
+                title = row.get('MovieNameKR', '')
+                if not movie_code or not title or movie_code in seen:
+                    continue
+                seen[movie_code] = NowShowingMovieItem(movie_code=movie_code, title=title)
         return list(seen.values())
 
     def get_open_dates_bulk(
@@ -113,7 +123,7 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
                 timeout=_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
-            # CGV 크롤러의 _fetch와 동일한 이유로 response.json()도 try 안에서 호출한다 —
+            # CGV 크롤러의 _get과 동일한 이유로 response.json()도 try 안에서 호출한다 —
             # JSONDecodeError가 CinemaCrawlerError로 감싸이지 않으면 실패 카운터가 증가하지
             # 않고 handle() 루프가 중단될 수 있다.
             data = response.json()
