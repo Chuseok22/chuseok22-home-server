@@ -72,6 +72,29 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 0,
         'default_day_of_week': '*',
     },
+    'check_movie_showtime_openings': {
+        'label': '영화 예매 오픈 감지 (CGV/롯데)',
+        'command': 'check_movie_showtime_openings',
+        'default_schedule_mode': 'interval_minutes',
+        'default_interval_minutes': 5,
+        'default_day_of_week': '*',
+    },
+    'sync_now_showing_movies': {
+        'label': '영화관 상영작 목록 동기화 (CGV/롯데)',
+        'command': 'sync_now_showing_movies',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '6',
+        'default_fixed_minute': 2,
+        'default_day_of_week': '*',
+    },
+    'resync_movie_showtime_openings': {
+        'label': '영화 예매 오픈 전체 재확인 (CGV/롯데)',
+        'command': 'resync_movie_showtime_openings',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '6',
+        'default_fixed_minute': 32,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None
@@ -94,6 +117,8 @@ def get_or_seed_job_config(job_id: str, definition: dict) -> ScheduledJobConfig:
     if mode == 'interval':
         defaults['interval_hours'] = definition['default_interval_hours']
         defaults['interval_minute'] = definition['default_interval_minute']
+    elif mode == 'interval_minutes':
+        defaults['interval_minutes'] = definition['default_interval_minutes']
     else:
         defaults['fixed_hours'] = definition['default_fixed_hours']
         defaults['fixed_minute'] = definition['default_fixed_minute']
@@ -114,7 +139,10 @@ def build_cron_trigger(config: ScheduledJobConfig) -> CronTrigger:
             hour_expr: str | int = '0'
         else:
             hour_expr = f'*/{config.interval_hours}'
-        minute_expr = config.interval_minute
+        minute_expr: str | int = config.interval_minute
+    elif config.schedule_mode == 'interval_minutes':
+        hour_expr = '*'
+        minute_expr = f'*/{config.interval_minutes}'
     else:
         hour_expr = config.fixed_hours
         minute_expr = config.fixed_minute

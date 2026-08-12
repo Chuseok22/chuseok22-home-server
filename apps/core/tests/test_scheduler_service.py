@@ -44,6 +44,20 @@ def test_interval_모드로_저장하면_interval_필드가_반영된다() -> No
 
 
 @pytest.mark.django_db
+def test_update_job_schedule은_interval_minutes_모드를_저장한다() -> None:
+    ScheduledJobConfig.objects.create(job_id='check_new_notices', fixed_hours='8')
+
+    update_job_schedule(
+        'check_new_notices', is_enabled=True, schedule_mode='interval_minutes',
+        day_of_week='*', interval_minutes=5,
+    )
+
+    config = ScheduledJobConfig.objects.get(job_id='check_new_notices')
+    assert config.schedule_mode == 'interval_minutes'
+    assert config.interval_minutes == 5
+
+
+@pytest.mark.django_db
 def test_비활성화로_저장하면_reschedule_및_pause가_호출된다() -> None:
     ScheduledJobConfig.objects.create(
         job_id='check_new_notices', fixed_hours='8',

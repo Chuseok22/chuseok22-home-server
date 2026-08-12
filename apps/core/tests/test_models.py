@@ -124,3 +124,21 @@ def test_fixed_minute_범위_초과시_full_clean에서_거부된다() -> None:
     )
     with pytest.raises(ValidationError):
         config.full_clean()
+
+
+@pytest.mark.django_db
+def test_interval_minutes_모드에서_interval_minutes가_없으면_full_clean에서_거부된다() -> None:
+    config = ScheduledJobConfig(
+        job_id='check_new_notices', schedule_mode='interval_minutes',
+    )
+    with pytest.raises(ValidationError):
+        config.full_clean()
+
+
+@pytest.mark.django_db
+def test_interval_minutes_모드는_유효한_값으로_저장된다() -> None:
+    config = ScheduledJobConfig.objects.create(
+        job_id='check_new_notices', schedule_mode='interval_minutes', interval_minutes=5,
+    )
+    config.full_clean()
+    assert config.interval_minutes == 5
