@@ -201,3 +201,16 @@ class TestGetOpenDatesBulk:
 
         with pytest.raises(CinemaCrawlerError):
             crawler.get_open_dates_bulk(movie_codes=['24128'], candidate_dates=[date(2026, 8, 12)])
+
+
+class TestBuildBookingUrl:
+    def test_영화가_선택된_예매_화면_URL을_반환한다(self, crawler) -> None:
+        """롯데 예매 화면은 CGV와 달리 URL 쿼리 파라미터로 상태를 받는다 — 새 탭에 직접
+        붙여넣는 콜드 접속에도 영화가 이미 선택된 상태로 열리는 것을 실측 확인했다(스펙
+        문서 참고)."""
+        url = crawler.build_booking_url('24128', '오디세이')
+
+        assert url == (
+            'https://www.lottecinema.co.kr/NLCHS/ticketing'
+            '?movieCd=24128&movieName=%EC%98%A4%EB%94%94%EC%84%B8%EC%9D%B4'
+        )
