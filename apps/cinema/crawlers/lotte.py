@@ -21,76 +21,84 @@ _HEADERS = {
     'Accept': 'application/json, text/plain, */*',
     'Referer': 'https://www.lottecinema.co.kr/NLCHS/Ticketing',
 }
-# 실제 브라우저 요청(HAR 캡처)의 paramList에는 이 4개 필드가 항상 포함된다. 값 자체는
-# 채널/OS 구분·비회원 여부를 나타내는 범주형 상수라 개인 식별 정보가 아니다. 이 필드들
-# 없이도 라이브 호출로 정상 동작을 확인했지만, 실제 트래픽과 최대한 가깝게 맞춰 서버 측의
-# 예상치 못한 분기(예: osType 누락 시 다른 응답 스키마)를 피한다.
+# 실제 브라우저 요청(HAR 캡처)의 GetPlaySequence paramList에는 이 3개 필드가 항상 포함된다.
+# 값 자체는 채널/OS 구분을 나타내는 범주형 상수라 개인 식별 정보가 아니다. 이 필드들 없이도
+# 라이브 호출로 정상 동작을 확인했지만, 실제 트래픽과 최대한 가깝게 맞춰 서버 측의 예상치
+# 못한 분기를 피한다. memberOnNo는 HAR상 GetTicketingPageTOBE 요청에만 있고 GetPlaySequence
+# 요청에는 없어(직접 grep으로 재확인) 공통 파라미터에 포함하지 않는다 — GetPlaySequence만
+# 쓰는 이 크롤러에는 필요 없다.
 _COMMON_PARAMS = {
     'channelType': 'HO',
     'osType': 'W',
     'osVersion': _HEADERS['User-Agent'],
-    'memberOnNo': '0',
 }
 
 
 class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
     """롯데시네마 잠실 월드타워점 수퍼플렉스 상영 정보 크롤러
 
-    엔드포인트·파라미터·필드 구성은 실제 브라우저 세션의 HAR 캡처로 라이브 검증되었다:
+    엔드포인트·파라미터·필드 구성은 실제 브라우저 세션의 HAR 캡처로 라이브 검증되었다.
 
-    - GetTicketingPageTOBE: 전국 상영작 목록(Movies.Movies.Items, RepresentationMovieCode/
-      MovieNameKR)과 극장 목록을 반환한다. 특정 상영관에 한정되지 않는다 — 발견용 후보
-      목록으로만 쓴다.
-    - GetPlaySequence(playDate, cinemaID, representationMovieCode): 영화+극장+날짜의 실제
-      회차를 PlaySeqs.Items에 반환한다. ScreenDivisionNameKR로 상영관 등급을 구분하며
-      "수퍼플렉스"가 실제 값으로 확인되었다. IsOK는 JSON boolean이 아니라 문자열
-      ("true"/"false"로 추정)로 내려오는 것이 라이브 응답으로 확인됨 — 두 표현 모두 방어한다.
+    GetPlaySequence(playDate, cinemaID, representationMovieCode)의 representationMovieCode를
+    빈 문자열로 보내면 그 극장·날짜의 "모든 영화·모든 상영관" 회차를 한 번에 반환한다는 것이
+    HAR로 확인됐다(실제 사이트도 페이지 최초 로드 시 이 방식으로 호출한다) — 영화별로 개별
+    조회할 필요가 없어, 영화별 GetTicketingPageTOBE 조회 + 영화별 GetPlaySequence 조회로
+    구성했던 이전 구현보다 요청 수가 크게 줄었다(발견 시 41콜 → 1콜, 확인 주기당 감시
+    영화 수 × 날짜 수 콜 → 날짜 수 콜). PlaySeqs.Items의 각 행이 RepresentationMovieCode와
+    MovieNameKR을 함께 담고 있어, 상영작 발견에 별도로 GetTicketingPageTOBE(전국 상영작 목록)를
+    쓸 필요도 없어졌다.
+
+    - ScreenDivisionNameKR로 상영관 등급을 구분하며 "수퍼플렉스"(ScreenDivisionCode 940)가
+      실제 값으로 확인되었다.
+    - IsOK는 JSON boolean이 아니라 문자열("true")로 내려오는 것이 라이브 응답으로 확인됨 —
+      다만 HAR에는 실패(false) 사례가 없어 문자열 "false" 표현은 추정이다. 둘 다 방어한다.
     - StartTime/EndTime은 CGV의 "HHMM"과 달리 이미 "HH:MM" 형식이라 별도 변환이 필요 없다.
     """
 
     def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
         target_date = reference_date or timezone.localdate()
-        data = self._call('GetTicketingPageTOBE', {})
-        movies = data.get('Movies', {}).get('Movies', {}).get('Items', [])
-
-        result: list[NowShowingMovieItem] = []
-        for movie in movies:
-            movie_code = str(movie.get('RepresentationMovieCode', ''))
-            title = movie.get('MovieNameKR', '')
-            if not movie_code or not title:
+        seen: dict[str, NowShowingMovieItem] = {}
+        for row in self._fetch_superplex_sessions_for_date(target_date):
+            movie_code = str(row.get('RepresentationMovieCode', ''))
+            title = row.get('MovieNameKR', '')
+            if not movie_code or not title or movie_code in seen:
                 continue
-            if self._fetch_superplex_sessions(movie_code, target_date):
-                result.append(NowShowingMovieItem(movie_code=movie_code, title=title))
-        return result
+            seen[movie_code] = NowShowingMovieItem(movie_code=movie_code, title=title)
+        return list(seen.values())
 
     def get_open_dates_bulk(
         self, movie_codes: list[str], candidate_dates: list[date],
     ) -> dict[str, dict[date, list[str]]]:
         result: dict[str, dict[date, list[str]]] = {code: {} for code in movie_codes}
-        for movie_code in movie_codes:
-            for target_date in candidate_dates:
-                sessions = self._fetch_superplex_sessions(movie_code, target_date)
-                if not sessions:
+        movie_code_set = set(movie_codes)
+        for target_date in candidate_dates:
+            for row in self._fetch_superplex_sessions_for_date(target_date):
+                movie_code = str(row.get('RepresentationMovieCode', ''))
+                if movie_code not in movie_code_set:
                     continue
-                times = sorted({row.get('StartTime', '') for row in sessions})
-                result[movie_code][target_date] = times
+                times = result[movie_code].setdefault(target_date, [])
+                start_time = row.get('StartTime', '')
+                if start_time not in times:
+                    times.append(start_time)
+        for movie_times in result.values():
+            for times in movie_times.values():
+                times.sort()
         return result
 
-    def _fetch_superplex_sessions(self, movie_code: str, target_date: date) -> list[dict]:
+    def _fetch_superplex_sessions_for_date(self, target_date: date) -> list[dict]:
+        """이 극장의 특정 날짜에 열려 있는 수퍼플렉스 회차 전체를 1콜로 가져온다."""
         data = self._call('GetPlaySequence', {
             'playDate': target_date.strftime('%Y-%m-%d'),
             'cinemaID': _CINEMA_ID,
-            'representationMovieCode': movie_code,
+            'representationMovieCode': '',
         })
         is_ok = data.get('IsOK')
         if is_ok is False or (isinstance(is_ok, str) and is_ok.lower() == 'false'):
             # IsOK=False(또는 문자열 "false")는 유효한 JSON dict이면서 애플리케이션 레벨로는
             # 실패한 응답이다 — 이 경우 PlaySeqs가 비어 있어 검증 없이 넘어가면 "회차 없음"과
             # 구분이 안 돼 run_showtime_check가 성공으로 기록하고 실패 카운터를 리셋해버린다.
-            # IsOK가 JSON boolean이 아니라 문자열("true")로 내려오는 것이 라이브 응답으로
-            # 확인되어(클래스 docstring 참고) 두 표현 모두 방어한다.
             raise CinemaCrawlerError(
-                f'롯데시네마 응답이 실패를 나타냅니다(IsOK={is_ok!r}): {movie_code} {target_date}',
+                f'롯데시네마 응답이 실패를 나타냅니다(IsOK={is_ok!r}): {target_date}',
             )
         items = data.get('PlaySeqs', {}).get('Items', [])
         return [row for row in items if row.get('ScreenDivisionNameKR') == _SCREEN_DIVISION]
