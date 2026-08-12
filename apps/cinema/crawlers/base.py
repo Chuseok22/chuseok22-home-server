@@ -17,10 +17,11 @@ class NowShowingMovieItem:
 class BaseCinemaCrawler(ABC):
     """CGV/롯데시네마 등 영화관 체인별 크롤러의 공통 인터페이스.
 
-    두 체인 모두 "영화별로 열린 날짜 목록"을 한 번에 반환하는 API가 없어 날짜별 개별 조회가
-    필요하지만, 체인마다 배치 가능 단위가 다르다(CGV는 극장+날짜 1콜이 그 날짜의 모든 영화를
-    포함, 롯데는 영화+날짜 단위로만 조회 가능). get_open_dates_bulk가 이 차이를 각 구현체
-    내부로 숨겨, 호출자(management command)는 체인별 최적화를 몰라도 된다.
+    두 체인 모두 실제 상영 시간표 조회는 영화 단위(movie_code + 날짜)로만 가능하다. CGV는
+    실제 캡처(HAR)로 검증된 별도 엔드포인트(searchSiteScnscYmdListByMov)로 영화 하나당 "열린
+    날짜 목록"을 한 번에 받아올 수 있어 날짜별 개별 조회를 줄일 수 있지만, 롯데는 그런
+    엔드포인트가 없어 candidate_dates를 날짜별로 순회해야 한다. get_open_dates_bulk가 이
+    차이를 각 구현체 내부로 숨겨, 호출자(management command)는 체인별 최적화를 몰라도 된다.
     """
 
     @abstractmethod
