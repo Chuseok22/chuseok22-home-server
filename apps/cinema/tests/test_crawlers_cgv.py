@@ -18,13 +18,20 @@ _TOP_MOVIES_RESPONSE = {
 }
 
 
-def _schedule_count_response(imax_sites: list[str]) -> dict:
+def _schedule_count_response(imax_sites: list[str], gold_class_sites: list[str] | None = None) -> dict:
     return {
         'statusCode': 0,
         'data': [
-            {'comCdval': '04', 'comCdvalNm': 'SCREENX', 'sscnsSiteList': []},
+            {'comCd': 'TCSCNS_GRAD_CD', 'comCdval': '04', 'comCdvalNm': 'SCREENX', 'sscnsSiteList': []},
             {
-                'comCdval': '03', 'comCdvalNm': '아이맥스',
+                # 실제 HAR 응답에는 comCdval="03"이 comCd별로 서로 다른 의미(TCSCNS_GRAD_CD의
+                # 03=아이맥스, SASCNS_GRAD_CD의 03=골드클래스)로 두 번 등장한다 — 골드클래스
+                # 항목을 먼저 배치해 comCd를 함께 확인하지 않으면 오판하는 경로를 재현한다.
+                'comCd': 'SASCNS_GRAD_CD', 'comCdval': '03', 'comCdvalNm': '골드클래스',
+                'sscnsSiteList': [{'siteNo': site} for site in (gold_class_sites or [])],
+            },
+            {
+                'comCd': 'TCSCNS_GRAD_CD', 'comCdval': '03', 'comCdvalNm': '아이맥스',
                 'sscnsSiteList': [{'siteNo': site} for site in imax_sites],
             },
         ],
@@ -109,6 +116,25 @@ class TestListNowShowing:
 
         assert [item.movie_code for item in result] == ['30001323']
         assert result[0].title == '오디세이'
+
+    @patch('apps.cinema.crawlers.cgv.requests.get')
+    def test_골드클래스만_상영중이면_IMAX로_오판하지_않는다(self, mock_get, crawler) -> None:
+        """comCdval="03"은 comCd에 따라 IMAX(TCSCNS_GRAD_CD)와 골드클래스(SASCNS_GRAD_CD) 둘 다에
+        쓰인다 — comCd를 함께 확인하지 않으면 골드클래스만 상영 중인 영화를 IMAX 상영으로
+        오판할 수 있다."""
+        def _side_effect(url, **kwargs):
+            if 'searchAtktTopPostrList' in url:
+                return _mock_response(_TOP_MOVIES_RESPONSE)
+            if 'searchSscnsSchdCntList' in url:
+                # 두 영화 모두 골드클래스는 0013에서 상영하지만 IMAX는 상영하지 않는다.
+                return _mock_response(_schedule_count_response(imax_sites=[], gold_class_sites=['0013']))
+            raise AssertionError(f'예상치 못한 URL: {url}')
+
+        mock_get.side_effect = _side_effect
+
+        result = crawler.list_now_showing()
+
+        assert result == []
 
     @patch('apps.cinema.crawlers.cgv.requests.get')
     def test_요청_실패시_CinemaCrawlerError를_발생시킨다(self, mock_get, crawler) -> None:
