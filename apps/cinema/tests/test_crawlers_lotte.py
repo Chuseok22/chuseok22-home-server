@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -44,6 +45,23 @@ def _play_sequence_response(has_superplex: bool) -> dict:
 @pytest.fixture
 def crawler() -> LotteJamsilSuperplexCrawler:
     return LotteJamsilSuperplexCrawler()
+
+
+class TestCall:
+    @patch('apps.cinema.crawlers.lotte.requests.post')
+    def test_실제_브라우저_요청에_포함되는_공통_파라미터와_Referer를_함께_보낸다(self, mock_post, crawler) -> None:
+        """HAR 캡처로 확인된 실제 요청은 MethodName 외에 channelType/osType/osVersion/
+        memberOnNo를 항상 포함하고 Referer 헤더를 보낸다 — 최대한 실제 트래픽에 맞춘다."""
+        mock_post.return_value = MagicMock(raise_for_status=lambda: None, json=lambda: {'IsOK': 'true'})
+
+        crawler._call('GetPlaySequence', {'playDate': '2026-08-11'})
+
+        payload = json.loads(mock_post.call_args.kwargs['files']['paramList'][1])
+        assert payload['channelType'] == 'HO'
+        assert payload['osType'] == 'W'
+        assert payload['memberOnNo'] == '0'
+        assert 'osVersion' in payload
+        assert mock_post.call_args.kwargs['headers']['Referer'] == 'https://www.lottecinema.co.kr/NLCHS/Ticketing'
 
 
 class TestListNowShowing:
