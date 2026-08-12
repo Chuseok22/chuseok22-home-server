@@ -16,10 +16,15 @@ def test_NowShowingMovieItem은_movie_code와_title을_가진다() -> None:
     assert item.title == '스파이더맨'
 
 
-def test_구체_구현체는_두_추상_메서드를_모두_구현해야_한다() -> None:
+def test_구체_구현체는_세_추상_메서드를_모두_구현해야_한다() -> None:
     class IncompleteCrawler(BaseCinemaCrawler):
         def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
             return []
+
+        def get_open_dates_bulk(
+            self, movie_codes: list[str], candidate_dates: list[date],
+        ) -> dict[str, dict[date, list[str]]]:
+            return {}
 
     with pytest.raises(TypeError):
         IncompleteCrawler()

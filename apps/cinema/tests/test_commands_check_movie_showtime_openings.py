@@ -111,6 +111,10 @@ def test_handle는_상영관별로_run_showtime_check을_호출한다() -> None:
     assert mock_check.call_count == 2
     called_screens = {call.args[0] for call in mock_check.call_args_list}
     assert called_screens == {'cgv_yongsan_imax', 'lotte_jamsil_superplex'}
+    for call in mock_check.call_args_list:
+        # run_showtime_check(cinema_screen, crawler, candidate_dates, cinema_screen_label, discord)
+        # — booking_url이 빠진 5-인자 시그니처로 호출되는지 검증한다.
+        assert len(call.args) == 5
 
 
 @pytest.mark.django_db

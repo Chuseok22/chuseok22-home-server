@@ -17,7 +17,6 @@ def run_showtime_check(
     crawler: BaseCinemaCrawler,
     candidate_dates: list[date],
     cinema_screen_label: str,
-    booking_url: str,
     discord: CinemaDiscordService,
 ) -> int:
     """cinema_screen에서 활성 감시 대상의 candidate_dates 중 새로 열린 날짜를 찾아 알림을
@@ -47,7 +46,7 @@ def run_showtime_check(
     for tracked_movie in tracked_movies:
         movie_code = tracked_movie.movie.movie_code
         for show_date, showtimes in open_dates.get(movie_code, {}).items():
-            if _notify_if_new(tracked_movie, show_date, showtimes, cinema_screen_label, booking_url, discord):
+            if _notify_if_new(tracked_movie, show_date, showtimes, cinema_screen_label, crawler, discord):
                 notified_count += 1
     return notified_count
 
@@ -57,7 +56,7 @@ def _notify_if_new(
     show_date: date,
     showtimes: list[str],
     cinema_screen_label: str,
-    booking_url: str,
+    crawler: BaseCinemaCrawler,
     discord: CinemaDiscordService,
 ) -> bool:
     # 행 존재(발견 여부)와 notify_succeeded(발송 성공 여부)를 분리한다 — Discord 발송이
@@ -76,6 +75,7 @@ def _notify_if_new(
         opened = OpenedShowDate.objects.select_for_update().get(pk=opened.pk)
         if opened.notify_succeeded:
             return False
+        booking_url = crawler.build_booking_url(tracked_movie.movie.movie_code, tracked_movie.movie.title)
         success = discord.send_new_date_alert(
             webhook_url=tracked_movie.discord_webhook_url,
             cinema_screen_label=cinema_screen_label,

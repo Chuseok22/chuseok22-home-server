@@ -36,3 +36,9 @@ class BaseCinemaCrawler(ABC):
         """movie_codes 각각에 대해, candidate_dates 중 실제로 상영 회차가 열려 있는 날짜만
         {movie_code: {show_date: [showtime_str, ...]}} 형태로 반환한다. 열려 있지 않은 날짜는
         결과에 아예 포함되지 않는다(빈 리스트가 아니라 키 자체가 없음)."""
+
+    @abstractmethod
+    def build_booking_url(self, movie_code: str, title: str) -> str:
+        """movie_code(및 필요 시 title)로, 가능한 한 그 영화가 이미 선택된 상태로 진입할 수
+        있는 예매(또는 예매에 가장 가까운) 페이지 URL을 만든다. 체인별로 도달 가능한 최선의
+        상태가 다르다 — 각 구현체 docstring 참고."""

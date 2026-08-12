@@ -8,6 +8,7 @@ from .base import BaseCinemaCrawler, CinemaCrawlerError, NowShowingMovieItem
 logger = logging.getLogger(__name__)
 
 _BASE_URL = 'https://cgv.co.kr/api/v1/booking'
+_MOVIE_DETAIL_URL = 'https://cgv.co.kr/cnm/cgvChart/movieChart'
 _SITE_NO = '0013'  # 용산아이파크몰
 _CO_CD = 'A420'
 _RTCTL_SCOP_CD = '08'
@@ -56,6 +57,10 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
     - searchSchByMov(coCd, siteNo, scnYmd, movNo, rtctlScopCd): 영화+상영관+날짜의 실제
       회차(시간)를 반환한다. siteNo로 요청해도 인접한 다른 브랜드관(예: 씨네드쉐프)
       회차가 함께 섞여 나오는 것이 확인되어, 응답의 siteNo 필드로 다시 한번 걸러야 한다.
+    - build_booking_url은 위 4개 엔드포인트와 별개로, 예매 SPA와 분리된 "영화 상세 페이지"
+      (`cgv.co.kr/cnm/cgvChart/movieChart/{movNo}`)를 반환한다 — 예매 SPA 자체는 URL 상태가
+      전혀 없어(실측 확인) 극장/날짜는커녕 영화조차 URL만으로 선택할 수 없다. 이 상세 페이지의
+      "예매하기" 버튼을 클릭하면 영화가 선택된 상태로 예매 화면이 열리는 것까지 실측 확인했다.
     """
 
     def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
@@ -84,6 +89,12 @@ class CgvYongsanImaxCrawler(BaseCinemaCrawler):
                 if times:
                     result[movie_code][target_date] = times
         return result
+
+    def build_booking_url(self, movie_code: str, title: str) -> str:
+        """영화 상세 페이지 URL을 반환한다. 예매 SPA 자체는 URL 상태가 없어(실측 확인) 직접
+        예매 화면으로 딥링크할 수 없다 — 이 상세 페이지의 "예매하기" 버튼을 클릭하면 예매
+        화면이 이 영화가 선택된 상태로 열리는 것까지 실측으로 확인됐다."""
+        return f'{_MOVIE_DETAIL_URL}/{movie_code}'
 
     def _plays_in_imax_at_site(self, movie_no: str) -> bool:
         for entry in self._fetch_schedule_count(movie_no):

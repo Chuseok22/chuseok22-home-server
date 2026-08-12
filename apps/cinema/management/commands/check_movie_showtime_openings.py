@@ -21,10 +21,6 @@ _SCREEN_LABELS = {
     'cgv_yongsan_imax': 'CGV 용산아이파크몰 IMAX',
     'lotte_jamsil_superplex': '롯데시네마 잠실 월드타워 수퍼플렉스',
 }
-_BOOKING_URLS = {
-    'cgv_yongsan_imax': 'https://cgv.co.kr/cnm/movieBook/cinema?siteNo=0013',
-    'lotte_jamsil_superplex': 'https://www.lottecinema.co.kr/NLCHS/Ticketing',
-}
 
 
 class Command(BaseCommand):
@@ -40,8 +36,7 @@ class Command(BaseCommand):
             )
             candidate_dates = self._build_candidate_dates(tracked_movies)
             notified_count = run_showtime_check(
-                cinema_screen, crawler, candidate_dates,
-                _SCREEN_LABELS[cinema_screen], _BOOKING_URLS[cinema_screen], discord,
+                cinema_screen, crawler, candidate_dates, _SCREEN_LABELS[cinema_screen], discord,
             )
             self.stdout.write(f'[{cinema_screen}] 신규 알림 {notified_count}건')
 

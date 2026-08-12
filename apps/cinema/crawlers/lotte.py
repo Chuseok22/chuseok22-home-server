@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import date, timedelta
+from urllib.parse import quote
 
 import requests
 from django.utils import timezone
@@ -10,6 +11,7 @@ from .base import BaseCinemaCrawler, CinemaCrawlerError, NowShowingMovieItem
 logger = logging.getLogger(__name__)
 
 _BASE_URL = 'https://www.lottecinema.co.kr/LCWS/Ticketing/TicketingData.aspx'
+_TICKETING_URL = 'https://www.lottecinema.co.kr/NLCHS/ticketing'
 _CINEMA_ID = '1|0001|1016'  # 잠실 월드타워점
 _SCREEN_DIVISION = '수퍼플렉스'
 _REQUEST_TIMEOUT = 10
@@ -61,6 +63,11 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
     - IsOK는 JSON boolean이 아니라 문자열("true")로 내려오는 것이 라이브 응답으로 확인됨 —
       다만 HAR에는 실패(false) 사례가 없어 문자열 "false" 표현은 추정이다. 둘 다 방어한다.
     - StartTime/EndTime은 CGV의 "HHMM"과 달리 이미 "HH:MM" 형식이라 별도 변환이 필요 없다.
+    - build_booking_url이 반환하는 예매 화면 직행 URL(`NLCHS/ticketing?movieCd=...`)은 CGV와
+      달리 URL 쿼리 파라미터만으로 영화 선택 상태를 재현한다 — 콜드 접속에도 동작함을 실측
+      확인했다. 극장(cinemaID)까지 같은 방식으로 넘기는 파라미터는 HAR 캡처로도 발견하지
+      못했다 — 예매 화면 내 극장 변경은 URL 파라미터가 아니라 별도 페이지 이동으로 처리되는
+      것으로 보인다.
     """
 
     def list_now_showing(self, reference_date: date | None = None) -> list[NowShowingMovieItem]:
@@ -94,6 +101,12 @@ class LotteJamsilSuperplexCrawler(BaseCinemaCrawler):
             for times in movie_times.values():
                 times.sort()
         return result
+
+    def build_booking_url(self, movie_code: str, title: str) -> str:
+        """예매 화면 직행 URL을 반환한다. 이 URL은 콜드 접속(새 탭에 직접 붙여넣기)에도 영화가
+        이미 선택된 상태로 열리는 것을 실측 확인했다 — CGV와 달리 예매 화면 자체가 쿼리
+        파라미터로 상태를 받는다."""
+        return f'{_TICKETING_URL}?movieCd={movie_code}&movieName={quote(title)}'
 
     def _fetch_superplex_sessions_for_date(self, target_date: date) -> list[dict]:
         """이 극장의 특정 날짜에 열려 있는 수퍼플렉스 회차 전체를 1콜로 가져온다."""

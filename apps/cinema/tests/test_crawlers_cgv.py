@@ -269,3 +269,13 @@ class TestGetOpenDatesBulk:
 
         with pytest.raises(CinemaCrawlerError):
             crawler.get_open_dates_bulk(movie_codes=['30001323'], candidate_dates=[date(2026, 8, 25)])
+
+
+class TestBuildBookingUrl:
+    def test_영화_상세_페이지_URL을_반환한다(self, crawler) -> None:
+        """예매 SPA 자체는 URL 상태가 없어(실측 확인) 직접 예매 화면으로 딥링크할 수 없다 —
+        영화 상세 페이지의 "예매하기" 버튼을 클릭하면 예매 화면이 이 영화가 선택된 상태로
+        열리는 것까지 실측으로 확인됐다(스펙 문서 참고)."""
+        url = crawler.build_booking_url('30001323', '오디세이')
+
+        assert url == 'https://cgv.co.kr/cnm/cgvChart/movieChart/30001323'
