@@ -104,3 +104,15 @@ class TestHrdKoreaApiCrawlerCrawl(TestCase):
             result = crawler._crawl_year('1320', 2026)
 
         assert result == []
+
+
+@override_settings(HRD_KOREA_API_KEY='')
+class TestHrdKoreaApiCrawlerMissingApiKey(TestCase):
+    def test_API_키_미설정시_API를_호출하지_않고_빈_리스트를_반환한다(self) -> None:
+        crawler = HrdKoreaApiCrawler()
+
+        with patch('apps.certifications.crawlers.hrdkorea_api.requests.get') as mock_get:
+            result = crawler.crawl('1320')
+
+        assert result == []
+        mock_get.assert_not_called()

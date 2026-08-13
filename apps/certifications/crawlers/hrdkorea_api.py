@@ -35,6 +35,10 @@ class HrdKoreaApiCrawler(BaseExamCrawler):
     """
 
     def crawl(self, source_id: str) -> list[ExamRoundItem]:
+        if not settings.HRD_KOREA_API_KEY:
+            logger.warning('HRD_KOREA_API_KEY 미설정 — 국가자격 시험일정 동기화를 건너뜁니다')
+            return []
+
         this_year = timezone.localdate().year
         rounds: list[ExamRoundItem] = []
         for year in (this_year, this_year + 1):

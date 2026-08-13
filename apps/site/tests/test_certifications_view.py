@@ -86,6 +86,33 @@ def test_범위를_벗어난_year는_오늘_기준으로_폴백한다() -> None:
 
 
 @pytest.mark.django_db
+def test_마감_D3_이하_일정은_강조_배지_클래스가_붙는다() -> None:
+    cert = CertificationDefinition.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단',
+        category=CertificationDefinition.Category.NATIONAL_TECH, crawler_type='manual',
+    )
+    other_cert = CertificationDefinition.objects.create(
+        name='토익', issuer='YBM', category=CertificationDefinition.Category.LANGUAGE, crawler_type='manual',
+    )
+    today = timezone.localdate()
+    ExamSchedule.objects.create(
+        certification=cert, round_name='마감임박 회차',
+        registration_start=today, registration_end=today + timedelta(days=2),
+    )
+    ExamSchedule.objects.create(
+        certification=other_cert, round_name='여유 회차',
+        registration_start=today, registration_end=today + timedelta(days=10),
+    )
+
+    client = Client()
+    response = client.get(reverse('site:certifications'))
+    body = response.content.decode()
+
+    assert '!bg-error !text-error-content">D-2</span>' in body
+    assert '!bg-error !text-error-content">D-10</span>' not in body
+
+
+@pytest.mark.django_db
 def test_상시_접수_자격증은_추적_목록에_상시_접수로_표시된다() -> None:
     CertificationDefinition.objects.create(
         name='CCNA', issuer='Cisco', category=CertificationDefinition.Category.IT_PRIVATE,

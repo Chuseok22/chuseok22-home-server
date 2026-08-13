@@ -78,7 +78,7 @@
     <div class="flex flex-col divide-y divide-base-300">
       {% for schedule in upcoming_schedules %}
       <div class="py-3 first:pt-0 last:pb-0">
-        <span class="badge-tag">D-{{ schedule.days_until_deadline }}</span>
+        <span class="badge-tag{% if schedule.days_until_deadline <= 3 %} !bg-error !text-error-content{% endif %}">D-{{ schedule.days_until_deadline }}</span>
         <span class="font-semibold">{{ schedule.certification.name }}</span>
         <span class="opacity-70">{{ schedule.round_name }}</span>
         <p class="opacity-60 text-sm">
