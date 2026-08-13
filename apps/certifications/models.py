@@ -31,3 +31,30 @@ class CertificationDefinition(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class ExamSchedule(models.Model):
+    """회차별 시험 일정 1건."""
+
+    certification = models.ForeignKey(
+        CertificationDefinition, related_name='schedules', on_delete=models.CASCADE, verbose_name='자격증',
+    )
+    round_name = models.CharField(max_length=50, verbose_name='회차명')
+    registration_start = models.DateField(verbose_name='원서접수 시작일')
+    registration_end = models.DateField(verbose_name='원서접수 마감일')
+    exam_date = models.DateField(null=True, blank=True, verbose_name='시험일')
+    result_announcement_date = models.DateField(null=True, blank=True, verbose_name='합격자 발표일')
+    source_url = models.URLField(blank=True, default='', verbose_name='출처 링크')
+    registration_open_notified = models.BooleanField(default=False, verbose_name='접수 시작 알림 발송 여부')
+    registration_deadline_notified = models.BooleanField(default=False, verbose_name='접수 마감 임박 알림 발송 여부')
+
+    class Meta:
+        verbose_name = '시험 일정'
+        verbose_name_plural = '시험 일정 목록'
+        ordering = ('registration_start',)
+        constraints = [
+            models.UniqueConstraint(fields=('certification', 'round_name'), name='unique_certification_round'),
+        ]
+
+    def __str__(self) -> str:
+        return f'[{self.certification.name}] {self.round_name}'
