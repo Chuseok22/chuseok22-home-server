@@ -87,3 +87,21 @@ def test_비활성_자격증의_일정은_알림을_보내지_않는다(certific
         call_command('check_exam_reminders')
 
     mock_send.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_상시_접수_자격증의_일정은_알림을_보내지_않는다(certification: CertificationDefinition) -> None:
+    certification.is_always_open = True
+    certification.save()
+    today = timezone.localdate()
+    ExamSchedule.objects.create(
+        certification=certification, round_name='실수로_등록된_일정',
+        registration_start=today, registration_end=today + timedelta(days=4),
+    )
+
+    with patch(
+        'apps.certifications.management.commands.check_exam_reminders.send_registration_open_reminder',
+    ) as mock_send:
+        call_command('check_exam_reminders')
+
+    mock_send.assert_not_called()

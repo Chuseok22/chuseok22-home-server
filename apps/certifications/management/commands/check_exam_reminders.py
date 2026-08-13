@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from apps.certifications.models import ExamSchedule
-from apps.certifications.services.telegram_reminder import (
+from apps.certifications.services.discord_reminder import (
     send_registration_deadline_reminder,
     send_registration_open_reminder,
 )
@@ -13,7 +13,7 @@ _DEADLINE_REMINDER_DAYS_BEFORE = 3
 
 
 class Command(BaseCommand):
-    help = '원서접수 시작일/마감 임박(D-3) 자격증 일정을 텔레그램으로 알린다'
+    help = '원서접수 시작일/마감 임박(D-3) 자격증 일정을 디스코드로 알린다'
 
     def handle(self, *args, **options) -> None:
         today = timezone.localdate()
@@ -23,6 +23,7 @@ class Command(BaseCommand):
     def _send_open_reminders(self, today: date) -> None:
         schedules = ExamSchedule.objects.filter(
             certification__is_active=True,
+            certification__is_always_open=False,
             registration_start=today,
             registration_open_notified=False,
         ).select_related('certification')
@@ -36,6 +37,7 @@ class Command(BaseCommand):
         deadline_target = today + timedelta(days=_DEADLINE_REMINDER_DAYS_BEFORE)
         schedules = ExamSchedule.objects.filter(
             certification__is_active=True,
+            certification__is_always_open=False,
             registration_end=deadline_target,
             registration_deadline_notified=False,
         ).select_related('certification')
