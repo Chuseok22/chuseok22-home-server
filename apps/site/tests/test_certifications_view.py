@@ -113,6 +113,21 @@ def test_마감_D3_이하_일정은_강조_배지_클래스가_붙는다() -> No
 
 
 @pytest.mark.django_db
+def test_매우_긴_숫자_문자열의_year는_오늘_기준으로_폴백한다() -> None:
+    # int()는 Python 3.11+부터 4300자리 넘는 십진수 문자열 변환을 ValueError로 거부한다 —
+    # isdecimal()만으로 걸러지지 않으므로 500이 아니라 정상 폴백돼야 한다.
+    today = timezone.localdate()
+    huge_digits = '9' * 5000
+
+    client = Client()
+    response = client.get(reverse('site:certifications'), {'year': huge_digits, 'month': huge_digits})
+
+    assert response.status_code == 200
+    assert response.context['year'] == today.year
+    assert response.context['month'] == today.month
+
+
+@pytest.mark.django_db
 def test_상시_접수_자격증은_추적_목록에_상시_접수로_표시된다() -> None:
     CertificationDefinition.objects.create(
         name='CCNA', issuer='Cisco', category=CertificationDefinition.Category.IT_PRIVATE,

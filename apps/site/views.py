@@ -379,7 +379,12 @@ _MAX_CALENDAR_YEAR = 2100
 
 
 def _parse_int(value: str | None, default: int) -> int:
-    return int(value) if value and value.isdecimal() else default
+    # int()는 Python 3.11+부터 4300자리를 넘는 십진수 문자열 변환을 ValueError로 거부한다 —
+    # isdecimal()만으로는 자릿수를 걸러내지 못하므로, year/month 용도로 충분한 자릿수로
+    # 미리 제한해 변환 자체가 항상 안전하도록 만든다.
+    if not value or not value.isdecimal() or len(value) > 9:
+        return default
+    return int(value)
 
 
 def certifications(request: HttpRequest) -> HttpResponse:

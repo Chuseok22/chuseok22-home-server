@@ -39,7 +39,9 @@ def build_month_calendar(year: int, month: int, category: str | None = None) -> 
 
 
 def _badges_by_date(range_start: date, range_end: date, category: str | None) -> dict[date, list[dict]]:
-    queryset = ExamSchedule.objects.filter(certification__is_active=True).select_related('certification')
+    queryset = ExamSchedule.objects.filter(
+        certification__is_active=True, certification__is_always_open=False,
+    ).select_related('certification')
     if category:
         queryset = queryset.filter(certification__category=category)
     queryset = queryset.filter(
@@ -66,7 +68,7 @@ def _badges_by_date(range_start: date, range_end: date, category: str | None) ->
 def get_upcoming_schedules(today: date, category: str | None = None, limit: int = 20) -> list[ExamSchedule]:
     """오늘 이후 접수마감일 기준으로 다가오는 일정을 오름차순으로 반환한다(타임라인 뷰용)."""
     queryset = ExamSchedule.objects.filter(
-        certification__is_active=True, registration_end__gte=today,
+        certification__is_active=True, certification__is_always_open=False, registration_end__gte=today,
     ).select_related('certification')
     if category:
         queryset = queryset.filter(certification__category=category)

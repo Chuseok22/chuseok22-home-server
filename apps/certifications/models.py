@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -54,7 +55,17 @@ class ExamSchedule(models.Model):
         ordering = ('registration_start',)
         constraints = [
             models.UniqueConstraint(fields=('certification', 'round_name'), name='unique_certification_round'),
+            models.CheckConstraint(
+                condition=models.Q(registration_end__gte=models.F('registration_start')),
+                name='exam_schedule_registration_end_gte_start',
+            ),
         ]
 
     def __str__(self) -> str:
         return f'[{self.certification.name}] {self.round_name}'
+
+    def clean(self) -> None:
+        # CheckConstraint는 DB 레벨 최종 방어선이고, 이 clean()은 Admin 저장 시(ModelForm이
+        # full_clean을 호출) 필드 단위 에러 메시지로 바로 보여주기 위한 것이다.
+        if self.registration_end < self.registration_start:
+            raise ValidationError({'registration_end': '원서접수 마감일은 시작일보다 빠를 수 없습니다.'})

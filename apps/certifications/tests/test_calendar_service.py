@@ -114,6 +114,39 @@ def test_추적_중인_자격증_목록은_비활성_자격증을_제외한다(
 
 
 @pytest.mark.django_db
+def test_상시_접수_자격증의_일정은_캘린더_배지에_나타나지_않는다() -> None:
+    always_open_cert = CertificationDefinition.objects.create(
+        name='CCNA', issuer='Cisco', category=CertificationDefinition.Category.IT_PRIVATE,
+        crawler_type='manual', is_always_open=True,
+    )
+    ExamSchedule.objects.create(
+        certification=always_open_cert, round_name='실수로_등록된_일정',
+        registration_start=date(2026, 1, 5), registration_end=date(2026, 1, 9),
+    )
+
+    weeks = build_month_calendar(2026, 1)
+
+    matched_days = [day for week in weeks for day in week if day.day_date == date(2026, 1, 5)]
+    assert matched_days[0].schedules == []
+
+
+@pytest.mark.django_db
+def test_상시_접수_자격증의_일정은_다가오는_일정에_나타나지_않는다() -> None:
+    always_open_cert = CertificationDefinition.objects.create(
+        name='CCNA', issuer='Cisco', category=CertificationDefinition.Category.IT_PRIVATE,
+        crawler_type='manual', is_always_open=True,
+    )
+    ExamSchedule.objects.create(
+        certification=always_open_cert, round_name='실수로_등록된_일정',
+        registration_start=date(2026, 1, 1), registration_end=date(2026, 1, 5),
+    )
+
+    result = get_upcoming_schedules(today=date(2025, 12, 1))
+
+    assert result == []
+
+
+@pytest.mark.django_db
 def test_추적_중인_자격증_목록은_상시_접수_자격증도_포함한다() -> None:
     CertificationDefinition.objects.create(
         name='CCNA', issuer='Cisco', category=CertificationDefinition.Category.IT_PRIVATE,

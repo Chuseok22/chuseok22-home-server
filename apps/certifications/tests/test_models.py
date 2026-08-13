@@ -74,6 +74,20 @@ def test_exam_schedule_같은_자격증_같은_회차명은_중복될_수_없다
 
 
 @pytest.mark.django_db
+def test_exam_schedule_접수_마감일이_시작일보다_빠르면_DB에서_거부된다() -> None:
+    cert = CertificationDefinition.objects.create(
+        name='정보처리기사', issuer='한국산업인력공단',
+        category=CertificationDefinition.Category.NATIONAL_TECH, crawler_type='hrdkorea_api',
+    )
+
+    with pytest.raises(IntegrityError):
+        ExamSchedule.objects.create(
+            certification=cert, round_name='역전된_일정',
+            registration_start=date(2026, 1, 9), registration_end=date(2026, 1, 5),
+        )
+
+
+@pytest.mark.django_db
 def test_exam_schedule_정렬은_접수시작일_오름차순이다() -> None:
     cert = CertificationDefinition.objects.create(
         name='정보처리기사', issuer='한국산업인력공단',
