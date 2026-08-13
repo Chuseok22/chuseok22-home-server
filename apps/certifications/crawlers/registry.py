@@ -1,8 +1,10 @@
 from .base import BaseExamCrawler
+from .hrdkorea_api import HrdKoreaApiCrawler
 from .manual import ManualCrawler
 
 # 새 크롤러 추가 시 여기에 등록한다
 CRAWLER_REGISTRY: dict[str, type[BaseExamCrawler]] = {
+    'hrdkorea_api': HrdKoreaApiCrawler,
     'manual': ManualCrawler,
 }
 
