@@ -165,8 +165,6 @@ TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_ADMIN_CHAT_ID = env('TELEGRAM_ADMIN_CHAT_ID', default='')
 # Discord 서버 참여 신청(Apply to Join) 링크 — lab 페이지 CTA에 사용
 DISCORD_INVITE_URL = env('DISCORD_INVITE_URL', default='')
-# 자격증 원서접수 알림 등 본인 전용 Discord 웹훅(TELEGRAM_ADMIN_CHAT_ID의 Discord 대응)
-DISCORD_ADMIN_WEBHOOK_URL = env('DISCORD_ADMIN_WEBHOOK_URL', default='')
 
 # 세종대 포털 인증 설정
 SEJONG_STUDENT_ID = env('SEJONG_STUDENT_ID', default='')

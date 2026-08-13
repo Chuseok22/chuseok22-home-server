@@ -1,9 +1,8 @@
 import logging
 
 import requests
-from django.conf import settings
 
-from apps.certifications.models import ExamSchedule
+from apps.certifications.models import ExamSchedule, NotificationSettings
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +32,10 @@ def send_registration_deadline_reminder(schedule: ExamSchedule) -> bool:
 
 
 def _send_admin_alert(message: str) -> bool:
-    webhook_url = settings.DISCORD_ADMIN_WEBHOOK_URL
+    notification_settings = NotificationSettings.objects.first()
+    webhook_url = notification_settings.discord_webhook_url if notification_settings else ''
     if not webhook_url:
-        logger.warning('DISCORD_ADMIN_WEBHOOK_URL 미설정 — 자격증 알림을 건너뜁니다.')
+        logger.warning('자격증 알림 Discord 웹훅 미설정(Admin에서 설정 필요) — 알림을 건너뜁니다.')
         return False
 
     payload = {

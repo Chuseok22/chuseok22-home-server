@@ -1,9 +1,10 @@
 from datetime import date
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 
-from apps.certifications.models import CertificationDefinition, ExamSchedule
+from apps.certifications.models import CertificationDefinition, ExamSchedule, NotificationSettings
 
 
 def test_certification_definition_기본값() -> None:
@@ -103,3 +104,25 @@ def test_exam_schedule_정렬은_접수시작일_오름차순이다() -> None:
     round_names = list(ExamSchedule.objects.values_list('round_name', flat=True))
 
     assert round_names == ['1회', '2회']
+
+
+def test_notification_settings_기본값() -> None:
+    settings = NotificationSettings()
+
+    assert settings.discord_webhook_url == ''
+    assert str(settings) == '자격증 알림 설정'
+
+
+@pytest.mark.django_db
+def test_notification_settings_discord_웹훅이_아닌_url은_거부된다() -> None:
+    settings = NotificationSettings(discord_webhook_url='https://evil.example.com/api/webhooks/1/a')
+
+    with pytest.raises(ValidationError):
+        settings.full_clean()
+
+
+@pytest.mark.django_db
+def test_notification_settings_유효한_discord_웹훅_url은_통과한다() -> None:
+    settings = NotificationSettings(discord_webhook_url='https://discord.com/api/webhooks/1/a')
+
+    settings.full_clean()  # 예외가 발생하지 않으면 통과

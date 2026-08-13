@@ -1,6 +1,14 @@
 from django.contrib import admin
+from django.http import HttpRequest
 
-from .models import CertificationDefinition, ExamSchedule
+from .models import CertificationDefinition, ExamSchedule, NotificationSettings
+
+
+class SingletonAdminMixin:
+    """이미 레코드가 하나라도 있으면 Admin에서 추가 화면을 차단하는 믹스인 (싱글턴 모델 전용)."""
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return super().has_add_permission(request) and not self.model.objects.exists()
 
 
 class ExamScheduleInline(admin.TabularInline):
@@ -29,3 +37,8 @@ class ExamScheduleAdmin(admin.ModelAdmin):
     list_filter = ('certification', 'registration_open_notified', 'registration_deadline_notified')
     search_fields = ('round_name', 'certification__name')
     readonly_fields = ('registration_open_notified', 'registration_deadline_notified')
+
+
+@admin.register(NotificationSettings)
+class NotificationSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    list_display = ('__str__', 'updated_at')

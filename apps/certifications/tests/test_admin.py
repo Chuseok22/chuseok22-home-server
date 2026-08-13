@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import Client
 from django.urls import reverse
 
-from apps.certifications.models import CertificationDefinition, ExamSchedule
+from apps.certifications.models import CertificationDefinition, ExamSchedule, NotificationSettings
 
 
 @pytest.fixture
@@ -46,3 +46,12 @@ def test_시험일정_목록_화면은_200을_반환한다(admin_client: Client)
 
     assert response.status_code == 200
     assert 'SQLD' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_notificationsettings가_이미_있으면_admin_추가_화면이_차단된다(admin_client: Client) -> None:
+    NotificationSettings.objects.create(discord_webhook_url='https://discord.com/api/webhooks/1/a')
+
+    response = admin_client.get(reverse('admin:certifications_notificationsettings_add'))
+
+    assert response.status_code == 403

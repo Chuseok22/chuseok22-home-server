@@ -1,5 +1,22 @@
+from urllib.parse import urlparse
+
 from django.core.exceptions import ValidationError
 from django.db import models
+
+_ALLOWED_DISCORD_WEBHOOK_HOSTS = {'discord.com', 'discordapp.com', 'canary.discord.com', 'ptb.discord.com'}
+
+
+def validate_discord_webhook_url(value: str) -> None:
+    """Discord 웹훅 URL만 허용한다. Admin 전용 입력이라 실질 위험은 낮지만, 검증 없이 임의
+    URL을 저장하면 서버가 그 URL로 POST 요청을 보내는 SSRF 벡터가 될 수 있어 저비용으로
+    호스트·경로를 제한한다."""
+    parsed = urlparse(value)
+    if (
+        parsed.scheme != 'https'
+        or parsed.hostname not in _ALLOWED_DISCORD_WEBHOOK_HOSTS
+        or not parsed.path.startswith('/api/webhooks/')
+    ):
+        raise ValidationError('Discord 웹훅 URL 형식이 아닙니다 (https://discord.com/api/webhooks/... 형태여야 합니다).')
 
 
 class CertificationDefinition(models.Model):
@@ -69,3 +86,19 @@ class ExamSchedule(models.Model):
         # full_clean을 호출) 필드 단위 에러 메시지로 바로 보여주기 위한 것이다.
         if self.registration_end < self.registration_start:
             raise ValidationError({'registration_end': '원서접수 마감일은 시작일보다 빠를 수 없습니다.'})
+
+
+class NotificationSettings(models.Model):
+    """자격증 알림 설정. Admin에서 단일 레코드만 유지하는 싱글턴으로 관리한다."""
+
+    discord_webhook_url = models.URLField(
+        blank=True, default='', validators=[validate_discord_webhook_url], verbose_name='Discord 웹훅 URL',
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정 시각')
+
+    class Meta:
+        verbose_name = '자격증 알림 설정'
+        verbose_name_plural = '자격증 알림 설정'
+
+    def __str__(self) -> str:
+        return '자격증 알림 설정'
