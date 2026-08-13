@@ -95,6 +95,22 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 32,
         'default_day_of_week': '*',
     },
+    'sync_exam_schedules': {
+        'label': '자격증 시험일정 동기화',
+        'command': 'sync_exam_schedules',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '7',
+        'default_fixed_minute': 0,
+        'default_day_of_week': '*',
+    },
+    'check_exam_reminders': {
+        'label': '자격증 원서접수 알림',
+        'command': 'check_exam_reminders',
+        'default_schedule_mode': 'fixed_times',
+        'default_fixed_hours': '8',
+        'default_fixed_minute': 0,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None
