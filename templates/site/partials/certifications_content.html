@@ -1,0 +1,105 @@
+<div
+  id="certifications-content"
+  data-page-transition
+  hx-indicator="#certifications-skeleton"
+  class="flex flex-col gap-6"
+>
+  <!-- 홈 화면 Activities 섹션의 .year-segment-group/.year-segment-item(Alpine 클라이언트 필터링)과
+       동일한 CSS를 재사용하되, 이 페이지는 카테고리별로 서버에서 다시 쿼리해야 해서 Alpine이 아니라
+       기존 htmx 쿼리스트링 필터 패턴(hx-get + hx-push-url)으로 구현한다 — 클래스만 공유한다. -->
+  <div class="year-segment-group overflow-x-auto">
+    <a
+      href="{% querystring category=None %}"
+      hx-get="{% querystring category=None %}"
+      hx-target="#certifications-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="year-segment-item {% if not selected_category %}is-active{% endif %}"
+    >전체</a>
+    {% for value, label in category_choices %}
+    <a
+      href="{% querystring category=value %}"
+      hx-get="{% querystring category=value %}"
+      hx-target="#certifications-content"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      class="year-segment-item {% if selected_category == value %}is-active{% endif %}"
+    >{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="relative">
+    <div id="certifications-skeleton" class="htmx-indicator-block absolute inset-0 bg-base-100" aria-hidden="true">
+      {% include 'site/partials/list_skeleton.html' %}
+    </div>
+
+    <div class="flex items-center justify-between mb-4">
+      <a
+        href="{% querystring year=prev_year month=prev_month category=selected_category %}"
+        hx-get="{% querystring year=prev_year month=prev_month category=selected_category %}"
+        hx-target="#certifications-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm btn-ghost"
+      >&laquo; 이전 달</a>
+      <span class="font-bold text-lg">{{ year }}년 {{ month }}월</span>
+      <a
+        href="{% querystring year=next_year month=next_month category=selected_category %}"
+        hx-get="{% querystring year=next_year month=next_month category=selected_category %}"
+        hx-target="#certifications-content"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        class="btn btn-sm btn-ghost"
+      >다음 달 &raquo;</a>
+    </div>
+
+    <div class="grid grid-cols-7 gap-1 text-center text-xs opacity-60 mb-1">
+      <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+    </div>
+    <div class="grid grid-cols-7 gap-1">
+      {% for week in weeks %}
+      {% for day in week %}
+      <div class="min-h-20 border border-base-300 rounded p-1 text-xs {% if not day.is_current_month %}opacity-30{% endif %} {% if day.day_date == today %}bg-primary/10 border-primary{% endif %}">
+        <div class="font-semibold">{{ day.day_date.day }}</div>
+        {% for badge in day.schedules|slice:":3" %}
+        <div class="badge-tag mt-1 block truncate" title="{{ badge.certification_name }} {{ badge.round_name }} {{ badge.label }}">
+          {{ badge.label }} {{ badge.certification_name }}
+        </div>
+        {% endfor %}
+        {% if day.schedules|length > 3 %}
+        <div class="text-[0.65rem] opacity-60">+{{ day.schedules|length|add:"-3" }}개 더보기</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+
+    <h2 class="text-lg font-bold mt-8 mb-3">다가오는 일정</h2>
+    <div class="flex flex-col divide-y divide-base-300">
+      {% for schedule in upcoming_schedules %}
+      <div class="py-3 first:pt-0 last:pb-0">
+        <span class="badge-tag">D-{{ schedule.days_until_deadline }}</span>
+        <span class="font-semibold">{{ schedule.certification.name }}</span>
+        <span class="opacity-70">{{ schedule.round_name }}</span>
+        <p class="opacity-60 text-sm">
+          접수 {{ schedule.registration_start|date:"m/d" }} ~ {{ schedule.registration_end|date:"m/d" }}
+          {% if schedule.exam_date %} · 시험일 {{ schedule.exam_date|date:"m/d" }}{% endif %}
+        </p>
+      </div>
+      {% empty %}
+      <p class="opacity-60">다가오는 일정이 없습니다.</p>
+      {% endfor %}
+    </div>
+
+    <h2 class="text-lg font-bold mt-8 mb-3">추적 중인 자격증</h2>
+    <div class="flex flex-wrap gap-2">
+      {% for cert in tracked_certifications %}
+      <span class="badge-tag" title="{{ cert.issuer }}">
+        {{ cert.name }}{% if cert.is_always_open %} · 상시 접수{% endif %}
+      </span>
+      {% empty %}
+      <p class="opacity-60">등록된 자격증이 없습니다.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
