@@ -50,6 +50,7 @@ LOCAL_APPS = [
     'apps.ai',
     'apps.places',
     'apps.cinema',
+    'apps.certifications',
 ]
 
 TAILWIND_APP_NAME = 'theme'
@@ -215,3 +216,4 @@ SUH_AIDER_API_KEY = env('SUH_AIDER_API_KEY', default='')
 # 카카오 로컬 API 설정
 KAKAO_REST_API_KEY = env('KAKAO_REST_API_KEY', default='')
 KAKAO_JS_API_KEY = env('KAKAO_JS_API_KEY', default='')
+HRD_KOREA_API_KEY = env('HRD_KOREA_API_KEY', default='')

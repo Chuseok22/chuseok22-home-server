@@ -283,3 +283,25 @@ def test_get_or_seed_job_config는_interval_minutes_모드_기본값으로_생�
     assert config.schedule_mode == 'interval_minutes'
     assert config.interval_minutes == 5
     assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
+def test_자격증_시험일정_동기화_잡은_기본값이_매일_아침_7시다() -> None:
+    definition = JOB_DEFINITIONS['sync_exam_schedules']
+
+    config = get_or_seed_job_config('sync_exam_schedules', definition)
+
+    assert config.fixed_hours == '7'
+    assert config.fixed_minute == 0
+    assert config.cron_day_of_week == '*'
+
+
+@pytest.mark.django_db
+def test_자격증_원서접수_알림_잡은_기본값이_매일_아침_8시다() -> None:
+    definition = JOB_DEFINITIONS['check_exam_reminders']
+
+    config = get_or_seed_job_config('check_exam_reminders', definition)
+
+    assert config.fixed_hours == '8'
+    assert config.fixed_minute == 0
+    assert config.cron_day_of_week == '*'

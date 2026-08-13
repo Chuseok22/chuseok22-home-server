@@ -21,6 +21,12 @@ from apps.blog.services.category import (
 from apps.blog.services.markdown_renderer import render_markdown
 from apps.blog.services.media_storage import save_uploaded_media
 from apps.blog.services.post_editor import update_post_content
+from apps.certifications.models import CertificationDefinition
+from apps.certifications.services.calendar import (
+    build_month_calendar,
+    get_tracked_certifications,
+    get_upcoming_schedules,
+)
 from apps.core.models import CRON_DAY_OF_WEEK_CHOICES, ScheduledJobConfig
 from apps.core.services.rate_limit import check_rate_limit
 from apps.engagement.models import Comment, Like
@@ -363,6 +369,63 @@ def place_detail(request: HttpRequest, pk: int) -> HttpResponse:
             'is_liked': is_liked,
         },
     )
+
+
+# calendar.monthdatescalendar()는 연도가 datetime.MINYEAR/MAXYEAR 부근을 벗어나면(특히 그리드가
+# 걸치는 인접 연도까지 넘어가면) ValueError를 던진다 — 공개 페이지에서 ?year= 쿼리파라미터로
+# 임의 값이 들어올 수 있으므로 안전한 범위로 제한한다.
+_MIN_CALENDAR_YEAR = 1900
+_MAX_CALENDAR_YEAR = 2100
+
+
+def _parse_int(value: str | None, default: int) -> int:
+    # int()는 Python 3.11+부터 4300자리를 넘는 십진수 문자열 변환을 ValueError로 거부한다 —
+    # isdecimal()만으로는 자릿수를 걸러내지 못하므로, year/month 용도로 충분한 자릿수로
+    # 미리 제한해 변환 자체가 항상 안전하도록 만든다.
+    if not value or not value.isdecimal() or len(value) > 9:
+        return default
+    return int(value)
+
+
+def certifications(request: HttpRequest) -> HttpResponse:
+    """자격증 시험일정 캘린더 페이지. ?year=&month=로 월 이동, ?category=로 카테고리 필터링,
+    HX-Request 헤더가 있으면(히스토리 복원 요청 제외) 프래그먼트만 반환한다."""
+    today = timezone.localdate()
+    year = _parse_int(request.GET.get('year'), today.year)
+    month = _parse_int(request.GET.get('month'), today.month)
+    if not (1 <= month <= 12) or not (_MIN_CALENDAR_YEAR <= year <= _MAX_CALENDAR_YEAR):
+        year, month = today.year, today.month
+
+    category = request.GET.get('category') or None
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    upcoming_schedules = get_upcoming_schedules(today, category)
+    for schedule in upcoming_schedules:
+        # DB에 저장된 필드가 아니라 템플릿에 D-day를 보여주기 위한 뷰 레벨 계산값이다.
+        schedule.days_until_deadline = (schedule.registration_end - today).days
+
+    context = {
+        'weeks': build_month_calendar(year, month, category),
+        'year': year,
+        'month': month,
+        'today': today,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+        'upcoming_schedules': upcoming_schedules,
+        'tracked_certifications': get_tracked_certifications(category),
+        'category_choices': CertificationDefinition.Category.choices,
+        'selected_category': category,
+    }
+    is_htmx_fragment_request = (
+        request.headers.get('HX-Request') and not request.headers.get('HX-History-Restore-Request')
+    )
+    template_name = (
+        'site/partials/certifications_content.html' if is_htmx_fragment_request else 'site/certifications.html'
+    )
+    return render(request, template_name, context)
 
 
 def _format_notice_schedule_text(config: ScheduledJobConfig | None) -> str:

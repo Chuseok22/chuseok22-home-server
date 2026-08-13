@@ -18,6 +18,7 @@ urlpatterns = [
     path('lab/library/reserve/', views.lab_library_reserve, name='lab-library-reserve'),
     path('lab/student/', views.lab_student, name='lab-student'),
     path('lab/student/search/', views.lab_student_search, name='lab-student-search'),
+    path('certifications/', views.certifications, name='certifications'),
     path('places/', views.places, name='places'),
     path('places/suggest/', views.place_suggest, name='place-suggest'),
     path('places/<int:pk>/', views.place_detail, name='place-detail'),

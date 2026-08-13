@@ -15,7 +15,7 @@ def test_로그아웃_확인_페이지는_사이트_공통_레이아웃을_사�
 
     assert response.status_code == 200
     assert 'css/dist/styles.css' in content
-    assert 'chuseok22' in content
+    assert 'Chuseok22' in content
 
 
 @pytest.mark.django_db
@@ -27,7 +27,7 @@ def test_GitHub_로그인_확인_페이지는_사이트_공통_레이아웃을_�
 
     assert response.status_code == 200
     assert 'css/dist/styles.css' in content
-    assert 'chuseok22' in content
+    assert 'Chuseok22' in content
 
 
 @pytest.mark.django_db

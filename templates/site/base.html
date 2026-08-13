@@ -39,11 +39,12 @@
       x-data="{ theme: localStorage.getItem('theme') || 'light', mobileMenuOpen: false }"
     >
       <div class="flex-1">
-        <a href="{% url 'site:home' %}" class="font-mono font-bold text-lg">chuseok22</a>
+        <a href="{% url 'site:home' %}" class="font-mono font-bold text-lg">Chuseok22</a>
       </div>
       <div class="hidden md:flex flex-none items-center gap-2">
         <a href="{% url 'site:projects' %}" class="btn btn-ghost btn-sm">Projects</a>
         <a href="{% url 'site:places' %}" class="btn btn-ghost btn-sm">장소</a>
+        <a href="{% url 'site:certifications' %}" class="btn btn-ghost btn-sm">자격증</a>
         <a href="{% url 'site:blog-list' %}" class="btn btn-ghost btn-sm">Blog</a>
         <a href="{% url 'site:lab-index' %}" class="btn btn-ghost btn-sm">Lab</a>
         {% if user.is_authenticated %}
@@ -73,6 +74,7 @@
       >
         <a href="{% url 'site:projects' %}" class="btn btn-ghost btn-sm justify-start">Projects</a>
         <a href="{% url 'site:places' %}" class="btn btn-ghost btn-sm justify-start">장소</a>
+        <a href="{% url 'site:certifications' %}" class="btn btn-ghost btn-sm justify-start">자격증</a>
         <a href="{% url 'site:blog-list' %}" class="btn btn-ghost btn-sm justify-start">Blog</a>
         <a href="{% url 'site:lab-index' %}" class="btn btn-ghost btn-sm justify-start">Lab</a>
         {% if user.is_authenticated %}
