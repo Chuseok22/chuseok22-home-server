@@ -50,6 +50,7 @@ LOCAL_APPS = [
     'apps.ai',
     'apps.places',
     'apps.cinema',
+    'apps.certifications',
 ]
 
 TAILWIND_APP_NAME = 'theme'
