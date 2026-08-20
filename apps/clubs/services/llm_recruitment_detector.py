@@ -84,7 +84,7 @@ def _empty_result() -> RecruitmentResult:
 def _validate(parsed: dict, page_text: str) -> RecruitmentResult:
     """grounding·날짜 검증을 적용해 최종 RecruitmentResult를 만든다. 검증 실패 시
     is_recruiting=False로 낮춘 결과를 반환한다(판별 자체는 성공했으므로 None이 아니다)."""
-    is_recruiting = bool(parsed.get('is_recruiting'))
+    is_recruiting = parsed.get('is_recruiting') is True
     if not is_recruiting:
         return _empty_result()
 

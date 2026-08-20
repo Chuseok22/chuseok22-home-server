@@ -150,3 +150,23 @@ class TestDetectRecruitment(TestCase):
         mock_chat.side_effect = SuhAiderClientError('연결 실패')
 
         assert detect_recruitment('SOPT', _PAGE_TEXT) is None
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_is_recruiting이_문자열_false면_JSON_boolean이_아니므로_모집중아님으로_처리한다(
+        self, mock_chat: MagicMock,
+    ) -> None:
+        # LLM이 is_recruiting을 문자열 "false"로 반환하는 경우 — bool("false") = True 함정을 피하기 위해
+        # 정확히 JSON boolean true만 인정한다.
+        _make_active_prompt()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': 'false',  # 문자열, boolean이 아님
+            'application_start': None,
+            'application_end': None,
+            'apply_url': None,
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result is not None
+        assert result.is_recruiting is False
