@@ -305,3 +305,10 @@ def test_자격증_원서접수_알림_잡은_기본값이_매일_아침_8시다
     assert config.fixed_hours == '8'
     assert config.fixed_minute == 0
     assert config.cron_day_of_week == '*'
+
+
+def test_check_club_recruitment_잡이_하루_1회_등록돼_있다() -> None:
+    definition = JOB_DEFINITIONS['check_club_recruitment']
+    assert definition['command'] == 'check_club_recruitment'
+    assert definition['default_schedule_mode'] == 'interval'
+    assert definition['default_interval_hours'] == 24

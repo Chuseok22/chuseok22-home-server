@@ -111,6 +111,14 @@ JOB_DEFINITIONS = {
         'default_fixed_minute': 0,
         'default_day_of_week': '*',
     },
+    'check_club_recruitment': {
+        'label': '동아리 모집 감시',
+        'command': 'check_club_recruitment',
+        'default_schedule_mode': 'interval',
+        'default_interval_hours': 24,
+        'default_interval_minute': 0,
+        'default_day_of_week': '*',
+    },
 }
 
 _scheduler: BackgroundScheduler | None = None

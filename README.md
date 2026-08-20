@@ -22,6 +22,7 @@
 - 학교 공지·공모전 크롤링 후 디스코드/텔레그램 알림
 - 자격증 시험 일정 캘린더 조회 + 원서접수 임박 알림
 - 관심 영화의 예매 오픈을 감지해 알림 발송
+- IT 연합동아리 모집 오픈 감지 알림
 
 ### 세종대학교 연동 (Lab)
 
@@ -55,6 +56,7 @@ apps/
   sejong/          학술정보원 예약(library), 학생 조회(student), 포털 SSO(auth)
   certifications/  자격증 시험 일정 캘린더·알림
   cinema/          영화 예매 오픈 알림
+  clubs/           동아리 모집 오픈 감지 알림
   places/          맛집 아카이브
   activity/        GitHub 활동 수집
   projects/        프로젝트 관리

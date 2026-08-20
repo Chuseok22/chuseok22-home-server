@@ -8,6 +8,7 @@ class PromptTemplate(models.Model):
     class Feature(models.TextChoices):
         CHATBOT = 'chatbot', '사이트 챗봇'
         GITHUB_TRENDING_SUMMARY = 'github_trending_summary', 'GitHub 트렌딩 요약'
+        CLUB_RECRUITMENT_DETECTION = 'club_recruitment_detection', '동아리 모집 여부 판별'
         # 향후 기능 추가 시 choice만 추가하면 되지만, Django 5.1은 choices 변경도 모델 마이그레이션
         # 상태로 추적하므로 makemigrations를 반드시 실행해야 한다 (DB 스키마상 no-op AlterField).
 
