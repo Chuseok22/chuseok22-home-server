@@ -32,7 +32,12 @@ class Command(BaseCommand):
                 self.stderr.write(f'[{club.name}] discord_webhook_url 미설정, 확인 건너뜀')
                 continue
             self.stdout.write(f'[{club.name}] 확인 시작')
-            self._process_club(club, discord)
+            try:
+                self._process_club(club, discord)
+            except Exception:
+                logger.exception(f'[{club.name}] 처리 중 예상치 못한 오류')
+                self.stderr.write(f'[{club.name}] 처리 중 예상치 못한 오류 발생 — 다음 동아리로 진행')
+                continue
 
     def _process_club(self, club: TrackedClub, discord: ClubDiscordService) -> None:
         # 실패 경고를 이미 보낸 뒤에도 매 주기 계속 확인한다 — 그래야 사이트가 복구됐을 때

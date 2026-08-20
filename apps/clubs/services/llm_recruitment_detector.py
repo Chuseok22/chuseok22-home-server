@@ -112,6 +112,12 @@ def _validate(parsed: dict, page_text: str) -> RecruitmentResult:
         return _empty_result()
 
     apply_url = (parsed.get('apply_url') or '').strip()
+    if len(apply_url) > 200 or (apply_url and not apply_url.lower().startswith(('http://', 'https://'))):
+        # apply_url은 부가 정보다 — 형식이 잘못돼도 detection 전체를 무효화하지 않고 URL만 비운다.
+        # RecruitmentDetection.apply_url이 URLField(max_length=200)라 그대로 저장하면 DataError로
+        # 배치 전체가 중단된다.
+        logger.warning('apply_url 형식이 유효하지 않아 비움: %r', apply_url[:100])
+        apply_url = ''
     return RecruitmentResult(True, start, end, apply_url, evidence_quote)
 
 

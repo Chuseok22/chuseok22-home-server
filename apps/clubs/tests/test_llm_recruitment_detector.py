@@ -152,6 +152,42 @@ class TestDetectRecruitment(TestCase):
         assert detect_recruitment('SOPT', _PAGE_TEXT) is None
 
     @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_apply_url이_200자를_초과하면_URL만_비우고_모집중은_유지한다(self, mock_chat: MagicMock) -> None:
+        long_url = 'https://www.sopt.org/apply?' + 'a' * 230
+        assert len(long_url) > 200
+        _make_active_prompt()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': '2026-09-01',
+            'application_end': '2026-09-14',
+            'apply_url': long_url,
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result is not None
+        assert result.is_recruiting is True
+        assert result.apply_url == ''
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_apply_url이_http_https가_아니면_URL만_비우고_모집중은_유지한다(self, mock_chat: MagicMock) -> None:
+        _make_active_prompt()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': '2026-09-01',
+            'application_end': '2026-09-14',
+            'apply_url': 'javascript:alert(1)',
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result is not None
+        assert result.is_recruiting is True
+        assert result.apply_url == ''
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
     def test_is_recruiting이_문자열_false면_JSON_boolean이_아니므로_모집중아님으로_처리한다(
         self, mock_chat: MagicMock,
     ) -> None:
