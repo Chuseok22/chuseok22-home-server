@@ -2,6 +2,7 @@ from apps.ai.models import PromptTemplate
 
 CHATBOT_FEATURE = PromptTemplate.Feature.CHATBOT
 GITHUB_TRENDING_SUMMARY_FEATURE = PromptTemplate.Feature.GITHUB_TRENDING_SUMMARY
+CLUB_RECRUITMENT_DETECTION_FEATURE = PromptTemplate.Feature.CLUB_RECRUITMENT_DETECTION
 
 
 def get_active_prompt(feature: str) -> PromptTemplate | None:
