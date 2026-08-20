@@ -6,7 +6,7 @@ from django.utils import timezone
 from apps.clubs.models import RecruitmentDetection, TrackedClub
 from apps.clubs.services.discord import ClubDiscordService
 from apps.clubs.services.llm_recruitment_detector import RecruitmentResult, detect_recruitment
-from apps.clubs.services.text_extractor import fetch_page_text
+from apps.clubs.services.text_extractor import extract_page_links, fetch_page_text
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,14 @@ class Command(BaseCommand):
             try:
                 self._process_club(club, discord)
             except Exception:
-                logger.exception(f'[{club.name}] 처리 중 예상치 못한 오류')
+                # 여기까지 온 예외는 fetch_page_text/detect_recruitment 자체 처리를 벗어난
+                # 예상치 못한 오류(DB 오류 등)다 — 이 동아리도 이번 주기 확인에 실패한 것이므로
+                # _handle_failure로 실패 카운터에 반영해야, 반복되면 5회 실패 경고가 정상적으로
+                # 발동한다(그냥 로그만 남기면 이 예외 경로는 영원히 "5회 연속 실패" 알림이 뜨지
+                # 않는다).
+                logger.exception('[%s] 처리 중 예상치 못한 오류', club.name)
                 self.stderr.write(f'[{club.name}] 처리 중 예상치 못한 오류 발생 — 다음 동아리로 진행')
-                continue
+                self._handle_failure(club, discord)
 
     def _process_club(self, club: TrackedClub, discord: ClubDiscordService) -> None:
         # 실패 경고를 이미 보낸 뒤에도 매 주기 계속 확인한다 — 그래야 사이트가 복구됐을 때
@@ -47,7 +52,11 @@ class Command(BaseCommand):
             self._handle_failure(club, discord)
             return
 
-        result = detect_recruitment(club.name, page_text)
+        # 링크 추출 실패는 감시 실패로 취급하지 않는다 — apply_url grounding을 위한 부가
+        # 정보일 뿐이라, 실패하면 빈 리스트로 detect_recruitment가 길이·스킴 검사로만 완화한다.
+        page_links = extract_page_links(club.homepage_url)
+
+        result = detect_recruitment(club.name, page_text, page_links)
         if result is None:
             self._handle_failure(club, discord)
             return

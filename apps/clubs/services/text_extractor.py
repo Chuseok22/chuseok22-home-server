@@ -1,5 +1,6 @@
 import logging
 import re
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -40,3 +41,28 @@ def fetch_page_text(url: str) -> str | None:
         return None
 
     return text[:_MAX_TEXT_CHARS]
+
+
+def extract_page_links(url: str) -> list[str]:
+    """URL의 <a href> 절대 링크 목록을 추출한다.
+
+    LLM이 응답한 apply_url이 실제로 원문 페이지에 존재하는 링크인지 grounding하기 위해 쓰인다
+    (evidence_quote의 텍스트 grounding과 같은 원리를 링크에도 적용). 요청 실패 시 빈 리스트를
+    반환한다 — 링크 grounding은 apply_url 검증을 강화하는 부가 안전장치일 뿐 감시 자체의 성공
+    조건이 아니므로, 실패로 카운트하지 않는다(호출자는 빈 리스트를 "grounding 근거 없음"으로
+    취급해 길이·스킴 검사만으로 완화해야 한다).
+    """
+    try:
+        response = requests.get(url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.warning('링크 추출용 페이지 요청 실패 (%s): %s', url, e)
+        return []
+
+    soup = BeautifulSoup(response.text, 'lxml')
+    links = []
+    for a in soup.find_all('a', href=True):
+        absolute = urljoin(url, a['href'])
+        if absolute.startswith(('http://', 'https://')):
+            links.append(absolute)
+    return links

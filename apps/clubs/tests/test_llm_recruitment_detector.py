@@ -188,6 +188,99 @@ class TestDetectRecruitment(TestCase):
         assert result.apply_url == ''
 
     @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_이미_지난_application_end는_모집중아님으로_낮춘다(self, mock_chat: MagicMock) -> None:
+        # 사이트가 지난 기수 공고를 그대로 노출 중이고 LLM이 이를 현재 모집으로 오판한 경우 —
+        # evidence_quote는 원문에 실제로 있으므로 grounding만으로는 못 잡는다.
+        _make_active_prompt()
+        past_end = (timezone.localdate() - timedelta(days=1)).isoformat()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': None,
+            'application_end': past_end,
+            'apply_url': None,
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result.is_recruiting is False
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_오늘이_application_end면_모집중으로_유지한다(self, mock_chat: MagicMock) -> None:
+        _make_active_prompt()
+        today = timezone.localdate().isoformat()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': None,
+            'application_end': today,
+            'apply_url': None,
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result.is_recruiting is True
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_응답에_여러_JSON_블록이_섞여있어도_첫_유효_객체를_파싱한다(self, mock_chat: MagicMock) -> None:
+        # 정규식(첫 '{' ~ 마지막 '}')이 아니라 raw_decode를 각 '{' 위치에서 시도하는지 검증한다 —
+        # 앞에 유효하지 않은 JSON 조각(디코이)이 있어도 실제 판별 결과를 찾아내야 한다.
+        _make_active_prompt()
+        decoy = '{이것은 유효한 JSON이 아님}'
+        valid = json.dumps({
+            'is_recruiting': True,
+            'application_start': '2026-09-01',
+            'application_end': '2026-09-14',
+            'apply_url': None,
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+        mock_chat.return_value = f'설명: {decoy} 실제 결과: {valid}'
+
+        result = detect_recruitment('SOPT', _PAGE_TEXT)
+
+        assert result is not None
+        assert result.is_recruiting is True
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_apply_url이_page_links에_있으면_유지한다(self, mock_chat: MagicMock) -> None:
+        _make_active_prompt()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': '2026-09-01',
+            'application_end': '2026-09-14',
+            'apply_url': 'https://www.sopt.org/apply',
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment(
+            'SOPT', _PAGE_TEXT, page_links=['https://www.sopt.org/apply', 'https://www.sopt.org/about'],
+        )
+
+        assert result is not None
+        assert result.is_recruiting is True
+        assert result.apply_url == 'https://www.sopt.org/apply'
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
+    def test_apply_url이_page_links에_없으면_비우고_모집중은_유지한다(self, mock_chat: MagicMock) -> None:
+        # LLM이 원문에 없는 임의의(환각) URL을 만들어내도, 형식만 유효하면 통과하던 문제를 막는다.
+        _make_active_prompt()
+        mock_chat.return_value = json.dumps({
+            'is_recruiting': True,
+            'application_start': '2026-09-01',
+            'application_end': '2026-09-14',
+            'apply_url': 'https://phishing.example.com/apply',
+            'evidence_quote': '35기 지원 기간: 2026.09.01 ~ 09.14',
+        })
+
+        result = detect_recruitment(
+            'SOPT', _PAGE_TEXT, page_links=['https://www.sopt.org/about'],
+        )
+
+        assert result is not None
+        assert result.is_recruiting is True
+        assert result.apply_url == ''
+
+    @patch('apps.clubs.services.llm_recruitment_detector.SuhAiderClient.chat')
     def test_is_recruiting이_문자열_false면_JSON_boolean이_아니므로_모집중아님으로_처리한다(
         self, mock_chat: MagicMock,
     ) -> None:

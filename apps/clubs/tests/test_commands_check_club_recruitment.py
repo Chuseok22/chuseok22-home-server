@@ -20,12 +20,14 @@ def _make_club(**kwargs: object) -> TrackedClub:
 @pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.ClubDiscordService.send_recruitment_alert')
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
 def test_새로_모집이_열리면_알림을_보내고_상태를_올린다(
-    mock_fetch: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
 ) -> None:
     club = _make_club(is_recruiting_now=False)
     mock_fetch.return_value = '본문'
+    mock_links.return_value = []
     mock_detect.return_value = RecruitmentResult(True, None, None, 'https://www.sopt.org/apply', '근거')
     mock_send.return_value = True
 
@@ -40,12 +42,14 @@ def test_새로_모집이_열리면_알림을_보내고_상태를_올린다(
 @pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.ClubDiscordService.send_recruitment_alert')
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
 def test_이미_모집중_상태면_중복_알림을_보내지_않는다(
-    mock_fetch: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
 ) -> None:
     club = _make_club(is_recruiting_now=True)
     mock_fetch.return_value = '본문'
+    mock_links.return_value = []
     mock_detect.return_value = RecruitmentResult(True, None, None, '', '근거')
 
     call_command('check_club_recruitment')
@@ -56,10 +60,14 @@ def test_이미_모집중_상태면_중복_알림을_보내지_않는다(
 
 @pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
-def test_모집이_종료되면_상태를_내린다(mock_fetch: MagicMock, mock_detect: MagicMock) -> None:
+def test_모집이_종료되면_상태를_내린다(
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock,
+) -> None:
     club = _make_club(is_recruiting_now=True)
     mock_fetch.return_value = '본문'
+    mock_links.return_value = []
     mock_detect.return_value = RecruitmentResult(False, None, None, '', '')
 
     call_command('check_club_recruitment')
@@ -71,12 +79,14 @@ def test_모집이_종료되면_상태를_내린다(mock_fetch: MagicMock, mock_
 @pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.ClubDiscordService.send_recruitment_alert')
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
 def test_알림_발송_실패시_상태를_올리지_않아_다음_주기에_재시도한다(
-    mock_fetch: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock, mock_send: MagicMock,
 ) -> None:
     club = _make_club(is_recruiting_now=False)
     mock_fetch.return_value = '본문'
+    mock_links.return_value = []
     mock_detect.return_value = RecruitmentResult(True, None, None, '', '근거')
     mock_send.return_value = False
 
@@ -125,19 +135,37 @@ def test_비활성_동아리는_건너뛴다(mock_fetch: MagicMock, mock_detect:
 
 @pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
 def test_한_동아리에서_예상치_못한_예외가_발생해도_다음_동아리를_계속_처리한다(
-    mock_fetch: MagicMock, mock_detect: MagicMock,
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock,
 ) -> None:
     _make_club(name='실패동아리', homepage_url='https://fail.example.com/')
     _make_club(name='정상동아리', homepage_url='https://ok.example.com/')
     mock_fetch.side_effect = [RuntimeError('boom'), '본문']
+    mock_links.return_value = []
     mock_detect.return_value = RecruitmentResult(False, None, None, '', '')
 
     call_command('check_club_recruitment')
 
     # 첫 번째 동아리에서 예외가 나도 루프가 중단되지 않고 두 번째 동아리까지 처리됐는지 확인
-    mock_detect.assert_called_once_with('정상동아리', '본문')
+    mock_detect.assert_called_once_with('정상동아리', '본문', [])
+
+
+@pytest.mark.django_db
+@patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
+def test_예상치_못한_예외도_실패_카운터에_반영된다(mock_fetch: MagicMock, mock_detect: MagicMock) -> None:
+    # 예외 경로가 로그만 남기고 _handle_failure를 거치지 않으면, 이 경로로 반복 실패해도
+    # consecutive_failure_count가 절대 오르지 않아 5회 연속 실패 경고가 영원히 발동하지 않는다.
+    club = _make_club()
+    mock_fetch.side_effect = RuntimeError('boom')
+
+    call_command('check_club_recruitment')
+
+    club.refresh_from_db()
+    assert club.consecutive_failure_count == 1
+    mock_detect.assert_not_called()
 
 
 @pytest.mark.django_db

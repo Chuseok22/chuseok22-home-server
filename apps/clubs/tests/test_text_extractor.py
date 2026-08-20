@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import requests
 from django.test import SimpleTestCase
 
-from apps.clubs.services.text_extractor import fetch_page_text
+from apps.clubs.services.text_extractor import extract_page_links, fetch_page_text
 
 
 class TestFetchPageText(SimpleTestCase):
@@ -62,3 +62,29 @@ class TestFetchPageText(SimpleTestCase):
 
         assert result is not None
         assert len(result) == 8000
+
+
+class TestExtractPageLinks(SimpleTestCase):
+    @patch('apps.clubs.services.text_extractor.requests.get')
+    def test_a_href를_절대_URL로_추출한다(self, mock_get: MagicMock) -> None:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = (
+            '<html><body>'
+            '<a href="/apply">지원하기</a>'
+            '<a href="https://forms.gle/abcd1234">구글폼</a>'
+            '<a href="mailto:contact@nexters.co.kr">이메일</a>'
+            '<a href="javascript:void(0)">토글</a>'
+            '</body></html>'
+        )
+        mock_get.return_value = mock_response
+
+        links = extract_page_links('https://nexters.co.kr/')
+
+        assert links == ['https://nexters.co.kr/apply', 'https://forms.gle/abcd1234']
+
+    @patch('apps.clubs.services.text_extractor.requests.get')
+    def test_요청_실패시_빈_리스트를_반환한다(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = requests.exceptions.ConnectionError('연결 실패')
+
+        assert extract_page_links('https://unreachable.example.com/') == []
