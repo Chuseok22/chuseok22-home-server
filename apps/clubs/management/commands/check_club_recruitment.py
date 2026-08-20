@@ -42,7 +42,14 @@ class Command(BaseCommand):
                 # 않는다).
                 logger.exception('[%s] 처리 중 예상치 못한 오류', club.name)
                 self.stderr.write(f'[{club.name}] 처리 중 예상치 못한 오류 발생 — 다음 동아리로 진행')
-                self._handle_failure(club, discord)
+                try:
+                    self._handle_failure(club, discord)
+                except Exception:
+                    # 원 예외가 DB 쓰기 오류였다면 _handle_failure의 club.save()도 같은 이유로
+                    # 실패할 수 있다 — 그 2차 예외가 이 except 밖으로 새어나가면 남은 동아리
+                    # 확인 전체가 중단된다. 실패 카운터 반영은 다음 주기로 미뤄지더라도 순회는
+                    # 계속돼야 한다.
+                    logger.exception('[%s] 실패 카운터 반영 중에도 오류', club.name)
 
     def _process_club(self, club: TrackedClub, discord: ClubDiscordService) -> None:
         # 실패 경고를 이미 보낸 뒤에도 매 주기 계속 확인한다 — 그래야 사이트가 복구됐을 때

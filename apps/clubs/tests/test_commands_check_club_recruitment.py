@@ -169,6 +169,28 @@ def test_예상치_못한_예외도_실패_카운터에_반영된다(mock_fetch:
 
 
 @pytest.mark.django_db
+@patch('apps.clubs.management.commands.check_club_recruitment.Command._handle_failure')
+@patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
+@patch('apps.clubs.management.commands.check_club_recruitment.extract_page_links')
+@patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
+def test_실패_카운터_반영_자체가_실패해도_다음_동아리를_계속_처리한다(
+    mock_fetch: MagicMock, mock_links: MagicMock, mock_detect: MagicMock, mock_handle_failure: MagicMock,
+) -> None:
+    # 원 예외가 DB 쓰기 오류였다면 _handle_failure의 club.save()도 같은 이유로 실패할 수 있다 —
+    # 그 2차 예외가 밖으로 새어나가 남은 동아리 확인 전체를 중단시키지 않는지 검증한다.
+    _make_club(name='실패동아리', homepage_url='https://fail.example.com/')
+    _make_club(name='정상동아리', homepage_url='https://ok.example.com/')
+    mock_fetch.side_effect = [RuntimeError('boom'), '본문']
+    mock_links.return_value = []
+    mock_detect.return_value = RecruitmentResult(False, None, None, '', '')
+    mock_handle_failure.side_effect = RuntimeError('save 실패')
+
+    call_command('check_club_recruitment')
+
+    mock_detect.assert_called_once_with('정상동아리', '본문', [])
+
+
+@pytest.mark.django_db
 @patch('apps.clubs.management.commands.check_club_recruitment.ClubDiscordService.send_recruitment_alert')
 @patch('apps.clubs.management.commands.check_club_recruitment.detect_recruitment')
 @patch('apps.clubs.management.commands.check_club_recruitment.fetch_page_text')
