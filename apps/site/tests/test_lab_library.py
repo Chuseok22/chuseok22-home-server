@@ -108,7 +108,7 @@ def test_스터디룸_예약_요청_성공() -> None:
             'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
             'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
             'reserve_date': '20260705', 'start_time': '0900', 'use_time': 60,
-            'attendees_raw': '22011315-백지훈',
+            'attendees_raw': '22011315-백지훈,22011316-김철수,22011317-이영희',
         })
 
     assert response.status_code == 200
@@ -138,7 +138,7 @@ def test_예약_페이지는_조회_스켈레톤과_비활성화_속성을_포�
 
     assert 'hx-indicator="#rooms-skeleton"' in body
     assert 'id="rooms-skeleton"' in body
-    assert 'hx-disabled-elt="find button"' in body
+    assert 'hx-disabled-elt="this"' in body
     assert 'id="rooms" aria-live="polite"' in body
 
 
@@ -180,3 +180,105 @@ def test_예약_폼은_제출_버튼_비활성화_속성과_스피너를_포함�
 
     assert 'hx-disabled-elt="find button"' in body
     assert 'loading-spinner' in body
+
+
+@pytest.mark.django_db
+def test_library_reserve_form_rejects_attendee_count_below_half_capacity() -> None:
+    from apps.site.forms import LibraryReserveForm
+
+    form = LibraryReserveForm(data={
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6, 'sroom_title': '그룹스터디룸6인실',
+        'room_name': '04스터디룸', 'seq': '0', 'reserve_date': '20260901', 'start_time': '1400',
+        'use_time': 60, 'attendees_raw': '22011315-백지훈',
+    })
+
+    assert not form.is_valid()
+    assert '정원(6명)의 절반 이상인 최소 3명' in str(form.errors)
+
+
+@pytest.mark.django_db
+def test_library_reserve_form_accepts_attendee_count_at_half_capacity() -> None:
+    from apps.site.forms import LibraryReserveForm
+
+    form = LibraryReserveForm(data={
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6, 'sroom_title': '그룹스터디룸6인실',
+        'room_name': '04스터디룸', 'seq': '0', 'reserve_date': '20260901', 'start_time': '1400',
+        'use_time': 60, 'attendees_raw': '22011315-백지훈,22011316-김철수,22011317-이영희',
+    })
+
+    assert form.is_valid(), form.errors
+
+
+@pytest.mark.django_db
+def test_소유자는_S_Lounge_가용현황_조회_가능() -> None:
+    from apps.sejong.library.services.slounge import Lounge, LoungeSlot
+
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    fake_lounges = [Lounge(
+        room_name='SL1', group_title='S-Lounge 6인석', seat_cnt=6,
+        room_gb='S3', sroom_title='S-Lounge 6인석', seq='0',
+        slots=(LoungeSlot(time_label='09:00', is_available=False),),
+    )]
+
+    with patch('apps.site.views.SloungeService.fetch_all_lounges', return_value=fake_lounges):
+        response = client.get(
+            reverse('site:lab-library-rooms'),
+            {'reserve_date': '20260901', 'room_type': 's_lounge'},
+        )
+
+    assert response.status_code == 200
+    assert 'SL1' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_소유자는_내_예약_목록을_실데이터로_조회() -> None:
+    from apps.sejong.library.services.my_reservations import MyReservationItem
+
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    fake_item = MyReservationItem(
+        category='스터디룸', date='2026.09.03', time_range='18:00 ~ 20:00',
+        room_name='S1층 08스터디룸', status_text='취소', is_active=True,
+        reservation_no='202609030818000001',
+    )
+
+    with patch('apps.site.views.MyReservationsService.fetch_all', return_value=[fake_item]):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 200
+    assert 'S1층 08스터디룸' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_내_예약_목록_조회_실패_시_빈_목록이_아닌_503_반환() -> None:
+    # fetch_all()이 None(인증/네트워크/마크업 실패)을 반환하면 "예약 없음"으로 오인되지 않도록
+    # 별도 실패 상태와 503을 반환해야 한다.
+    owner = User.objects.create_user(username='owner-fetch-fail', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    with patch('apps.site.views.MyReservationsService.fetch_all', return_value=None):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 503
+    assert '예약 내역이 없습니다' not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_내_예약_목록_조회_시_자격증명_누락이면_503_반환() -> None:
+    owner = User.objects.create_user(username='owner-no-creds', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    with patch(
+        'apps.site.views.MyReservationsService.fetch_all',
+        side_effect=ValueError('SEJONG_STUDENT_ID 또는 SEJONG_PASSWORD가 설정되지 않았습니다.'),
+    ):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 503

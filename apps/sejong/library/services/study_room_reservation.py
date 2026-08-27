@@ -1,5 +1,4 @@
 import logging
-import math
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
@@ -7,6 +6,7 @@ import requests
 
 from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
 from apps.sejong.library.services.study_room import StudyRoomService
+from apps.sejong.library.services.validation import validate_attendee_count
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +110,7 @@ class StudyRoomReservationService:
 
         attendee_count = len(attendees)
         for room in rooms:
-            min_required = math.ceil(room.seat_cnt / 2)
-            if not (min_required <= attendee_count <= room.seat_cnt):
+            if validate_attendee_count(room.seat_cnt, attendee_count) is not None:
                 continue
 
             for slot in room.slots:

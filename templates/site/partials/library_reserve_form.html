@@ -2,7 +2,7 @@
   hx-post="{% url 'site:lab-library-reserve' %}"
   hx-target="#reserve-result"
   hx-disabled-elt="find button"
-  class="card bg-base-200 p-4 flex flex-col gap-2"
+  class="card bg-base-200 p-4 flex flex-col gap-3"
 >
   <p class="font-semibold">{{ slot.room_name }} · {{ slot.start_time }} 예약</p>
   <input type="hidden" name="room_no" value="{{ slot.room_no }}">
@@ -17,9 +17,71 @@
     <option value="60">60분</option>
     <option value="120">120분</option>
   </select>
-  <input type="text" name="attendees_raw" class="input input-bordered" placeholder="22011315-백지훈,22011316-홍길동">
+
+  <div>
+    <div class="flex justify-between items-center mb-1">
+      <span class="text-xs opacity-60">참여자 (정원 {{ slot.seat_cnt }}명의 절반 이상 필요)</span>
+      <span class="text-xs opacity-60" id="attendee-count">1명</span>
+    </div>
+    <div id="attendee-rows" class="flex flex-col gap-2">
+      <div class="attendee-row grid gap-2" style="grid-template-columns: 1.6fr 1fr 2.5rem;">
+        <input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번">
+        <input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름">
+        <button type="button" class="btn btn-ghost btn-sm attendee-remove">✕</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-outline btn-xs mt-2" id="attendee-add">+ 참여자 추가</button>
+    <input type="hidden" name="attendees_raw" id="attendees-raw-input">
+  </div>
+
   <button type="submit" class="btn btn-primary btn-sm">
     예약하기
     <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
   </button>
 </form>
+
+<script>
+(function () {
+  var form = document.currentScript.previousElementSibling;
+  var rowsWrap = form.querySelector('#attendee-rows');
+  var countLabel = form.querySelector('#attendee-count');
+  var rawInput = form.querySelector('#attendees-raw-input');
+
+  function updateCount() {
+    countLabel.textContent = rowsWrap.querySelectorAll('.attendee-row').length + '명';
+  }
+
+  function addRow() {
+    var row = document.createElement('div');
+    row.className = 'attendee-row grid gap-2';
+    row.style.gridTemplateColumns = '1.6fr 1fr 2.5rem';
+    row.innerHTML =
+      '<input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번">' +
+      '<input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름">' +
+      '<button type="button" class="btn btn-ghost btn-sm attendee-remove">✕</button>';
+    rowsWrap.appendChild(row);
+    updateCount();
+  }
+
+  rowsWrap.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('attendee-remove')) return;
+    if (rowsWrap.querySelectorAll('.attendee-row').length <= 1) return;
+    e.target.closest('.attendee-row').remove();
+    updateCount();
+  });
+
+  form.querySelector('#attendee-add').addEventListener('click', addRow);
+
+  form.addEventListener('htmx:configRequest', function (evt) {
+    var pairs = [];
+    rowsWrap.querySelectorAll('.attendee-row').forEach(function (row) {
+      var studentId = row.querySelector('.attendee-student-id').value.trim();
+      var name = row.querySelector('.attendee-name').value.trim();
+      if (studentId && name) pairs.push(studentId + '-' + name);
+    });
+    var attendeesRaw = pairs.join(',');
+    rawInput.value = attendeesRaw;
+    evt.detail.parameters.attendees_raw = attendeesRaw;
+  });
+})();
+</script>

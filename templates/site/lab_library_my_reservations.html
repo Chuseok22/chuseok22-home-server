@@ -1,0 +1,45 @@
+{% extends "site/base.html" %}
+{% load static %}
+
+{% block title %}내 예약 목록 — 백지훈{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-bold">내 예약 목록</h1>
+  <a href="{% url 'site:lab-library' %}" class="btn btn-ghost btn-sm">스터디룸 예약으로</a>
+</div>
+<p class="text-sm opacity-60 mb-4">학술정보원 mySeat.php 실시간 현황 (조회 전용)</p>
+
+{% if items %}
+<div class="tabs tabs-boxed w-fit mb-4" id="my-reservation-filter">
+  <button type="button" class="tab tab-active" data-filter="all">전체</button>
+  <button type="button" class="tab" data-filter="active">진행중</button>
+  <button type="button" class="tab" data-filter="done">완료·부도</button>
+</div>
+<div class="flex flex-col gap-2" id="my-reservation-list">
+  {% for item in items %}
+  <div class="card bg-base-200" data-status="{% if item.is_active %}active{% else %}done{% endif %}">
+    <div class="card-body p-4 flex flex-row justify-between items-start">
+      <div>
+        <p class="text-sm opacity-60">{{ item.category }} · {{ item.date }}</p>
+        <p class="font-semibold">{{ item.room_name }}</p>
+        <p class="text-sm">{{ item.time_range }}</p>
+      </div>
+      {% if item.is_active %}
+      <span class="badge badge-success">진행중</span>
+      {% elif item.status_text == '예약부도' %}
+      <span class="badge badge-error">{{ item.status_text }}</span>
+      {% else %}
+      <span class="badge badge-ghost">{{ item.status_text }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<script src="{% static 'site/js/lab_library_my_reservations_filter.js' %}" defer></script>
+{% elif fetch_failed %}
+<p class="opacity-60">예약 현황을 불러올 수 없습니다. 잠시 후 다시 시도하세요.</p>
+{% else %}
+<p class="opacity-60">예약 내역이 없습니다.</p>
+{% endif %}
+{% endblock %}

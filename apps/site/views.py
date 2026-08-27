@@ -1,4 +1,5 @@
 import json
+import logging
 from itertools import groupby
 
 from django.conf import settings
@@ -47,6 +48,8 @@ from apps.projects.services.category import (
     get_project_category_sidebar_items,
 )
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
+from apps.sejong.library.services.my_reservations import MyReservationsService
+from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
@@ -65,6 +68,8 @@ from apps.site.forms import (
 )
 from apps.site.models import Tool
 from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
+
+logger = logging.getLogger(__name__)
 
 # apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
@@ -504,17 +509,25 @@ def lab_library(request: HttpRequest) -> HttpResponse:
 
 @owner_required
 def lab_library_rooms(request: HttpRequest) -> HttpResponse:
-    """날짜별 스터디룸 가용 현황 조회 (htmx 부분 응답). 오류도 200으로 반환해 fragment가 그대로 swap되게 한다."""
+    """날짜별 스터디룸/S-Lounge 가용 현황 조회 (htmx 부분 응답). 오류도 200으로 반환해 fragment가 그대로 swap되게 한다."""
     form = LibraryDateForm(request.GET)
     if not form.is_valid():
         return HttpResponse('날짜 형식이 올바르지 않습니다 (YYYYMMDD).', status=200)
 
-    service = StudyRoomService()
-    rooms = service.fetch_all_rooms(reserve_date=form.cleaned_data['reserve_date'])
+    room_type = form.cleaned_data['room_type']
+    if room_type == 's_lounge':
+        rooms = SloungeService().fetch_all_lounges(reserve_date=form.cleaned_data['reserve_date'])
+    else:
+        rooms = StudyRoomService().fetch_all_rooms(reserve_date=form.cleaned_data['reserve_date'])
+
     return render(
         request,
         'site/partials/library_rooms.html',
-        {'rooms': rooms, 'reserve_date': form.cleaned_data['reserve_date']},
+        {
+            'rooms': rooms,
+            'reserve_date': form.cleaned_data['reserve_date'],
+            'room_type': room_type,
+        },
     )
 
 
@@ -572,6 +585,30 @@ def lab_library_reserve(request: HttpRequest) -> HttpResponse:
             )
 
     return render(request, 'site/partials/library_result.html', {'result': result})
+
+
+@owner_required
+def lab_library_my_reservations(request: HttpRequest) -> HttpResponse:
+    """mySeat.php 기반 내 예약 현황 페이지 (소유자 전용, 조회 전용)."""
+    try:
+        items = MyReservationsService().fetch_all()
+    except ValueError as e:
+        logger.error('내 예약 현황 서비스 설정 오류 (자격증명 누락): %s', e)
+        return render(
+            request,
+            'site/lab_library_my_reservations.html',
+            {'items': None, 'fetch_failed': True},
+            status=503,
+        )
+
+    if items is None:
+        return render(
+            request,
+            'site/lab_library_my_reservations.html',
+            {'items': None, 'fetch_failed': True},
+            status=503,
+        )
+    return render(request, 'site/lab_library_my_reservations.html', {'items': items})
 
 
 @owner_required

@@ -19,6 +19,8 @@
     </div>
   </div>
   {% empty %}
-  <p class="opacity-60">가용 정보를 불러올 수 없습니다.</p>
+  <p class="opacity-60">
+    {% if room_type == 's_lounge' %}S-Lounge{% else %}스터디룸{% endif %} 가용 정보를 불러올 수 없습니다.
+  </p>
   {% endfor %}
 </div>
