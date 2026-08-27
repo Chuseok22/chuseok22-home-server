@@ -72,14 +72,16 @@
 
   form.querySelector('#attendee-add').addEventListener('click', addRow);
 
-  form.addEventListener('submit', function () {
+  form.addEventListener('htmx:configRequest', function (evt) {
     var pairs = [];
     rowsWrap.querySelectorAll('.attendee-row').forEach(function (row) {
       var studentId = row.querySelector('.attendee-student-id').value.trim();
       var name = row.querySelector('.attendee-name').value.trim();
       if (studentId && name) pairs.push(studentId + '-' + name);
     });
-    rawInput.value = pairs.join(',');
+    var attendeesRaw = pairs.join(',');
+    rawInput.value = attendeesRaw;
+    evt.detail.parameters.attendees_raw = attendeesRaw;
   });
 })();
 </script>
