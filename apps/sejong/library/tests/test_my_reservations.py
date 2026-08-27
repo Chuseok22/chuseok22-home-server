@@ -67,7 +67,7 @@ def test_my_reservations_view_returns_200_with_items(monkeypatch) -> None:
         lambda self: [fake_item],
     )
 
-    user = User.objects.create_user(username='testuser')
+    user = User.objects.create_user(username='testuser', is_staff=True)
     client = APIClient()
     client.force_authenticate(user)
 
@@ -84,10 +84,28 @@ def test_my_reservations_view_returns_503_when_parsing_fails(monkeypatch) -> Non
         lambda self: None,
     )
 
-    user = User.objects.create_user(username='testuser')
+    user = User.objects.create_user(username='testuser', is_staff=True)
     client = APIClient()
     client.force_authenticate(user)
 
     response = client.get('/api/v1/library/my-reservations/')
 
     assert response.status_code == 503
+
+
+@pytest.mark.django_db
+def test_my_reservations_view_returns_403_for_non_staff_user(monkeypatch) -> None:
+    # 조회 대상이 서버에 고정된 소유자 계정(SEJONG_STUDENT_ID)이므로,
+    # 소유자가 아닌 인증 사용자에게는 접근을 허용하지 않아야 한다.
+    monkeypatch.setattr(
+        'apps.sejong.library.views.MyReservationsService.fetch_all',
+        lambda self: [],
+    )
+
+    user = User.objects.create_user(username='non-owner', is_staff=False)
+    client = APIClient()
+    client.force_authenticate(user)
+
+    response = client.get('/api/v1/library/my-reservations/')
+
+    assert response.status_code == 403

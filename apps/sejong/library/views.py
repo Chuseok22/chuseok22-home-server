@@ -8,6 +8,7 @@ from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
 )
+from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -268,11 +269,18 @@ class ReservationAttendeeDestroyView(APIView):
 class MyReservationsView(APIView):
     """mySeat.php 기반 내 예약 현황(열람실·스터디룸·시네마룸·S-Lounge) 조회 API"""
 
+    permission_classes = [IsAdminUser]
+
     @extend_schema(
         summary='내 예약 현황 조회',
-        description='학술정보원 mySeat.php의 실시간 예약 현황을 조회한다(조회 전용, 취소 기능 없음).',
+        description=(
+            '학술정보원 mySeat.php의 실시간 예약 현황을 조회한다(조회 전용, 취소 기능 없음).\n\n'
+            '조회 대상은 서버에 설정된 소유자 계정(`SEJONG_STUDENT_ID`) 고정이므로, '
+            '사이트 소유자(`is_staff`)만 호출할 수 있다.'
+        ),
         responses={
             200: MyReservationItemSerializer(many=True),
+            403: OpenApiResponse(description='사이트 소유자가 아님'),
             503: OpenApiResponse(description='학술정보원 서비스 응답 없음'),
         },
         tags=['library'],
