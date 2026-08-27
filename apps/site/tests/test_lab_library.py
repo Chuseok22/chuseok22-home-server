@@ -252,3 +252,33 @@ def test_소유자는_내_예약_목록을_실데이터로_조회() -> None:
 
     assert response.status_code == 200
     assert 'S1층 08스터디룸' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_내_예약_목록_조회_실패_시_빈_목록이_아닌_503_반환() -> None:
+    # fetch_all()이 None(인증/네트워크/마크업 실패)을 반환하면 "예약 없음"으로 오인되지 않도록
+    # 별도 실패 상태와 503을 반환해야 한다.
+    owner = User.objects.create_user(username='owner-fetch-fail', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    with patch('apps.site.views.MyReservationsService.fetch_all', return_value=None):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 503
+    assert '예약 내역이 없습니다' not in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_내_예약_목록_조회_시_자격증명_누락이면_503_반환() -> None:
+    owner = User.objects.create_user(username='owner-no-creds', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    with patch(
+        'apps.site.views.MyReservationsService.fetch_all',
+        side_effect=ValueError('SEJONG_STUDENT_ID 또는 SEJONG_PASSWORD가 설정되지 않았습니다.'),
+    ):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 503

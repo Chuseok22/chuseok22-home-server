@@ -37,7 +37,9 @@
   {% endfor %}
 </div>
 <script src="{% static 'site/js/lab_library_my_reservations_filter.js' %}" defer></script>
+{% elif fetch_failed %}
+<p class="opacity-60">예약 현황을 불러올 수 없습니다. 잠시 후 다시 시도하세요.</p>
 {% else %}
-<p class="opacity-60">예약 현황을 불러올 수 없거나 예약 내역이 없습니다.</p>
+<p class="opacity-60">예약 내역이 없습니다.</p>
 {% endif %}
 {% endblock %}

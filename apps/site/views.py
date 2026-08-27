@@ -1,4 +1,5 @@
 import json
+import logging
 from itertools import groupby
 
 from django.conf import settings
@@ -67,6 +68,8 @@ from apps.site.forms import (
 )
 from apps.site.models import Tool
 from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
+
+logger = logging.getLogger(__name__)
 
 # apps.core.models.CRON_DAY_OF_WEEK_CHOICES를 재사용해 요일 라벨을 lab 페이지 문구로 변환한다
 _WEEKDAY_LABELS = dict(CRON_DAY_OF_WEEK_CHOICES)
@@ -587,7 +590,24 @@ def lab_library_reserve(request: HttpRequest) -> HttpResponse:
 @owner_required
 def lab_library_my_reservations(request: HttpRequest) -> HttpResponse:
     """mySeat.php 기반 내 예약 현황 페이지 (소유자 전용, 조회 전용)."""
-    items = MyReservationsService().fetch_all()
+    try:
+        items = MyReservationsService().fetch_all()
+    except ValueError as e:
+        logger.error('내 예약 현황 서비스 설정 오류 (자격증명 누락): %s', e)
+        return render(
+            request,
+            'site/lab_library_my_reservations.html',
+            {'items': None, 'fetch_failed': True},
+            status=503,
+        )
+
+    if items is None:
+        return render(
+            request,
+            'site/lab_library_my_reservations.html',
+            {'items': None, 'fetch_failed': True},
+            status=503,
+        )
     return render(request, 'site/lab_library_my_reservations.html', {'items': items})
 
 
