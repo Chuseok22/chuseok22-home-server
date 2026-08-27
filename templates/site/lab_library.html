@@ -1,23 +1,61 @@
 {% extends "site/base.html" %}
+{% load static %}
 
 {% block title %}스터디룸 예약 — 백지훈{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">스터디룸 예약</h1>
-<form
-  hx-get="{% url 'site:lab-library-rooms' %}"
-  hx-target="#rooms"
-  hx-indicator="#rooms-skeleton"
-  hx-disabled-elt="find button"
-  class="flex gap-2 mb-4"
->
-  <input type="text" name="reserve_date" value="{{ today }}" class="input input-bordered" placeholder="YYYYMMDD">
-  <button type="submit" class="btn btn-primary">가용 현황 조회</button>
-</form>
+<div class="flex items-center justify-between mb-2">
+  <h1 class="text-2xl font-bold">스터디룸 예약</h1>
+  <a href="{% url 'site:lab-library-my-reservations' %}" class="btn btn-ghost btn-sm">내 예약 목록</a>
+</div>
+
+<div class="tabs tabs-boxed w-fit mb-4" id="room-type-tabs">
+  <button
+    type="button"
+    class="tab tab-active"
+    data-room-type="study_room"
+    hx-get="{% url 'site:lab-library-rooms' %}"
+    hx-target="#rooms"
+    hx-indicator="#rooms-skeleton"
+    hx-disabled-elt="this"
+    hx-include="#reserve-date-input"
+    hx-vals='{"room_type": "study_room"}'
+  >스터디룸</button>
+  <button
+    type="button"
+    class="tab"
+    data-room-type="s_lounge"
+    hx-get="{% url 'site:lab-library-rooms' %}"
+    hx-target="#rooms"
+    hx-indicator="#rooms-skeleton"
+    hx-disabled-elt="this"
+    hx-include="#reserve-date-input"
+    hx-vals='{"room_type": "s_lounge"}'
+  >S-Lounge</button>
+</div>
+
+<div class="flex items-center gap-2 mb-4 relative">
+  <input type="hidden" id="reserve-date-input" name="reserve_date" value="{{ today }}">
+  <button type="button" class="btn btn-outline btn-sm" id="cal-trigger" aria-label="날짜 선택">
+    📅 <span id="cal-trigger-label">{{ today }}</span>
+  </button>
+  <div id="calendar-pop" class="hidden absolute top-10 left-0 z-20 bg-base-100 border border-base-300 rounded-box shadow-xl p-4 w-72">
+    <div class="flex items-center justify-between mb-3">
+      <button type="button" class="btn btn-ghost btn-xs" id="cal-prev">‹</button>
+      <span class="font-bold text-sm" id="cal-month-label"></span>
+      <button type="button" class="btn btn-ghost btn-xs" id="cal-next">›</button>
+    </div>
+    <div class="grid grid-cols-7 gap-1 text-xs text-center opacity-60 mb-1" id="cal-dow-row"></div>
+    <div class="grid grid-cols-7 gap-1" id="cal-grid"></div>
+  </div>
+</div>
+
 <div id="rooms-skeleton" class="htmx-indicator-block" aria-hidden="true">
   {% include 'site/partials/list_skeleton.html' %}
 </div>
 <div id="rooms" aria-live="polite"></div>
 <div id="reserve-form" class="mt-4"></div>
 <div id="reserve-result" class="mt-4" aria-live="polite"></div>
+
+<script src="{% static 'site/js/lab_library_calendar.js' %}" defer></script>
 {% endblock %}

@@ -138,7 +138,7 @@ def test_예약_페이지는_조회_스켈레톤과_비활성화_속성을_포�
 
     assert 'hx-indicator="#rooms-skeleton"' in body
     assert 'id="rooms-skeleton"' in body
-    assert 'hx-disabled-elt="find button"' in body
+    assert 'hx-disabled-elt="this"' in body
     assert 'id="rooms" aria-live="polite"' in body
 
 
