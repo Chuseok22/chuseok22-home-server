@@ -1,0 +1,51 @@
+<div class="tabs">
+    <button class="tab-btn active" onclick="openTab(0)">열람실</button>
+    <button class="tab-btn" onclick="openTab(1)">스터디룸</button>
+    <button class="tab-btn" onclick="openTab(2)">시네마룸</button>
+    <button class="tab-btn" onclick="openTab(3)">S-Lounge</button>
+</div>
+
+<div class="tab-content active">
+    <div class="item">
+        <div class="date">2026.01.10</div>
+        <div class="info">
+            <div class="time">10:00~10:40</div>
+            <div class="room">제1열람실</div>
+            <div class="room-small"></div>
+        </div>
+        <div class="status confirm">사용완료</div>
+    </div>
+</div>
+<div class="tab-content">
+    <div class="item">
+        <div class="date">2026.09.03</div>
+        <div class="info">
+            <div class="time">18:00 ~ 20:00</div>
+            <div class="room">S1층 08스터디룸</div>
+            <div class="room-small"></div>
+        </div>
+        <div class="status" onclick="javascript:cancelSroom(&quot;202609030818000001&quot;);">취소</div>
+    </div>
+    <div class="item">
+        <div class="date">2026.03.17</div>
+        <div class="info">
+            <div class="time">17:00 ~ 18:00</div>
+            <div class="room">S1층 07스터디룸</div>
+            <div class="room-small"></div>
+        </div>
+        <div class="status confirm">예약부도</div>
+    </div>
+</div>
+<div class="tab-content">
+</div>
+<div class="tab-content">
+    <div class="item">
+        <div class="date">2026.03.11</div>
+        <div class="info">
+            <div class="time">17:00 ~ 19:00</div>
+            <div class="room">S3층 SL2</div>
+            <div class="room-small"></div>
+        </div>
+        <div class="status confirm">사용완료</div>
+    </div>
+</div>
