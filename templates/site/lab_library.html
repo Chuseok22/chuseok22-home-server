@@ -21,6 +21,7 @@
     hx-include="#reserve-date-input"
     hx-vals='{"room_type": "study_room"}'
     hx-trigger="load, click"
+    hx-sync="this:replace"
   >스터디룸</button>
   <button
     type="button"
@@ -32,6 +33,7 @@
     hx-disabled-elt="this"
     hx-include="#reserve-date-input"
     hx-vals='{"room_type": "s_lounge"}'
+    hx-sync="this:replace"
   >S-Lounge</button>
 </div>
 

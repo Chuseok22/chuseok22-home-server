@@ -41,12 +41,12 @@ def test_parse_my_seat_html_marks_non_confirm_as_active_with_reservation_no() ->
     assert active_item.room_name == 'S1층 08스터디룸'
 
 
-def test_fetch_all_returns_empty_list_when_token_missing() -> None:
+def test_fetch_all_returns_none_when_token_missing() -> None:
     service = MyReservationsService()
     service._auth = MagicMock()
     service._auth.create_session.return_value = None
 
-    assert service.fetch_all() == []
+    assert service.fetch_all() is None
 
 
 def test_parse_my_seat_html_returns_none_when_tab_count_unexpected() -> None:

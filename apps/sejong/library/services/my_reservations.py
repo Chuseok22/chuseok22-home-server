@@ -47,12 +47,13 @@ class MyReservationsService:
     def fetch_all(self) -> list[MyReservationItem] | None:
         """전체 예약 현황을 반환한다.
 
-        인증 실패/네트워크 오류 시 빈 리스트, 응답 HTML 구조가 예상과 다르면(마크업 개편 등)
-        `None`을 반환해 "예약 없음"과 "파싱 실패"를 구분한다.
+        인증 실패, 네트워크 오류, 응답 HTML 구조가 예상과 다른 경우(마크업 개편 등) 모두
+        `None`을 반환해 "예약 없음"과 "조회 실패"를 구분한다. `[]`는 정상적으로 파싱했으나
+        예약 내역이 진짜로 없는 경우다.
         """
         auth_session = self._auth.create_session()
         if auth_session is None:
-            return []
+            return None
 
         session = auth_session.session
         session.headers.update(_HEADERS)
@@ -68,7 +69,7 @@ class MyReservationsService:
             response.encoding = 'utf-8'
         except requests.RequestException as e:
             logger.error('내 예약 현황 조회 실패: %s', e)
-            return []
+            return None
 
         return _parse_my_seat_html(response.text)
 
