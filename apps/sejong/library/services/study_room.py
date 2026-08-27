@@ -1,13 +1,15 @@
 import logging
 from dataclasses import dataclass
 from typing import TypedDict
-from urllib.parse import urlparse, parse_qs
 
 import requests
-from bs4 import BeautifulSoup
 
-from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
 from apps.sejong.auth.services.ssl_compat import LegacySSLAdapter
+from apps.sejong.library.services._room_map_parser import (
+    is_session_expired as _is_session_expired,
+    parse_room_map_html,
+)
+from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +42,6 @@ _ROOM_GROUPS: list[_RoomGroupParams] = [
     {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '2'},  # 08~10
     {'sroomTitle': '그룹스터디룸6인실', 'seatCnt': 6, 'roomGB': 'S1', 'userId': '', 'seq': '3'},  # 11~13
 ]
-
-# 세션 만료 감지: URL에 포함되는 키워드 (HTTP redirect 방식)
-_EXPIRED_URL_KEYWORDS = ['/login', 'ssoLogin']
-# 세션 만료 감지: body에 포함되는 키워드 (로그인 HTML 반환 방식)
-_EXPIRED_BODY_KEYWORDS = ['login_action.jsp', 'mainLogin']
 
 
 @dataclass(frozen=True)
@@ -163,80 +160,29 @@ class StudyRoomService:
         )
 
 
-def _is_session_expired(response: requests.Response) -> bool:
-    """URL redirect 또는 body 키워드로 세션 만료를 감지한다 (이중 확인)."""
-    if any(kw in response.url for kw in _EXPIRED_URL_KEYWORDS):
-        return True
-    if any(kw in response.text for kw in _EXPIRED_BODY_KEYWORDS):
-        return True
-    return False
-
-
 def _parse(html: str, seat_cnt: int, room_gb: str, sroom_title: str, seq: str) -> list[StudyRoom]:
-    """HTML에서 스터디룸 가용 현황을 파싱한다."""
-    soup = BeautifulSoup(html, 'lxml')
-
-    group_title_el = soup.select_one('.al-title')
-    if not group_title_el:
-        logger.warning('그룹 제목(.al-title) 요소를 찾을 수 없습니다. HTML 구조가 변경되었을 수 있습니다.')
-    group_title = group_title_el.get_text(strip=True) if group_title_el else ''
-
-    slot_header = soup.select_one('.avl-slot')
-    if not slot_header:
-        return []
-
-    room_names: list[str] = [
-        el.get_text(strip=True)
-        for el in slot_header.select('.at-title span')
-    ]
-    if not room_names:
-        return []
-
-    room_slots: dict[str, list[RoomSlot]] = {name: [] for name in room_names}
-
-    for row in soup.select('.avl-data-slot'):
-        time_el = row.select_one('.avl-time')
-        if not time_el:
-            continue
-        time_label = time_el.get_text(strip=True)
-
-        for idx, btn_el in enumerate(row.select('.avl-button')):
-            if idx >= len(room_names):
-                break
-            link = btn_el.select_one('a[href]')
-            if link:
-                href = link.get('href', '')
-                room_slots[room_names[idx]].append(RoomSlot(
-                    time_label=time_label,
-                    is_available=True,
-                    room_no=_extract_url_param(href, 'sroomNo'),
-                    room_name=_extract_url_param(href, 'sroomName'),
-                    start_time=_extract_url_param(href, 'startTime'),
-                    room_gb=room_gb,
-                    sroom_title=sroom_title,
-                    seq=seq,
-                ))
-            else:
-                room_slots[room_names[idx]].append(RoomSlot(
-                    time_label=time_label,
-                    is_available=False,
-                ))
-
+    """공통 파서(_room_map_parser)의 결과를 StudyRoom/RoomSlot으로 감싼다."""
     return [
         StudyRoom(
-            room_name=name,
-            group_title=group_title,
+            room_name=parsed_room.room_name,
+            group_title=parsed_room.group_title,
             seat_cnt=seat_cnt,
             room_gb=room_gb,
             sroom_title=sroom_title,
             seq=seq,
-            slots=tuple(slots),
+            slots=tuple(
+                RoomSlot(
+                    time_label=slot.time_label,
+                    is_available=slot.is_available,
+                    room_no=slot.room_no,
+                    room_name=slot.room_name,
+                    start_time=slot.start_time,
+                    room_gb=room_gb if slot.is_available else None,
+                    sroom_title=sroom_title if slot.is_available else None,
+                    seq=seq if slot.is_available else None,
+                )
+                for slot in parsed_room.slots
+            ),
         )
-        for name, slots in room_slots.items()
+        for parsed_room in parse_room_map_html(html)
     ]
-
-
-def _extract_url_param(url: str, key: str) -> str | None:
-    """URL 쿼리스트링에서 파라미터 값을 추출한다."""
-    values = parse_qs(urlparse(url).query).get(key, [])
-    return values[0] if values else None
