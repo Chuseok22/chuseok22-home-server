@@ -108,7 +108,7 @@ def test_스터디룸_예약_요청_성공() -> None:
             'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
             'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
             'reserve_date': '20260705', 'start_time': '0900', 'use_time': 60,
-            'attendees_raw': '22011315-백지훈',
+            'attendees_raw': '22011315-백지훈,22011316-김철수,22011317-이영희',
         })
 
     assert response.status_code == 200
@@ -180,3 +180,30 @@ def test_예약_폼은_제출_버튼_비활성화_속성과_스피너를_포함�
 
     assert 'hx-disabled-elt="find button"' in body
     assert 'loading-spinner' in body
+
+
+@pytest.mark.django_db
+def test_library_reserve_form_rejects_attendee_count_below_half_capacity() -> None:
+    from apps.site.forms import LibraryReserveForm
+
+    form = LibraryReserveForm(data={
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6, 'sroom_title': '그룹스터디룸6인실',
+        'room_name': '04스터디룸', 'seq': '0', 'reserve_date': '20260901', 'start_time': '1400',
+        'use_time': 60, 'attendees_raw': '22011315-백지훈',
+    })
+
+    assert not form.is_valid()
+    assert '정원(6명)의 절반 이상인 최소 3명' in str(form.errors)
+
+
+@pytest.mark.django_db
+def test_library_reserve_form_accepts_attendee_count_at_half_capacity() -> None:
+    from apps.site.forms import LibraryReserveForm
+
+    form = LibraryReserveForm(data={
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6, 'sroom_title': '그룹스터디룸6인실',
+        'room_name': '04스터디룸', 'seq': '0', 'reserve_date': '20260901', 'start_time': '1400',
+        'use_time': 60, 'attendees_raw': '22011315-백지훈,22011316-김철수,22011317-이영희',
+    })
+
+    assert form.is_valid(), form.errors

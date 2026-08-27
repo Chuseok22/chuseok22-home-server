@@ -1,5 +1,7 @@
 from django import forms
 
+from apps.sejong.library.services.validation import validate_attendee_count
+
 
 class LibraryDateForm(forms.Form):
     reserve_date = forms.RegexField(regex=r'^\d{8}$', label='조회 날짜 (YYYYMMDD)')
@@ -54,6 +56,16 @@ class LibraryReserveForm(LibraryReserveSlotForm):
         if not attendees:
             raise forms.ValidationError('참여자를 최소 1명 입력해야 합니다.')
         return attendees
+
+    def clean(self) -> dict:
+        cleaned = super().clean()
+        seat_cnt = cleaned.get('seat_cnt')
+        attendees = cleaned.get('attendees_raw')
+        if seat_cnt is not None and attendees is not None:
+            error = validate_attendee_count(seat_cnt, len(attendees))
+            if error:
+                raise forms.ValidationError(error)
+        return cleaned
 
 
 class PlaceSuggestionForm(forms.Form):

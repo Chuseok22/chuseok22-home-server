@@ -2,6 +2,8 @@ from datetime import datetime
 
 from rest_framework import serializers
 
+from apps.sejong.library.services.validation import validate_attendee_count
+
 
 class RoomSlotSerializer(serializers.Serializer):
     time_label = serializers.CharField()
@@ -68,6 +70,9 @@ class StudyRoomReserveRequestSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     f'auto_select=false 시 필수 필드: {", ".join(missing)}'
                 )
+            error = validate_attendee_count(data['seat_cnt'], len(data['attendees']))
+            if error:
+                raise serializers.ValidationError({'attendees': error})
         return data
 
 
