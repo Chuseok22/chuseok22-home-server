@@ -89,3 +89,13 @@ class ReservationAttendeeSerializer(serializers.Serializer):
     student_id = serializers.CharField(max_length=20)
     name = serializers.CharField(max_length=50)
     created_at = serializers.DateTimeField(read_only=True)
+
+
+class MyReservationItemSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    date = serializers.CharField()
+    time_range = serializers.CharField()
+    room_name = serializers.CharField()
+    status_text = serializers.CharField()
+    is_active = serializers.BooleanField()
+    reservation_no = serializers.CharField(allow_null=True)

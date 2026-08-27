@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.serializers import (
+    MyReservationItemSerializer,
     ReservationAttendeeSerializer,
     StudyRoomReserveRequestSerializer,
     StudyRoomReserveResponseSerializer,
@@ -21,6 +22,7 @@ from apps.sejong.library.serializers import (
 )
 from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
+from apps.sejong.library.services.my_reservations import MyReservationsService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
     ReservationParams,
@@ -261,6 +263,33 @@ class ReservationAttendeeDestroyView(APIView):
 
         attendee.delete()
         return Response(status=204)
+
+
+class MyReservationsView(APIView):
+    """mySeat.php 기반 내 예약 현황(열람실·스터디룸·시네마룸·S-Lounge) 조회 API"""
+
+    @extend_schema(
+        summary='내 예약 현황 조회',
+        description='학술정보원 mySeat.php의 실시간 예약 현황을 조회한다(조회 전용, 취소 기능 없음).',
+        responses={
+            200: MyReservationItemSerializer(many=True),
+            503: OpenApiResponse(description='학술정보원 서비스 응답 없음'),
+        },
+        tags=['library'],
+    )
+    def get(self, request: Request) -> Response:
+        try:
+            items = MyReservationsService().fetch_all()
+        except ValueError as e:
+            logger.error('내 예약 현황 서비스 설정 오류 (자격증명 누락): %s', e)
+            return Response({'detail': '서비스 설정이 올바르지 않습니다.'}, status=503)
+
+        if items is None:
+            return Response(
+                {'detail': '내 예약 현황을 가져올 수 없습니다. 잠시 후 다시 시도하세요.'},
+                status=503,
+            )
+        return Response(MyReservationItemSerializer(items, many=True).data)
 
 
 def _is_valid_date(value: str) -> bool:

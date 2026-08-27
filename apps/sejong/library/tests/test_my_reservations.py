@@ -1,11 +1,17 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
+
 from apps.sejong.library.services.my_reservations import (
     MyReservationItem,
     MyReservationsService,
     _parse_my_seat_html,
 )
+
+User = get_user_model()
 
 _FIXTURE_HTML = (Path(__file__).parent / 'fixtures' / 'my_seat_sample.html').read_text(encoding='utf-8')
 
@@ -47,3 +53,41 @@ def test_parse_my_seat_html_returns_none_when_tab_count_unexpected():
     # tab-content가 4개가 아니면(마크업 개편 등) 빈 리스트가 아니라 None을 반환해
     # "예약 없음"과 "파싱 실패"를 구분할 수 있어야 한다.
     assert _parse_my_seat_html('<div class="tab-content"></div>') is None
+
+
+@pytest.mark.django_db
+def test_my_reservations_view_returns_200_with_items(monkeypatch):
+    fake_item = MyReservationItem(
+        category='스터디룸', date='2026.09.03', time_range='18:00 ~ 20:00',
+        room_name='S1층 08스터디룸', status_text='취소', is_active=True,
+        reservation_no='202609030818000001',
+    )
+    monkeypatch.setattr(
+        'apps.sejong.library.views.MyReservationsService.fetch_all',
+        lambda self: [fake_item],
+    )
+
+    user = User.objects.create_user(username='testuser')
+    client = APIClient()
+    client.force_authenticate(user)
+
+    response = client.get('/api/v1/library/my-reservations/')
+
+    assert response.status_code == 200
+    assert response.data[0]['room_name'] == 'S1층 08스터디룸'
+
+
+@pytest.mark.django_db
+def test_my_reservations_view_returns_503_when_parsing_fails(monkeypatch):
+    monkeypatch.setattr(
+        'apps.sejong.library.views.MyReservationsService.fetch_all',
+        lambda self: None,
+    )
+
+    user = User.objects.create_user(username='testuser')
+    client = APIClient()
+    client.force_authenticate(user)
+
+    response = client.get('/api/v1/library/my-reservations/')
+
+    assert response.status_code == 503
