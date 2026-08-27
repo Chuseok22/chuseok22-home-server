@@ -26,14 +26,14 @@ _SAMPLE_HTML = """
 """
 
 
-def test_parse_room_map_html_extracts_group_title_and_room_names():
+def test_parse_room_map_html_extracts_group_title_and_room_names() -> None:
     rooms = parse_room_map_html(_SAMPLE_HTML)
 
     assert [r.room_name for r in rooms] == ['02스터디룸', '03스터디룸']
     assert all(r.group_title == '그룹스터디룸 6인실 02~04' for r in rooms)
 
 
-def test_parse_room_map_html_marks_available_and_booked_slots():
+def test_parse_room_map_html_marks_available_and_booked_slots() -> None:
     rooms = parse_room_map_html(_SAMPLE_HTML)
     room_02 = next(r for r in rooms if r.room_name == '02스터디룸')
 
@@ -44,15 +44,15 @@ def test_parse_room_map_html_marks_available_and_booked_slots():
     assert room_02.slots[1] == ParsedSlot(time_label='10:00', is_available=False)
 
 
-def test_parse_room_map_html_returns_empty_list_when_no_slot_header():
+def test_parse_room_map_html_returns_empty_list_when_no_slot_header() -> None:
     assert parse_room_map_html('<div class="al-title">제목만 있음</div>') == []
 
 
-def test_extract_url_param_returns_none_when_missing():
+def test_extract_url_param_returns_none_when_missing() -> None:
     assert extract_url_param('https://example.com/x?a=1', 'b') is None
 
 
-def test_extract_url_param_returns_value_when_present():
+def test_extract_url_param_returns_value_when_present() -> None:
     assert extract_url_param('https://example.com/x?sroomNo=7', 'sroomNo') == '7'
 
 
@@ -62,13 +62,13 @@ class _FakeResponse:
         self.text = text
 
 
-def test_is_session_expired_detects_login_redirect_url():
+def test_is_session_expired_detects_login_redirect_url() -> None:
     assert is_session_expired(_FakeResponse('https://libseat.sejong.ac.kr/login', '')) is True
 
 
-def test_is_session_expired_detects_login_body_keyword():
+def test_is_session_expired_detects_login_body_keyword() -> None:
     assert is_session_expired(_FakeResponse('https://libseat.sejong.ac.kr/x', 'mainLogin')) is True
 
 
-def test_is_session_expired_false_for_normal_response():
+def test_is_session_expired_false_for_normal_response() -> None:
     assert is_session_expired(_FakeResponse('https://libseat.sejong.ac.kr/x', '<div>정상</div>')) is False

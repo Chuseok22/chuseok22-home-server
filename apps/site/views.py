@@ -47,9 +47,9 @@ from apps.projects.services.category import (
     get_project_category_sidebar_items,
 )
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
+from apps.sejong.library.services.my_reservations import MyReservationsService
 from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
-from apps.sejong.library.services.my_reservations import MyReservationsService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
     ReservationParams,

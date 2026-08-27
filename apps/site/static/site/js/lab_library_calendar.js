@@ -72,7 +72,10 @@
             calendarPop.classList.add('hidden');
             renderCalendar();
             // 현재 활성화된 룸 종류 탭을 다시 클릭해 htmx로 날짜 변경 반영
-            document.querySelector('#room-type-tabs .tab-active').click();
+            // hx-disabled-elt="this"로 요청 중인 탭은 disabled 상태가 되어 .click()이 동작하지 않으므로
+            // htmx.trigger()로 직접 트리거한다.
+            var activeTab = document.querySelector('#room-type-tabs .tab-active');
+            if (activeTab) htmx.trigger(activeTab, 'click');
           };
         }(d));
       }
