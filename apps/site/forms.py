@@ -5,6 +5,14 @@ from apps.sejong.library.services.validation import validate_attendee_count
 
 class LibraryDateForm(forms.Form):
     reserve_date = forms.RegexField(regex=r'^\d{8}$', label='조회 날짜 (YYYYMMDD)')
+    room_type = forms.ChoiceField(
+        choices=[('study_room', '스터디룸'), ('s_lounge', 'S-Lounge')],
+        required=False,
+        initial='study_room',
+    )
+
+    def clean_room_type(self) -> str:
+        return self.cleaned_data.get('room_type') or 'study_room'
 
 
 class LibraryReserveSlotForm(forms.Form):

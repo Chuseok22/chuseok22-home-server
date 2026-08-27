@@ -19,6 +19,7 @@ from apps.sejong.library.serializers import (
     StudyRoomReserveResponseSerializer,
     StudyRoomSerializer,
 )
+from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
@@ -33,8 +34,11 @@ class StudyRoomListView(APIView):
     """학술정보원 전체 스터디룸 가용 현황 조회 API"""
 
     @extend_schema(
-        summary='스터디룸 가용 현황 조회',
-        description='학술정보원 전체 스터디룸의 날짜별 예약 가능 슬롯을 조회한다. date 미지정 시 오늘(KST 기준)을 사용한다.',
+        summary='스터디룸/S-Lounge 가용 현황 조회',
+        description=(
+            '학술정보원 스터디룸 또는 S-Lounge의 날짜별 예약 가능 슬롯을 조회한다. '
+            'date 미지정 시 오늘(KST 기준)을 사용한다.'
+        ),
         parameters=[
             OpenApiParameter(
                 name='date',
@@ -46,34 +50,56 @@ class StudyRoomListView(APIView):
                     OpenApiExample('오늘', value='20260613'),
                 ],
             ),
+            OpenApiParameter(
+                name='room_type',
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="'study_room'(기본값) 또는 's_lounge'.",
+                examples=[
+                    OpenApiExample('스터디룸', value='study_room'),
+                    OpenApiExample('S-Lounge', value='s_lounge'),
+                ],
+            ),
         ],
         responses={
             200: StudyRoomSerializer(many=True),
-            400: OpenApiResponse(description='date 파라미터 형식 오류 (YYYYMMDD 아닌 경우)'),
+            400: OpenApiResponse(description='date 또는 room_type 파라미터 형식 오류'),
             503: OpenApiResponse(description='학술정보원 서비스 응답 없음'),
         },
         tags=['library'],
     )
     def get(self, request: Request) -> Response:
         reserve_date = request.query_params.get('date') or timezone.localdate().strftime('%Y%m%d')
+        room_type = request.query_params.get('room_type', 'study_room')
 
         if not _is_valid_date(reserve_date):
             return Response(
                 {'detail': 'date 파라미터는 YYYYMMDD 형식이어야 합니다.'},
                 status=400,
             )
+        if room_type not in ('study_room', 's_lounge'):
+            return Response(
+                {'detail': "room_type 파라미터는 'study_room' 또는 's_lounge'여야 합니다."},
+                status=400,
+            )
 
         try:
-            service = StudyRoomService()
-            rooms = service.fetch_all_rooms(reserve_date=reserve_date)
+            if room_type == 's_lounge':
+                rooms = SloungeService().fetch_all_lounges(reserve_date=reserve_date)
+            else:
+                rooms = StudyRoomService().fetch_all_rooms(reserve_date=reserve_date)
         except ValueError as e:
-            logger.error('스터디룸 서비스 설정 오류 (자격증명 누락): %s', e)
+            logger.error('룸 조회 서비스 설정 오류 (자격증명 누락): %s', e)
             return Response({'detail': '서비스 설정이 올바르지 않습니다.'}, status=503)
 
         if not rooms:
-            logger.warning('스터디룸 정보 조회 실패 (date=%s). 서비스 응답 없음 또는 인증 실패.', reserve_date)
+            logger.warning(
+                '룸 정보 조회 실패 (date=%s, room_type=%s). 서비스 응답 없음 또는 인증 실패.',
+                reserve_date, room_type,
+            )
             return Response(
-                {'detail': '스터디룸 정보를 가져올 수 없습니다. 잠시 후 다시 시도하세요.'},
+                {'detail': '룸 정보를 가져올 수 없습니다. 잠시 후 다시 시도하세요.'},
                 status=503,
             )
 

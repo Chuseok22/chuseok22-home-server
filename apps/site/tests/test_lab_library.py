@@ -207,3 +207,27 @@ def test_library_reserve_form_accepts_attendee_count_at_half_capacity() -> None:
     })
 
     assert form.is_valid(), form.errors
+
+
+@pytest.mark.django_db
+def test_소유자는_S_Lounge_가용현황_조회_가능() -> None:
+    from apps.sejong.library.services.slounge import Lounge, LoungeSlot
+
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    fake_lounges = [Lounge(
+        room_name='SL1', group_title='S-Lounge 6인석', seat_cnt=6,
+        room_gb='S3', sroom_title='S-Lounge 6인석', seq='0',
+        slots=(LoungeSlot(time_label='09:00', is_available=False),),
+    )]
+
+    with patch('apps.site.views.SloungeService.fetch_all_lounges', return_value=fake_lounges):
+        response = client.get(
+            reverse('site:lab-library-rooms'),
+            {'reserve_date': '20260901', 'room_type': 's_lounge'},
+        )
+
+    assert response.status_code == 200
+    assert 'SL1' in response.content.decode()

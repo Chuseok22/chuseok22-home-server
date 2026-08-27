@@ -47,6 +47,7 @@ from apps.projects.services.category import (
     get_project_category_sidebar_items,
 )
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
+from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
@@ -504,17 +505,25 @@ def lab_library(request: HttpRequest) -> HttpResponse:
 
 @owner_required
 def lab_library_rooms(request: HttpRequest) -> HttpResponse:
-    """날짜별 스터디룸 가용 현황 조회 (htmx 부분 응답). 오류도 200으로 반환해 fragment가 그대로 swap되게 한다."""
+    """날짜별 스터디룸/S-Lounge 가용 현황 조회 (htmx 부분 응답). 오류도 200으로 반환해 fragment가 그대로 swap되게 한다."""
     form = LibraryDateForm(request.GET)
     if not form.is_valid():
         return HttpResponse('날짜 형식이 올바르지 않습니다 (YYYYMMDD).', status=200)
 
-    service = StudyRoomService()
-    rooms = service.fetch_all_rooms(reserve_date=form.cleaned_data['reserve_date'])
+    room_type = form.cleaned_data['room_type']
+    if room_type == 's_lounge':
+        rooms = SloungeService().fetch_all_lounges(reserve_date=form.cleaned_data['reserve_date'])
+    else:
+        rooms = StudyRoomService().fetch_all_rooms(reserve_date=form.cleaned_data['reserve_date'])
+
     return render(
         request,
         'site/partials/library_rooms.html',
-        {'rooms': rooms, 'reserve_date': form.cleaned_data['reserve_date']},
+        {
+            'rooms': rooms,
+            'reserve_date': form.cleaned_data['reserve_date'],
+            'room_type': room_type,
+        },
     )
 
 
