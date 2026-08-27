@@ -39,7 +39,7 @@ def test_소유자는_예약_페이지_접근_가능() -> None:
 
 
 @pytest.mark.django_db
-def test_소유자는_스터디룸_가용현황_조회_가능() -> None:
+def test_소유자는_스터디룸_가용현황을_매트릭스로_조회_가능() -> None:
     from apps.sejong.library.services.study_room import RoomSlot, StudyRoom
 
     owner = User.objects.create_user(username='owner', is_staff=True)
@@ -49,17 +49,24 @@ def test_소유자는_스터디룸_가용현황_조회_가능() -> None:
     fake_rooms = [StudyRoom(
         room_name='04스터디룸', group_title='그룹', seat_cnt=6,
         room_gb='S1', sroom_title='그룹스터디룸6인실', seq='0',
-        slots=(RoomSlot(
-            time_label='09:00', is_available=True, room_no='4', room_name='04스터디룸',
-            start_time='0900', room_gb='S1', sroom_title='그룹스터디룸6인실', seq='0',
-        ),),
+        slots=(
+            RoomSlot(
+                time_label='09:00', is_available=True, room_no='4', room_name='04스터디룸',
+                start_time='0900', room_gb='S1', sroom_title='그룹스터디룸6인실', seq='0',
+            ),
+            RoomSlot(time_label='10:00', is_available=False),
+        ),
     )]
 
     with patch('apps.site.views.StudyRoomService.fetch_all_rooms', return_value=fake_rooms):
         response = client.get(reverse('site:lab-library-rooms'), {'reserve_date': '20260705'})
 
+    body = response.content.decode()
     assert response.status_code == 200
-    assert '04스터디룸' in response.content.decode()
+    assert '04스터디룸' in body
+    assert '<table' in body
+    assert '09:00' in body  # 헤더 컬럼
+    assert '마감' in body  # 예약 불가 셀
 
 
 @pytest.mark.django_db
