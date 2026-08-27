@@ -231,3 +231,24 @@ def test_소유자는_S_Lounge_가용현황_조회_가능() -> None:
 
     assert response.status_code == 200
     assert 'SL1' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_소유자는_내_예약_목록을_실데이터로_조회() -> None:
+    from apps.sejong.library.services.my_reservations import MyReservationItem
+
+    owner = User.objects.create_user(username='owner', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    fake_item = MyReservationItem(
+        category='스터디룸', date='2026.09.03', time_range='18:00 ~ 20:00',
+        room_name='S1층 08스터디룸', status_text='취소', is_active=True,
+        reservation_no='202609030818000001',
+    )
+
+    with patch('apps.site.views.MyReservationsService.fetch_all', return_value=[fake_item]):
+        response = client.get(reverse('site:lab-library-my-reservations'))
+
+    assert response.status_code == 200
+    assert 'S1층 08스터디룸' in response.content.decode()

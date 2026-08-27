@@ -49,6 +49,7 @@ from apps.projects.services.category import (
 from apps.sejong.library.models import ReservationAttendee, ReservationHistory
 from apps.sejong.library.services.slounge import SloungeService
 from apps.sejong.library.services.study_room import StudyRoomService
+from apps.sejong.library.services.my_reservations import MyReservationsService
 from apps.sejong.library.services.study_room_reservation import (
     AttendeeParams,
     ReservationParams,
@@ -581,6 +582,13 @@ def lab_library_reserve(request: HttpRequest) -> HttpResponse:
             )
 
     return render(request, 'site/partials/library_result.html', {'result': result})
+
+
+@owner_required
+def lab_library_my_reservations(request: HttpRequest) -> HttpResponse:
+    """mySeat.php 기반 내 예약 현황 페이지 (소유자 전용, 조회 전용)."""
+    items = MyReservationsService().fetch_all()
+    return render(request, 'site/lab_library_my_reservations.html', {'items': items})
 
 
 @owner_required
