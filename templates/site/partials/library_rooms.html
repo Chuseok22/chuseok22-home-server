@@ -1,26 +1,49 @@
-<div class="grid gap-2">
-  {% for room in rooms %}
-  <div class="card bg-base-200">
-    <div class="card-body p-4">
-      <h3 class="font-semibold">{{ room.room_name }} ({{ room.seat_cnt }}인실)</h3>
-      <div class="flex gap-1 flex-wrap">
-        {% for slot in room.slots %}
-        {% if slot.is_available %}
-        <button
-          class="btn btn-xs btn-outline"
-          hx-get="{% url 'site:lab-library-reserve-form' %}"
-          hx-target="#reserve-form"
-          hx-disabled-elt="this"
-          hx-vals='{"room_no": "{{ slot.room_no|escapejs }}", "room_gb": "{{ slot.room_gb|escapejs }}", "seat_cnt": "{{ room.seat_cnt|escapejs }}", "sroom_title": "{{ slot.sroom_title|escapejs }}", "room_name": "{{ slot.room_name|escapejs }}", "seq": "{{ slot.seq|escapejs }}", "reserve_date": "{{ reserve_date|escapejs }}", "start_time": "{{ slot.start_time|escapejs }}"}'
-        >{{ slot.time_label }}</button>
-        {% endif %}
-        {% endfor %}
-      </div>
-    </div>
-  </div>
-  {% empty %}
-  <p class="opacity-60">
-    {% if room_type == 's_lounge' %}S-Lounge{% else %}스터디룸{% endif %} 가용 정보를 불러올 수 없습니다.
-  </p>
-  {% endfor %}
+{% if matrix.rows and matrix.time_labels %}
+<div class="flex items-center gap-4 mb-2 text-xs">
+  <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm bg-success/20 border border-success/40"></span>예약 가능</span>
+  <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-sm bg-base-300"></span>예약 마감</span>
 </div>
+<div class="overflow-x-auto">
+  <table class="table table-pin-rows table-pin-cols table-zebra">
+    <thead>
+      <tr>
+        <th scope="col"></th>
+        {% for time_label in matrix.time_labels %}
+        <th scope="col" class="text-center font-mono text-xs">{{ time_label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in matrix.rows %}
+      <tr>
+        <th scope="row" class="whitespace-nowrap">
+          {{ row.room_name }}
+          <span class="block font-normal text-xs opacity-60">{{ row.seat_cnt }}인실</span>
+        </th>
+        {% for cell in row.cells %}
+        <td class="text-center p-1">
+          {% if cell.slot and cell.slot.is_available %}
+          <button
+            class="btn btn-xs btn-outline btn-success w-full"
+            hx-get="{% url 'site:lab-library-reserve-form' %}"
+            hx-target="#reserve-form"
+            hx-disabled-elt="this"
+            hx-vals='{"room_no": "{{ cell.slot.room_no|escapejs }}", "room_gb": "{{ cell.slot.room_gb|escapejs }}", "seat_cnt": "{{ row.seat_cnt|escapejs }}", "sroom_title": "{{ cell.slot.sroom_title|escapejs }}", "room_name": "{{ cell.slot.room_name|escapejs }}", "seq": "{{ cell.slot.seq|escapejs }}", "reserve_date": "{{ reserve_date|escapejs }}", "start_time": "{{ cell.slot.start_time|escapejs }}"}'
+          >{{ cell.time_label }}</button>
+          {% elif cell.slot %}
+          <span class="text-xs opacity-40">마감</span>
+          {% else %}
+          <span class="text-xs opacity-20">-</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="opacity-60">
+  {% if room_type == 's_lounge' %}S-Lounge{% else %}스터디룸{% endif %} 가용 정보를 불러올 수 없습니다.
+</p>
+{% endif %}

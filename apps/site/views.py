@@ -68,6 +68,7 @@ from apps.site.forms import (
 )
 from apps.site.models import Tool
 from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
+from apps.site.services.library_matrix import build_room_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -524,7 +525,7 @@ def lab_library_rooms(request: HttpRequest) -> HttpResponse:
         request,
         'site/partials/library_rooms.html',
         {
-            'rooms': rooms,
+            'matrix': build_room_matrix(rooms),
             'reserve_date': form.cleaned_data['reserve_date'],
             'room_type': room_type,
         },
