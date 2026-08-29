@@ -581,7 +581,7 @@ def lab_library_reserve(request: HttpRequest) -> HttpResponse:
     )
     if result.success:
         for attendee in attendees:
-            ReservationAttendee.objects.get_or_create(
+            ReservationAttendee.objects.update_or_create(
                 student_id=attendee.student_id, defaults={'name': attendee.name},
             )
 

@@ -289,3 +289,31 @@ def test_내_예약_목록_조회_시_자격증명_누락이면_503_반환() -> 
         response = client.get(reverse('site:lab-library-my-reservations'))
 
     assert response.status_code == 503
+
+
+@pytest.mark.django_db
+def test_스터디룸_예약_성공시_참여자_이름이_최신값으로_갱신() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+    from apps.sejong.library.services.study_room_reservation import ReservationResult
+
+    ReservationAttendee.objects.create(student_id='22011315', name='오타이름')
+
+    owner = User.objects.create_user(username='owner-upsert', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    fake_result = ReservationResult(
+        success=True, result_code='0', result_message='예약이 완료되었습니다.',
+        room_no='4', room_name='04스터디룸',
+    )
+
+    with patch('apps.site.views.StudyRoomReservationService.reserve', return_value=fake_result):
+        response = client.post(reverse('site:lab-library-reserve'), {
+            'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
+            'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
+            'reserve_date': '20260705', 'start_time': '0900', 'use_time': 60,
+            'attendees_raw': '22011315-백지훈,22011316-김철수,22011317-이영희',
+        })
+
+    assert response.status_code == 200
+    assert ReservationAttendee.objects.get(student_id='22011315').name == '백지훈'
