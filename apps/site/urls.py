@@ -17,6 +17,11 @@ urlpatterns = [
     path('lab/library/reserve-form/', views.lab_library_reserve_form, name='lab-library-reserve-form'),
     path('lab/library/reserve/', views.lab_library_reserve, name='lab-library-reserve'),
     path('lab/library/my-reservations/', views.lab_library_my_reservations, name='lab-library-my-reservations'),
+    path(
+        'lab/library/attendees/<int:pk>/',
+        views.lab_library_attendee_delete,
+        name='lab-library-attendee-delete',
+    ),
     path('lab/student/', views.lab_student, name='lab-student'),
     path('lab/student/search/', views.lab_student_search, name='lab-student-search'),
     path('certifications/', views.certifications, name='certifications'),

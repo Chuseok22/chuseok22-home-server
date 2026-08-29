@@ -25,14 +25,45 @@
     </div>
     <div id="attendee-rows" class="flex flex-col gap-2">
       <div class="attendee-row grid gap-2" style="grid-template-columns: 1.6fr 1fr 2.5rem;">
-        <input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번">
-        <input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름">
+        <div class="relative">
+          <input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번" autocomplete="off">
+          <ul class="attendee-suggestions menu menu-sm bg-base-100 rounded-box shadow border border-base-300 p-1 absolute z-20 w-full mt-1 max-h-48 overflow-auto hidden"></ul>
+        </div>
+        <div class="relative">
+          <input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름" autocomplete="off">
+          <ul class="attendee-suggestions menu menu-sm bg-base-100 rounded-box shadow border border-base-300 p-1 absolute z-20 w-full mt-1 max-h-48 overflow-auto hidden"></ul>
+        </div>
         <button type="button" class="btn btn-ghost btn-sm attendee-remove">✕</button>
       </div>
     </div>
     <button type="button" class="btn btn-outline btn-xs mt-2" id="attendee-add">+ 참여자 추가</button>
     <input type="hidden" name="attendees_raw" id="attendees-raw-input">
   </div>
+
+  <details class="mt-1">
+    <summary class="text-xs opacity-60 cursor-pointer">저장된 참여자 ({{ saved_attendees|length }}명)</summary>
+    <ul id="attendee-catalog" class="mt-1 flex flex-col gap-1 max-h-40 overflow-auto">
+      {% for attendee in saved_attendees %}
+      <li
+        class="attendee-catalog-item flex items-center justify-between text-xs bg-base-100 rounded px-2 py-1"
+        data-student-id="{{ attendee.student_id }}"
+        data-name="{{ attendee.name }}"
+      >
+        <span>{{ attendee.name }} ({{ attendee.student_id }})</span>
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs"
+          hx-delete="{% url 'site:lab-library-attendee-delete' attendee.pk %}"
+          hx-target="closest li"
+          hx-swap="delete"
+          hx-confirm="{{ attendee.name }}({{ attendee.student_id }})를 저장 목록에서 삭제할까요?"
+        >삭제</button>
+      </li>
+      {% empty %}
+      <li class="text-xs opacity-40">저장된 참여자가 없습니다.</li>
+      {% endfor %}
+    </ul>
+  </details>
 
   <button type="submit" class="btn btn-primary btn-sm">
     예약하기
@@ -47,6 +78,17 @@
   var countLabel = form.querySelector('#attendee-count');
   var rawInput = form.querySelector('#attendees-raw-input');
 
+  var ROW_HTML =
+    '<div class="relative">' +
+      '<input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번" autocomplete="off">' +
+      '<ul class="attendee-suggestions menu menu-sm bg-base-100 rounded-box shadow border border-base-300 p-1 absolute z-20 w-full mt-1 max-h-48 overflow-auto hidden"></ul>' +
+    '</div>' +
+    '<div class="relative">' +
+      '<input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름" autocomplete="off">' +
+      '<ul class="attendee-suggestions menu menu-sm bg-base-100 rounded-box shadow border border-base-300 p-1 absolute z-20 w-full mt-1 max-h-48 overflow-auto hidden"></ul>' +
+    '</div>' +
+    '<button type="button" class="btn btn-ghost btn-sm attendee-remove">✕</button>';
+
   function updateCount() {
     countLabel.textContent = rowsWrap.querySelectorAll('.attendee-row').length + '명';
   }
@@ -55,19 +97,93 @@
     var row = document.createElement('div');
     row.className = 'attendee-row grid gap-2';
     row.style.gridTemplateColumns = '1.6fr 1fr 2.5rem';
-    row.innerHTML =
-      '<input type="text" class="input input-bordered input-sm attendee-student-id" placeholder="학번">' +
-      '<input type="text" class="input input-bordered input-sm attendee-name" placeholder="이름">' +
-      '<button type="button" class="btn btn-ghost btn-sm attendee-remove">✕</button>';
+    row.innerHTML = ROW_HTML;
     rowsWrap.appendChild(row);
     updateCount();
   }
 
+  function getCatalog() {
+    return Array.prototype.slice.call(document.querySelectorAll('#attendee-catalog .attendee-catalog-item')).map(function (el) {
+      return { studentId: el.dataset.studentId, name: el.dataset.name };
+    });
+  }
+
+  function escapeHtml(value) {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function closeList(ul) {
+    ul.classList.add('hidden');
+    ul.innerHTML = '';
+  }
+
+  function showSuggestions(input, ul) {
+    var query = input.value.trim().toLowerCase();
+    var matches = getCatalog().filter(function (a) {
+      return !query
+        || a.studentId.toLowerCase().indexOf(query) !== -1
+        || a.name.toLowerCase().indexOf(query) !== -1;
+    }).slice(0, 8);
+
+    if (matches.length === 0) {
+      closeList(ul);
+      return;
+    }
+
+    ul.innerHTML = matches.map(function (a) {
+      var studentId = escapeHtml(a.studentId);
+      var name = escapeHtml(a.name);
+      return '<li><button type="button" class="suggestion-item" data-student-id="' + studentId + '" data-name="' + name + '">'
+        + name + ' (' + studentId + ')</button></li>';
+    }).join('');
+    ul.classList.remove('hidden');
+  }
+
+  rowsWrap.addEventListener('input', function (e) {
+    if (!e.target.classList.contains('attendee-student-id') && !e.target.classList.contains('attendee-name')) return;
+    var wrap = e.target.closest('.relative');
+    showSuggestions(e.target, wrap.querySelector('.attendee-suggestions'));
+  });
+
+  rowsWrap.addEventListener('focusin', function (e) {
+    if (!e.target.classList.contains('attendee-student-id') && !e.target.classList.contains('attendee-name')) return;
+    var wrap = e.target.closest('.relative');
+    showSuggestions(e.target, wrap.querySelector('.attendee-suggestions'));
+  });
+
+  rowsWrap.addEventListener('focusout', function (e) {
+    if (!e.target.classList.contains('attendee-student-id') && !e.target.classList.contains('attendee-name')) return;
+    // wrap(학번 또는 이름 필드 각각의 감싸는 div) 단위로 닫아야, 같은 행 안에서
+    // 학번 → 이름으로 포커스를 옮길 때 방금 연 이름 쪽 드롭다운까지 같이 닫히지 않는다.
+    var wrap = e.target.closest('.relative');
+    var ul = wrap.querySelector('.attendee-suggestions');
+    setTimeout(function () {
+      if (wrap.contains(document.activeElement)) return;
+      closeList(ul);
+    }, 150);
+  });
+
+  // 후보 버튼 클릭 시 input이 blur되지 않도록 막아, focusout의 150ms 타이머와
+  // 경합하며 선택이 유실되는 상황을 원천적으로 없앤다.
+  rowsWrap.addEventListener('mousedown', function (e) {
+    if (e.target.classList.contains('suggestion-item')) {
+      e.preventDefault();
+    }
+  });
+
   rowsWrap.addEventListener('click', function (e) {
-    if (!e.target.classList.contains('attendee-remove')) return;
-    if (rowsWrap.querySelectorAll('.attendee-row').length <= 1) return;
-    e.target.closest('.attendee-row').remove();
-    updateCount();
+    if (e.target.classList.contains('attendee-remove')) {
+      if (rowsWrap.querySelectorAll('.attendee-row').length <= 1) return;
+      e.target.closest('.attendee-row').remove();
+      updateCount();
+      return;
+    }
+    if (e.target.classList.contains('suggestion-item')) {
+      var row = e.target.closest('.attendee-row');
+      row.querySelector('.attendee-student-id').value = e.target.dataset.studentId;
+      row.querySelector('.attendee-name').value = e.target.dataset.name;
+      row.querySelectorAll('.attendee-suggestions').forEach(closeList);
+    }
   });
 
   form.querySelector('#attendee-add').addEventListener('click', addRow);

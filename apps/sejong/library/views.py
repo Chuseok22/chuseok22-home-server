@@ -185,10 +185,10 @@ class StudyRoomReserveView(APIView):
                 result_message=result.result_message,
             )
 
-            # 예약 성공 시 새 참여자만 DB 저장
+            # 예약 성공 시 참여자를 저장 또는 이름 업데이트
             if result.success:
                 for attendee in attendees:
-                    ReservationAttendee.objects.get_or_create(
+                    ReservationAttendee.objects.update_or_create(
                         student_id=attendee.student_id,
                         defaults={'name': attendee.name},
                     )
