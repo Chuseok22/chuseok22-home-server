@@ -404,3 +404,21 @@ def test_예약폼은_저장된_참여자가_없어도_정상_렌더링된다() 
 
     assert response.status_code == 200
     assert 'id="attendee-catalog"' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_예약폼_참여자_입력행은_자동완성_드롭다운_골격을_포함한다() -> None:
+    owner = User.objects.create_user(username='owner-autocomplete', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(reverse('site:lab-library-reserve-form'), {
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
+        'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
+        'reserve_date': '20260705', 'start_time': '0900',
+    })
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'attendee-suggestions' in body
+    assert 'suggestion-item' in body
