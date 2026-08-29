@@ -10,7 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 
 from apps.activity.models import GithubProfileStats
 from apps.ai.services.suh_aider_client import SuhAiderClientError
@@ -610,6 +610,19 @@ def lab_library_my_reservations(request: HttpRequest) -> HttpResponse:
             status=503,
         )
     return render(request, 'site/lab_library_my_reservations.html', {'items': items})
+
+
+@owner_required
+@require_http_methods(['DELETE'])
+def lab_library_attendee_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    """저장된 예약 참여자를 삭제한다 (htmx hx-delete 부분 응답).
+
+    htmx는 204 응답에 swap을 수행하지 않아 hx-swap="delete"가 동작하지 않으므로
+    본문 없는 200을 반환한다. 존재하지 않는 pk도 200으로 처리한다(삭제 결과 관점에서 멱등).
+    허용되지 않은 메서드는 require_http_methods가 자동으로 405를 반환한다.
+    """
+    ReservationAttendee.objects.filter(pk=pk).delete()
+    return HttpResponse(status=200)
 
 
 @owner_required

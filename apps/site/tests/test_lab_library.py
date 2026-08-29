@@ -317,3 +317,51 @@ def test_스터디룸_예약_성공시_참여자_이름이_최신값으로_갱�
 
     assert response.status_code == 200
     assert ReservationAttendee.objects.get(student_id='22011315').name == '백지훈'
+
+
+@pytest.mark.django_db
+def test_소유자는_저장된_참여자를_삭제할_수_있다() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+
+    attendee = ReservationAttendee.objects.create(student_id='22011315', name='백지훈')
+    owner = User.objects.create_user(username='owner-delete', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.delete(
+        reverse('site:lab-library-attendee-delete', kwargs={'pk': attendee.pk})
+    )
+
+    assert response.status_code == 200
+    assert not ReservationAttendee.objects.filter(pk=attendee.pk).exists()
+
+
+@pytest.mark.django_db
+def test_비로그인_사용자는_참여자_삭제시_403() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+
+    attendee = ReservationAttendee.objects.create(student_id='22011315', name='백지훈')
+    client = Client()
+
+    response = client.delete(
+        reverse('site:lab-library-attendee-delete', kwargs={'pk': attendee.pk})
+    )
+
+    assert response.status_code == 403
+    assert ReservationAttendee.objects.filter(pk=attendee.pk).exists()
+
+
+@pytest.mark.django_db
+def test_참여자_삭제_라우트에_GET_요청시_405() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+
+    attendee = ReservationAttendee.objects.create(student_id='22011315', name='백지훈')
+    owner = User.objects.create_user(username='owner-delete-get', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(
+        reverse('site:lab-library-attendee-delete', kwargs={'pk': attendee.pk})
+    )
+
+    assert response.status_code == 405
