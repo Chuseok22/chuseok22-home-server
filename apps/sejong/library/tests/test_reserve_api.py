@@ -26,3 +26,38 @@ def test_study_room_reserve_rejects_attendee_count_below_half_capacity() -> None
     assert response.status_code == 400
     assert '정원(6명)의 절반 이상인 최소 3명' in str(response.data)
     mock_reserve.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_study_room_reserve_success_upserts_attendee_name() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+    from apps.sejong.library.services.study_room_reservation import ReservationResult
+
+    ReservationAttendee.objects.create(student_id='22011315', name='오타이름')
+
+    user = User.objects.create_user(username='testuser2')
+    client = APIClient()
+    client.force_authenticate(user)
+
+    fake_result = ReservationResult(
+        success=True, result_code='0', result_message='예약이 완료되었습니다.',
+        room_no='4', room_name='04스터디룸',
+    )
+
+    with patch(
+        'apps.sejong.library.views.StudyRoomReservationService.reserve',
+        return_value=fake_result,
+    ):
+        response = client.post('/api/v1/library/study-rooms/reserve/', {
+            'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6, 'sroom_title': '그룹스터디룸6인실',
+            'room_name': '04스터디룸', 'seq': '0', 'reserve_date': '20260901', 'start_time': '1400',
+            'use_time': 60, 'attendees': [
+                {'student_id': '22011315', 'name': '백지훈'},
+                {'student_id': '22011316', 'name': '김철수'},
+                {'student_id': '22011317', 'name': '이영희'},
+            ],
+        }, format='json')
+
+    assert response.status_code == 200
+    assert ReservationAttendee.objects.get(student_id='22011315').name == '백지훈'
+    assert ReservationAttendee.objects.filter(student_id='22011316', name='김철수').exists()
