@@ -539,7 +539,14 @@ def lab_library_reserve_form(request: HttpRequest) -> HttpResponse:
     if not slot_form.is_valid():
         return HttpResponse('슬롯 정보가 올바르지 않습니다.', status=200)
 
-    return render(request, 'site/partials/library_reserve_form.html', {'slot': slot_form.cleaned_data})
+    return render(
+        request,
+        'site/partials/library_reserve_form.html',
+        {
+            'slot': slot_form.cleaned_data,
+            'saved_attendees': ReservationAttendee.objects.all(),
+        },
+    )
 
 
 @owner_required

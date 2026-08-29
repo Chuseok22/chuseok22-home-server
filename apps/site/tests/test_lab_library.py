@@ -365,3 +365,42 @@ def test_참여자_삭제_라우트에_GET_요청시_405() -> None:
     )
 
     assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_예약폼은_저장된_참여자_카탈로그를_렌더링한다() -> None:
+    from apps.sejong.library.models import ReservationAttendee
+
+    ReservationAttendee.objects.create(student_id='22011315', name='백지훈')
+    owner = User.objects.create_user(username='owner-catalog', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(reverse('site:lab-library-reserve-form'), {
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
+        'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
+        'reserve_date': '20260705', 'start_time': '0900',
+    })
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'id="attendee-catalog"' in body
+    assert 'data-student-id="22011315"' in body
+    assert 'data-name="백지훈"' in body
+    assert f'hx-delete="/lab/library/attendees/{ReservationAttendee.objects.get().pk}/"' in body
+
+
+@pytest.mark.django_db
+def test_예약폼은_저장된_참여자가_없어도_정상_렌더링된다() -> None:
+    owner = User.objects.create_user(username='owner-catalog-empty', is_staff=True)
+    client = Client()
+    client.force_login(owner)
+
+    response = client.get(reverse('site:lab-library-reserve-form'), {
+        'room_no': '4', 'room_gb': 'S1', 'seat_cnt': 6,
+        'sroom_title': '그룹스터디룸6인실', 'room_name': '04스터디룸', 'seq': '0',
+        'reserve_date': '20260705', 'start_time': '0900',
+    })
+
+    assert response.status_code == 200
+    assert 'id="attendee-catalog"' in response.content.decode()

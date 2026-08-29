@@ -34,6 +34,31 @@
     <input type="hidden" name="attendees_raw" id="attendees-raw-input">
   </div>
 
+  <details class="mt-1">
+    <summary class="text-xs opacity-60 cursor-pointer">저장된 참여자 ({{ saved_attendees|length }}명)</summary>
+    <ul id="attendee-catalog" class="mt-1 flex flex-col gap-1 max-h-40 overflow-auto">
+      {% for attendee in saved_attendees %}
+      <li
+        class="attendee-catalog-item flex items-center justify-between text-xs bg-base-100 rounded px-2 py-1"
+        data-student-id="{{ attendee.student_id }}"
+        data-name="{{ attendee.name }}"
+      >
+        <span>{{ attendee.name }} ({{ attendee.student_id }})</span>
+        <button
+          type="button"
+          class="btn btn-ghost btn-xs"
+          hx-delete="{% url 'site:lab-library-attendee-delete' attendee.pk %}"
+          hx-target="closest li"
+          hx-swap="delete"
+          hx-confirm="{{ attendee.name }}({{ attendee.student_id }})를 저장 목록에서 삭제할까요?"
+        >삭제</button>
+      </li>
+      {% empty %}
+      <li class="text-xs opacity-40">저장된 참여자가 없습니다.</li>
+      {% endfor %}
+    </ul>
+  </details>
+
   <button type="submit" class="btn btn-primary btn-sm">
     예약하기
     <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
