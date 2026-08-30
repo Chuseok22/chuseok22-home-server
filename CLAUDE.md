@@ -30,3 +30,13 @@ python manage.py migrate --settings=config.settings.development
 ## 상세 규칙
 
 자세한 내용은 `.claude/rules/` 를 참고한다.
+
+## Agent skills
+
+### Issue tracker
+
+이슈는 GitHub Issues에 존재하며, `gh` CLI로 다룬다. 자세한 내용은 `docs/agents/issue-tracker.md` 참고.
+
+### Domain docs
+
+단일 컨텍스트(single-context) 레이아웃 — 루트의 `CONTEXT.md` + `docs/adr/`. 자세한 내용은 `docs/agents/domain.md` 참고.
