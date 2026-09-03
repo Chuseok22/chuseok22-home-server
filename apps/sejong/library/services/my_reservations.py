@@ -111,8 +111,8 @@ def _parse_my_seat_html(html: str) -> list[MyReservationItem] | None:
     if len(tab_contents) != len(_CATEGORY_ORDER):
         logger.error(
             '내 예약 현황 HTML 구조가 예상과 다릅니다 (tab-content 개수=%d, 예상=%d). '
-            '마크업이 변경되었을 수 있습니다.',
-            len(tab_contents), len(_CATEGORY_ORDER),
+            '마크업이 변경되었을 수 있습니다. 응답 본문 앞부분: %r',
+            len(tab_contents), len(_CATEGORY_ORDER), html[:300],
         )
         return None
 
