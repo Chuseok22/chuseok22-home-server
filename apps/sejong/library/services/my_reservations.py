@@ -6,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-from apps.sejong.auth.services.ssl_compat import LegacySSLAdapter
 from apps.sejong.library.services._room_map_parser import is_session_expired
 from apps.sejong.library.services.sejong_auth import AuthSession, SejongLibraryAuthService
 
@@ -14,15 +13,6 @@ logger = logging.getLogger(__name__)
 
 _MY_SEAT_URL = 'https://libseat.sejong.ac.kr/mobile/MA/mySeat.php'
 _REQUEST_TIMEOUT = 10
-_HEADERS = {
-    'User-Agent': (
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-        'AppleWebKit/537.36 (KHTML, like Gecko) '
-        'Chrome/125.0.0.0 Safari/537.36'
-    ),
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'ko-KR,ko;q=0.9',
-}
 # mySeat.php의 .tab-content는 항상 이 순서로 렌더링된다 (실제 캡처 HTML에서 확인).
 _CATEGORY_ORDER = ('열람실', '스터디룸', '시네마룸', 'S-Lounge')
 _CANCEL_ID_RE = re.compile(r"""cancelSroom\(['"](\d+)['"]\)""")
@@ -48,25 +38,12 @@ class MyReservationsService:
     def fetch_all(self) -> list[MyReservationItem] | None:
         """전체 예약 현황을 반환한다.
 
-        세션 만료 감지 시 재인증 후 1회 재시도한다(study_room.py/slounge.py와 동일 패턴).
+        세션은 SejongLibraryAuthService가 캐싱하며, 만료 감지 시에만 재인증 후 1회 재시도한다.
         인증 실패, 네트워크 오류, 응답 HTML 구조가 예상과 다른 경우(마크업 개편 등) 모두
         `None`을 반환해 "예약 없음"과 "조회 실패"를 구분한다. `[]`는 정상적으로 파싱했으나
         예약 내역이 진짜로 없는 경우다.
         """
-        auth_session = self._auth.create_session()
-        if auth_session is None:
-            return None
-
-        items, expired = self._fetch_with_session(auth_session)
-
-        if expired:
-            logger.warning('세션 만료 감지. 재인증 후 재시도합니다.')
-            auth_session = self._auth.create_session()
-            if auth_session is None:
-                return None
-            items, _ = self._fetch_with_session(auth_session)
-
-        return items
+        return self._auth.fetch_with_retry(self._fetch_with_session)
 
     def _fetch_with_session(
         self,
@@ -79,8 +56,6 @@ class MyReservationsService:
             네트워크 오류·마크업 불일치 시에도 None(session_expired=False), 정상 시 파싱 결과.
         """
         session = auth_session.session
-        session.headers.update(_HEADERS)
-        session.mount('https://', LegacySSLAdapter())
 
         try:
             response = session.get(

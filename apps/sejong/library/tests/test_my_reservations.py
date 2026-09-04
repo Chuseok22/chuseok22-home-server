@@ -44,7 +44,7 @@ def test_parse_my_seat_html_marks_non_confirm_as_active_with_reservation_no() ->
 def test_fetch_all_returns_none_when_token_missing() -> None:
     service = MyReservationsService()
     service._auth = MagicMock()
-    service._auth.create_session.return_value = None
+    service._auth.fetch_with_retry.return_value = None
 
     assert service.fetch_all() is None
 
@@ -111,54 +111,54 @@ def test_my_reservations_view_returns_403_for_non_staff_user(monkeypatch) -> Non
     assert response.status_code == 403
 
 
-def test_fetch_all_retries_once_after_session_expired() -> None:
+def test_fetch_all_delegates_to_fetch_with_retry() -> None:
+    service = MyReservationsService()
+    service._auth = MagicMock()
+    fake_items = [
+        MyReservationItem(
+            category='스터디룸', date='2026.09.03', time_range='18:00 ~ 20:00',
+            room_name='S1층 08스터디룸', status_text='취소', is_active=True,
+            reservation_no='202609030818000001',
+        ),
+    ]
+    service._auth.fetch_with_retry.return_value = fake_items
+
+    result = service.fetch_all()
+
+    assert result == fake_items
+    service._auth.fetch_with_retry.assert_called_once_with(service._fetch_with_session)
+
+
+def test_fetch_with_session_signals_expired_on_login_redirect() -> None:
     from apps.sejong.library.services.sejong_auth import AuthSession
 
     service = MyReservationsService()
-    service._auth = MagicMock()
+    session = MagicMock()
+    response = MagicMock()
+    response.url = 'https://libseat.sejong.ac.kr/login'
+    response.text = ''
+    session.get.return_value = response
+    auth_session = AuthSession(token='t', session=session)
 
-    expired_session = MagicMock()
-    expired_response = MagicMock()
-    expired_response.url = 'https://libseat.sejong.ac.kr/login'
-    expired_response.text = ''
-    expired_session.get.return_value = expired_response
+    items, expired = service._fetch_with_session(auth_session)
 
-    fresh_session = MagicMock()
-    fresh_response = MagicMock()
-    fresh_response.url = 'https://libseat.sejong.ac.kr/mobile/MA/mySeat.php'
-    fresh_response.text = _FIXTURE_HTML
-    fresh_session.get.return_value = fresh_response
+    assert items is None
+    assert expired is True
 
-    service._auth.create_session.side_effect = [
-        AuthSession(token='expired-token', session=expired_session),
-        AuthSession(token='fresh-token', session=fresh_session),
-    ]
 
-    items = service.fetch_all()
+def test_fetch_with_session_parses_valid_response() -> None:
+    from apps.sejong.library.services.sejong_auth import AuthSession
 
+    service = MyReservationsService()
+    session = MagicMock()
+    response = MagicMock()
+    response.url = 'https://libseat.sejong.ac.kr/mobile/MA/mySeat.php'
+    response.text = _FIXTURE_HTML
+    session.get.return_value = response
+    auth_session = AuthSession(token='t', session=session)
+
+    items, expired = service._fetch_with_session(auth_session)
+
+    assert expired is False
     assert items is not None
     assert len(items) > 0
-    assert service._auth.create_session.call_count == 2
-
-
-def test_fetch_all_returns_none_when_still_expired_after_retry() -> None:
-    from apps.sejong.library.services.sejong_auth import AuthSession
-
-    service = MyReservationsService()
-    service._auth = MagicMock()
-
-    def make_expired_session() -> MagicMock:
-        session = MagicMock()
-        response = MagicMock()
-        response.url = 'https://libseat.sejong.ac.kr/login'
-        response.text = ''
-        session.get.return_value = response
-        return session
-
-    service._auth.create_session.side_effect = [
-        AuthSession(token='t1', session=make_expired_session()),
-        AuthSession(token='t2', session=make_expired_session()),
-    ]
-
-    assert service.fetch_all() is None
-    assert service._auth.create_session.call_count == 2  # 재시도는 1회만, 2번째도 만료면 그대로 종료
