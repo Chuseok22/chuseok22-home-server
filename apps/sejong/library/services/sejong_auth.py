@@ -23,7 +23,7 @@ class AuthSession:
 _LIBSEAT_HOST = 'libseat.sejong.ac.kr'
 _SEAT_MAIN = 'https://libseat.sejong.ac.kr/mobile/MA/seatMain.php'
 _REQUEST_TIMEOUT = 15
-_TOKEN_PARAM_RE = re.compile(r'(?:^|[?&])token=([^&]*)')
+_TOKEN_PARAM_RE = re.compile(r'(?:^|&)token=([^&]*)')
 
 
 class SejongLibraryAuthService:

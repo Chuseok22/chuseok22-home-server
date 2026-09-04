@@ -47,6 +47,21 @@ def test_extract_token_from_chain_returns_none_when_no_token_param() -> None:
     assert _extract_token_from_chain(response) is None
 
 
+def test_extract_token_from_chain_ignores_token_param_after_literal_question_mark() -> None:
+    """쿼리 문자열에 리터럴 '?'가 중첩되어 나타나는 경우(예: 다른 파라미터 값에 포함된 URL),
+    그 뒤의 'token='을 진짜 파라미터 경계로 착각해 매칭하지 않는다 - '&'로 구분되는
+    진짜 token 파라미터만 추출한다."""
+    response = SimpleNamespace(
+        url=(
+            'https://libseat.sejong.ac.kr/mobile/MA/seatMain.php'
+            '?redirect=foo?token=fake&token=real'
+        ),
+        history=[],
+    )
+
+    assert _extract_token_from_chain(response) == 'real'
+
+
 @pytest.fixture(autouse=True)
 def _reset_session_cache():
     """클래스 레벨 세션 캐시는 테스트 간 상태가 누출되므로 매 테스트 전후로 리셋한다."""
