@@ -57,6 +57,7 @@ def test_fetch_all_lounges_parses_all_groups(mock_session_cls) -> None:
 
     lounges = service.fetch_all_lounges('20260901')
 
+    service._auth.fetch_with_retry.assert_called_once()
     assert len(lounges) == len(_LOUNGE_GROUPS)
     assert all(isinstance(lounge, Lounge) for lounge in lounges)
     assert lounges[0].room_name == 'SL1'
