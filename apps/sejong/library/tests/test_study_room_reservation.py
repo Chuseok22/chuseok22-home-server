@@ -283,3 +283,38 @@ def test_reserve_retries_both_stages_with_fresh_session_after_expiry() -> None:
     stale_session.post.assert_not_called()
     fresh_session.get.assert_called_once()
     fresh_session.post.assert_called_once()
+
+
+def test_reserve_returns_auth_failure_result_when_still_expired_after_retry() -> None:
+    """재인증에는 성공했지만 새 세션으로도 만료가 감지되면, auto_reserve()의 후보 탐색
+    루프가 즉시 중단되도록 인증 실패 결과를 반환한다(placeholder 결과를 반환하지 않는다)."""
+    stale_session = MagicMock()
+    fresh_session = MagicMock()
+    for session in (stale_session, fresh_session):
+        expired_response = MagicMock()
+        expired_response.url = 'https://libseat.sejong.ac.kr/login'
+        expired_response.text = ''
+        expired_response.raise_for_status.return_value = None
+        session.get.return_value = expired_response
+
+    stale_auth = AuthSession(token='stale', session=stale_session)
+    fresh_auth = AuthSession(token='fresh', session=fresh_session)
+
+    service = StudyRoomReservationService()
+    params = _make_params()
+
+    with (
+        patch.object(SejongLibraryAuthService, '_login', side_effect=[stale_auth, fresh_auth]) as mock_login,
+        patch.object(
+            SejongLibraryAuthService, 'fetch_with_retry',
+            autospec=True, side_effect=SejongLibraryAuthService.fetch_with_retry,
+        ) as mock_fetch_with_retry,
+    ):
+        result = service.reserve(params)
+
+    mock_fetch_with_retry.assert_called_once()
+    assert mock_login.call_count == 2
+    assert result.success is False
+    assert result.result_code == _AUTH_FAILURE_CODE
+    stale_session.post.assert_not_called()
+    fresh_session.post.assert_not_called()

@@ -116,6 +116,7 @@ class SejongLibraryAuthService:
 
         Returns:
             operation의 result. 로그인 자체가 실패하면(캐시도 재로그인도 실패) None.
+            재인증 직후에도 세션이 만료로 감지되면(인증 상태 이상으로 간주) None.
         """
         auth_session = self.create_session()
         if auth_session is None:
@@ -127,7 +128,10 @@ class SejongLibraryAuthService:
             auth_session = self.create_session(force_refresh=True, stale=auth_session)
             if auth_session is None:
                 return None
-            result, _ = operation(auth_session)
+            result, expired = operation(auth_session)
+            if expired:
+                logger.error('재인증 직후에도 세션 만료가 감지되었습니다. 인증 상태 이상으로 간주합니다.')
+                return None
 
         return result
 

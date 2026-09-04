@@ -145,6 +145,25 @@ def test_fetch_with_retry_returns_none_when_reauth_fails_after_expiry() -> None:
     assert result is None
 
 
+def test_fetch_with_retry_returns_none_when_still_expired_after_retry() -> None:
+    """재인증에는 성공했지만 새 세션으로도 만료가 감지되면, 두 번째 만료를 무시하고
+    부정확한 placeholder 결과를 돌려주는 대신 None(인증 상태 이상)을 반환한다."""
+    service = SejongLibraryAuthService()
+    stale_session = AuthSession(token='stale', session=MagicMock())
+    fresh_session = AuthSession(token='fresh', session=MagicMock())
+
+    def operation(session: AuthSession) -> tuple[str, bool]:
+        return 'placeholder', True
+
+    with patch.object(
+        SejongLibraryAuthService, '_login', side_effect=[stale_session, fresh_session],
+    ) as mock_login:
+        result = service.fetch_with_retry(operation)
+
+    assert result is None
+    assert mock_login.call_count == 2
+
+
 def test_fetch_with_retry_returns_none_when_initial_login_fails() -> None:
     service = SejongLibraryAuthService()
     operation = MagicMock()
