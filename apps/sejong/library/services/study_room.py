@@ -76,7 +76,7 @@ class StudyRoomService:
     def fetch_all_rooms(self, reserve_date: str) -> list[StudyRoom]:
         """전체 스터디룸(01~13) 가용 현황을 반환한다.
 
-        세션 만료 감지 시 재인증 후 1회 재시도한다.
+        세션은 SejongLibraryAuthService가 캐싱하며, 만료 감지 시에만 재인증 후 1회 재시도한다.
 
         Args:
             reserve_date: 조회 날짜 (YYYYMMDD 형식)
@@ -84,20 +84,10 @@ class StudyRoomService:
         Returns:
             전체 룸 목록. 인증 실패 또는 조회 오류 시 빈 리스트.
         """
-        token = self._auth.fetch_token()
-        if token is None:
-            return []
-
-        rooms, expired = self._fetch_with_token(token, reserve_date)
-
-        if expired:
-            logger.warning('세션 만료 감지. 재인증 후 재시도합니다.')
-            token = self._auth.fetch_token()
-            if token is None:
-                return []
-            rooms, _ = self._fetch_with_token(token, reserve_date)
-
-        return rooms
+        result = self._auth.fetch_with_retry(
+            lambda auth_session: self._fetch_with_token(auth_session.token, reserve_date)
+        )
+        return result if result is not None else []
 
     def _fetch_with_token(
         self,

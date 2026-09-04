@@ -38,10 +38,8 @@ docs
 .report
 .playwright-mcp
 .superpowers
+.claude/PRPs/
 
-# 세종대 학술정보원 리서치용 캡처 파일 (개인정보 포함, 절대 커밋 금지)
-/libseat.html
-/libseat.sejong.ac.kr.har
-/slounge.har
-/loungeList.php
-/loungeMap.php
+# 리서치용 캡처 파일 (개인정보 포함 가능, 절대 커밋 금지)
+*.har
+/libseat*.html
