@@ -1,6 +1,7 @@
 from dataclasses import fields
 from unittest.mock import MagicMock, patch
 
+from apps.sejong.library.services.sejong_auth import AuthSession, SejongLibraryAuthService
 from apps.sejong.library.services.slounge import Lounge, LoungeSlot, SloungeService, _LOUNGE_GROUPS
 from apps.sejong.library.services.study_room import RoomSlot, StudyRoom
 
@@ -26,8 +27,12 @@ def test_lounge_groups_cover_all_six_known_groups() -> None:
 
 def test_fetch_all_lounges_returns_empty_list_when_token_missing() -> None:
     service = SloungeService()
-    service._auth = MagicMock()
+    # spec=으로 존재하지 않는 속성 접근을 막고, fetch_token도 함께 None으로 고정해 — 아직 코드가
+    # 옛 fetch_token() 경로를 쓰는 RED 단계에서도 진짜 requests.Session()이 만들어져 학술정보원에
+    # 실제 GET을 날리는 일이 없도록 이중으로 막는다(마이그레이션 전후 모두 안전).
+    service._auth = MagicMock(spec=SejongLibraryAuthService)
     service._auth.fetch_token.return_value = None
+    service._auth.fetch_with_retry.return_value = None
 
     assert service.fetch_all_lounges('20260901') == []
 
@@ -44,8 +49,11 @@ def test_fetch_all_lounges_parses_all_groups(mock_session_cls) -> None:
     mock_session_cls.return_value = mock_session
 
     service = SloungeService()
-    service._auth = MagicMock()
-    service._auth.fetch_token.return_value = 'test-token'
+    service._auth = MagicMock(spec=SejongLibraryAuthService)
+    fake_auth_session = AuthSession(token='test-token', session=MagicMock())
+    service._auth.fetch_with_retry.side_effect = (
+        lambda operation: operation(fake_auth_session)[0]
+    )
 
     lounges = service.fetch_all_lounges('20260901')
 

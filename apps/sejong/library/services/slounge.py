@@ -79,22 +79,12 @@ class SloungeService:
     def fetch_all_lounges(self, reserve_date: str) -> list[Lounge]:
         """전체 S-Lounge 가용 현황을 반환한다.
 
-        세션 만료 감지 시 재인증 후 1회 재시도한다.
+        세션은 SejongLibraryAuthService가 캐싱하며, 만료 감지 시에만 재인증 후 1회 재시도한다.
         """
-        token = self._auth.fetch_token()
-        if token is None:
-            return []
-
-        lounges, expired = self._fetch_with_token(token, reserve_date)
-
-        if expired:
-            logger.warning('세션 만료 감지. 재인증 후 재시도합니다.')
-            token = self._auth.fetch_token()
-            if token is None:
-                return []
-            lounges, _ = self._fetch_with_token(token, reserve_date)
-
-        return lounges
+        result = self._auth.fetch_with_retry(
+            lambda auth_session: self._fetch_with_token(auth_session.token, reserve_date)
+        )
+        return result if result is not None else []
 
     def _fetch_with_token(
         self,
