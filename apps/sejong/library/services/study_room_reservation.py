@@ -4,7 +4,8 @@ from dataclasses import dataclass
 
 import requests
 
-from apps.sejong.library.services.sejong_auth import SejongLibraryAuthService
+from apps.sejong.library.services._room_map_parser import is_session_expired
+from apps.sejong.library.services.sejong_auth import AuthSession, SejongLibraryAuthService
 from apps.sejong.library.services.study_room import StudyRoomService
 from apps.sejong.library.services.validation import validate_attendee_count
 
@@ -22,6 +23,8 @@ _HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'ko-KR,ko;q=0.9',
 }
+_AUTH_FAILURE_CODE = 'AUTH_FAIL'  # 9자 — ReservationHistory.result_code(CharField(max_length=10))에
+                                   # 저장 가능해야 하므로 반드시 10자 이하로 유지할 것
 
 
 @dataclass(frozen=True)
@@ -61,28 +64,80 @@ class StudyRoomReservationService:
 
     def reserve(self, params: ReservationParams) -> ReservationResult:
         """스터디룸을 직접 지정해 예약한다."""
-        auth_session = self._auth.create_session()
-        if auth_session is None:
+        result = self._auth.fetch_with_retry(
+            lambda auth_session: self._reserve_with_session(auth_session, params)
+        )
+        if result is None:
             return ReservationResult(
                 success=False,
-                result_code='-1',
+                result_code=_AUTH_FAILURE_CODE,
                 result_message='인증 실패. SEJONG_STUDENT_ID/SEJONG_PASSWORD 설정을 확인하세요.',
             )
+        return result
 
-        if not self._init_reservation_session(auth_session.session, auth_session.token, params):
-            return ReservationResult(
-                success=False,
-                result_code='-1',
-                result_message='예약 페이지 접근 실패.',
+    def _reserve_with_session(
+        self,
+        auth_session: AuthSession,
+        params: ReservationParams,
+    ) -> tuple[ReservationResult, bool]:
+        """세션으로 예약 페이지 초기화(GET) + 예약 요청(POST)을 순서대로 수행한다.
+
+        두 단계를 하나의 operation으로 묶는 이유: 만료가 두 호출 사이에서 일어날 수 있고,
+        재시도 시 두 단계를 처음부터 다시 실행해야 서버측 PHP 세션 상태가 정합하게 다시 서기
+        때문이다(초기화만 다시 하고 POST를 건너뛰거나, 그 반대는 의미가 없다).
+
+        Returns:
+            (result, session_expired) 튜플. session_expired=True면 fetch_with_retry가 재인증
+            후 이 메서드를 처음부터 다시 호출한다 — 이때 함께 반환하는 result는 재시도 자체가
+            실패했을 때만(재인증 실패) 그대로 노출되는 placeholder다.
+        """
+        session = auth_session.session
+        token = auth_session.token
+
+        init_response = self._init_reservation_session(session, token, params)
+        if init_response is None:
+            return (
+                ReservationResult(
+                    success=False, result_code='-1', result_message='예약 페이지 접근 실패.',
+                ),
+                False,
+            )
+        if is_session_expired(init_response):
+            return (
+                ReservationResult(
+                    success=False, result_code='-1', result_message='예약 페이지 접근 실패.',
+                ),
+                True,
             )
 
-        result = self._post_reservation(auth_session.session, params)
-        return ReservationResult(
-            success=result.success,
-            result_code=result.result_code,
-            result_message=result.result_message,
-            room_no=params.room_no,
-            room_name=params.room_name,
+        post_response = self._post_reservation(session, params)
+        if post_response is None:
+            return (
+                ReservationResult(
+                    success=False, result_code='-1',
+                    result_message='예약 요청 중 네트워크 오류가 발생했습니다.',
+                    room_no=params.room_no, room_name=params.room_name,
+                ),
+                False,
+            )
+        if is_session_expired(post_response):
+            return (
+                ReservationResult(
+                    success=False, result_code='-1',
+                    result_message='예약 요청 중 네트워크 오류가 발생했습니다.',
+                    room_no=params.room_no, room_name=params.room_name,
+                ),
+                True,
+            )
+
+        parsed = _parse_reservation_response(post_response.text)
+        return (
+            ReservationResult(
+                success=parsed.success, result_code=parsed.result_code,
+                result_message=parsed.result_message,
+                room_no=params.room_no, room_name=params.room_name,
+            ),
+            False,
         )
 
     def auto_reserve(
@@ -136,6 +191,11 @@ class StudyRoomReservationService:
                 result = self.reserve(params)
                 if result.success:
                     return result
+                if result.result_code == _AUTH_FAILURE_CODE:
+                    logger.error(
+                        '인증 실패로 후보 룸 탐색을 중단합니다 (roomNo=%s).', slot.room_no,
+                    )
+                    return result
                 # 예약 실패(경쟁 등) 시 다음 후보 룸 탐색 계속
                 logger.warning(
                     '후보 룸 예약 실패 (roomNo=%s, code=%s). 다음 후보 탐색.',
@@ -157,8 +217,12 @@ class StudyRoomReservationService:
         session: requests.Session,
         token: str,
         params: ReservationParams,
-    ) -> bool:
-        """sroomReserveMain.php GET으로 PHP 세션을 수립한다."""
+    ) -> requests.Response | None:
+        """sroomReserveMain.php GET으로 PHP 세션을 수립한다.
+
+        응답을 그대로 반환한다(만료 판정은 호출자인 _reserve_with_session이 한다).
+        네트워크 오류 시 None.
+        """
         try:
             response = session.get(
                 _SROOM_RESERVE_MAIN_URL,
@@ -176,17 +240,21 @@ class StudyRoomReservationService:
                 timeout=_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
-            return True
+            return response
         except requests.RequestException as e:
             logger.error('예약 페이지 초기화 실패 (roomNo=%s): %s', params.room_no, e)
-            return False
+            return None
 
     def _post_reservation(
         self,
         session: requests.Session,
         params: ReservationParams,
-    ) -> ReservationResult:
-        """sroomReserve.php POST로 예약을 요청한다."""
+    ) -> requests.Response | None:
+        """sroomReserve.php POST로 예약을 요청한다.
+
+        응답을 그대로 반환한다(만료 판정·XML 파싱은 호출자인 _reserve_with_session이 한다).
+        네트워크 오류 시 None.
+        """
         user_ids = '|'.join(a.student_id for a in params.attendees)
         user_names = '|'.join(a.name for a in params.attendees)
 
@@ -204,15 +272,10 @@ class StudyRoomReservationService:
                 timeout=_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
+            return response
         except requests.RequestException as e:
             logger.error('예약 요청 실패 (roomNo=%s): %s', params.room_no, e)
-            return ReservationResult(
-                success=False,
-                result_code='-1',
-                result_message='예약 요청 중 네트워크 오류가 발생했습니다.',
-            )
-
-        return _parse_reservation_response(response.text)
+            return None
 
 
 def _parse_reservation_response(xml_text: str) -> ReservationResult:
