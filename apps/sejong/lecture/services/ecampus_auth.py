@@ -30,6 +30,14 @@ _HEADERS = {
 }
 
 
+class _NetworkLoginError(Exception):
+    """로그인 POST 자체가 네트워크 오류(타임아웃, 5xx 등)로 실패했을 때 발생한다.
+
+    자격증명이 실제로 거부된 경우(_login()이 None을 반환)와 구분해야 한다 - 전자는
+    계정 잠금과 무관하므로 backoff를 걸면 안 된다.
+    """
+
+
 @dataclass
 class EcampusSession:
     session: requests.Session
@@ -73,9 +81,14 @@ class EcampusMoodleAuthService:
                 logger.warning('최근 로그인 실패 이후 backoff 기간 중입니다. 재로그인을 건너뜁니다.')
                 return None
 
-            new_session = self._login()
-            if new_session is None:
-                EcampusMoodleAuthService._last_login_failure_at = time.monotonic()
+            try:
+                new_session = self._login()
+            except _NetworkLoginError:
+                # 네트워크 오류는 자격증명 거부가 아니므로 backoff를 걸지 않는다.
+                new_session = None
+            else:
+                if new_session is None:
+                    EcampusMoodleAuthService._last_login_failure_at = time.monotonic()
             EcampusMoodleAuthService._cached_session = new_session
             return new_session
 
@@ -119,7 +132,12 @@ class EcampusMoodleAuthService:
         return (time.monotonic() - last_failure) >= _RELOGIN_BACKOFF_SECONDS
 
     def _login(self) -> EcampusSession | None:
-        """실제로 Moodle SSO 폼에 로그인한다 (캐시를 거치지 않는 내부 헬퍼)."""
+        """실제로 Moodle SSO 폼에 로그인한다 (캐시를 거치지 않는 내부 헬퍼).
+
+        네트워크 오류(타임아웃, 5xx 등)는 `_NetworkLoginError`를 일으킨다 - 자격증명
+        거부와 구분해서 backoff 대상에서 제외하기 위함(create_session() 참고). 자격증명이
+        실제로 거부된 경우에만 None을 반환한다.
+        """
         student_id = settings.SEJONG_STUDENT_ID
         password = settings.SEJONG_PASSWORD
         if not student_id or not password:
@@ -146,7 +164,7 @@ class EcampusMoodleAuthService:
             response.raise_for_status()
         except requests.RequestException as e:
             logger.error('집현캠퍼스 로그인 POST 실패: %s', e)
-            return None
+            raise _NetworkLoginError from e
 
         if not _is_login_successful(response):
             logger.error('집현캠퍼스 로그인 실패. 최종 URL: %s', response.url)

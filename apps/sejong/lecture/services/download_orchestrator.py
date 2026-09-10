@@ -90,7 +90,7 @@ class LectureDownloadOrchestrator:
             self._mark_failed(job, '강의 스트림 URL을 찾을 수 없습니다.')
             return
 
-        relative_path = f'{job.id}.mp4'
+        relative_path = job.output_filename
         output_path = job.storage_root / relative_path
         HlsDownloader().download_to_mp4(stream_url, output_path)
 
@@ -98,7 +98,7 @@ class LectureDownloadOrchestrator:
         job.file_relative_path = relative_path
         job.completed_at = timezone.now()
         job.save(update_fields=['status', 'file_relative_path', 'completed_at'])
-        TelegramService().send_admin_alert(f'✅ {job.lecture_title} 다운로드 완료')
+        self._notify(f'✅ {job.lecture_title} 다운로드 완료')
 
     def _mark_failed(self, job: LectureDownloadJob, reason: str) -> None:
         error_message = reason[:_ERROR_MESSAGE_MAX_LENGTH]
@@ -106,4 +106,13 @@ class LectureDownloadOrchestrator:
         job.error_message = error_message
         job.save(update_fields=['status', 'error_message'])
         logger.error('강의 다운로드 실패 (job_id=%s): %s', job.id, error_message)
-        TelegramService().send_admin_alert(f'❌ {job.lecture_title} 다운로드 실패: {error_message}')
+        self._notify(f'❌ {job.lecture_title} 다운로드 실패: {error_message}')
+
+    @staticmethod
+    def _notify(message: str) -> None:
+        """텔레그램 알림은 best-effort로만 시도한다 - 발송 실패가 이미 저장된 작업
+        상태(완료/실패)를 뒤엎으면 안 되므로 예외를 여기서 흡수하고 기록만 한다."""
+        try:
+            TelegramService().send_admin_alert(message)
+        except Exception as e:
+            logger.error('텔레그램 알림 발송 중 예외 발생(작업 상태에는 영향 없음): %s', e)

@@ -19,7 +19,8 @@ _REQUEST_TIMEOUT = 15
 
 _COURSE_ID_RE = re.compile(r'id=(\d+)')
 _LECTURE_ID_RE = re.compile(r'module-(\d+)')
-_M3U8_URL_RE = re.compile(r'https?://[^\s"\'<>]+index\.m3u8')
+# https만 허용 - CDN 인증 토큰이 URL 경로에 포함되므로 http로 노출되면 전송 중 그대로 드러난다.
+_M3U8_URL_RE = re.compile(r'https://[^\s"\'<>]+index\.m3u8')
 
 
 @dataclass(frozen=True)

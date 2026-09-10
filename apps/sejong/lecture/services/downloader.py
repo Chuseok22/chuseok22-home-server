@@ -55,7 +55,9 @@ class HlsDownloader:
         command = ['ffmpeg', '-nostdin', '-y', '-loglevel', 'error']
         if with_referer:
             command += ['-headers', _REFERER_HEADER_VALUE]
-        command += ['-i', m3u8_url, '-c', 'copy', str(temp_path)]
+        # 출력 파일이 임시로 `.mp4.part`로 끝나 ffmpeg가 확장자로 컨테이너 포맷을 추론하지
+        # 못한다("Unable to find a suitable output format") — `-f mp4`로 명시해 우회한다.
+        command += ['-i', m3u8_url, '-c', 'copy', '-f', 'mp4', str(temp_path)]
 
         try:
             subprocess.run(

@@ -31,6 +31,9 @@ def test_download_to_mp4_success_renames_temp_file_to_output(tmp_path: Path) -> 
     assert command[0] == 'ffmpeg'
     assert '-headers' not in command
     assert command[-1] == str(temp_path)
+    # temp_path가 `.mp4.part`로 끝나 확장자로 컨테이너 포맷을 추론할 수 없으므로
+    # `-f mp4`를 명시해야 한다(누락 시 ffmpeg가 "Unable to find a suitable output format").
+    assert command[command.index('-f') + 1] == 'mp4'
 
 
 def test_download_to_mp4_reraises_on_non_403_failure_without_retry(tmp_path: Path) -> None:

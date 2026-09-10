@@ -195,6 +195,39 @@ def test_run_marks_failed_when_downloader_raises_exception() -> None:
 
 
 @pytest.mark.django_db
+def test_run_success_keeps_completed_status_when_telegram_alert_raises() -> None:
+    """텔레그램 발송이 예외를 던져도(예: 라이브러리 버그) 이미 완료된 작업 상태가
+    FAILED로 뒤엎이면 안 된다 - 알림은 best-effort여야 한다."""
+    job = LectureDownloadJob.objects.create(
+        course_id='101', course_name='자료구조', lecture_id='5001', lecture_title='1주차 강의',
+        status=LectureDownloadJob.Status.PENDING,
+    )
+    fake_session = EcampusSession(session=MagicMock())
+
+    with (
+        patch(
+            'apps.sejong.lecture.services.download_orchestrator.EcampusMoodleAuthService.create_session',
+            return_value=fake_session,
+        ),
+        patch(
+            'apps.sejong.lecture.services.download_orchestrator.EcampusCourseService.get_stream_url',
+            return_value='https://cdn.example.com/token/index.m3u8',
+        ),
+        patch('apps.sejong.lecture.services.download_orchestrator.HlsDownloader.download_to_mp4'),
+        patch(
+            'apps.sejong.lecture.services.download_orchestrator.TelegramService.send_admin_alert',
+            side_effect=RuntimeError('텔레그램 라이브러리 오류'),
+        ),
+        patch('apps.sejong.lecture.services.download_orchestrator.connection.close'),
+    ):
+        LectureDownloadOrchestrator()._run(job.id)
+
+    job.refresh_from_db()
+    assert job.status == LectureDownloadJob.Status.COMPLETED
+    assert job.file_relative_path == job.output_filename
+
+
+@pytest.mark.django_db
 def test_run_closes_db_connection_in_finally() -> None:
     job = LectureDownloadJob.objects.create(
         course_id='101', course_name='자료구조', lecture_id='5001', lecture_title='1주차 강의',

@@ -83,12 +83,11 @@ class LectureCourseSelectForm(forms.Form):
 
 
 class LectureDownloadRequestForm(forms.Form):
-    """강의 다운로드 요청 검증. LectureDownloadJob 필드 길이 제약과 동일하게 맞춘다."""
+    """강의 다운로드 요청 검증. course_id/lecture_id만 받는다 - course_name/lecture_title은
+    뷰가 서버에서 다시 조회해 확정하므로(클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다."""
 
     course_id = forms.CharField(max_length=20)
-    course_name = forms.CharField(max_length=200)
     lecture_id = forms.CharField(max_length=20)
-    lecture_title = forms.CharField(max_length=200)
 
 
 class PlaceSuggestionForm(forms.Form):

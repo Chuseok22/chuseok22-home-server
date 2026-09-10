@@ -714,14 +714,28 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
 
 @owner_required
 def lab_lecture_download(request: HttpRequest) -> HttpResponse:
-    """강의 다운로드 요청 처리 (htmx 부분 응답). 검증 실패·중복 요청 모두 200으로 반환한다."""
+    """강의 다운로드 요청 처리 (htmx 부분 응답). 검증 실패·중복 요청 모두 200으로 반환한다.
+
+    lab_lecture_courses와 동일하게, 클라이언트가 보낸 course_name/lecture_title은
+    신뢰하지 않는다 - course_id/lecture_id만 받아 서버에서 다시 조회하고, lecture_id가
+    실제로 그 course_id에 속하는지도 확인한다(조작된 조합으로 엉뚱한 라벨이 이력에
+    저장되는 것을 방지).
+    """
     form = LectureDownloadRequestForm(request.POST)
     if not form.is_valid():
         return HttpResponse('입력값이 올바르지 않습니다.', status=200)
 
     data = form.cleaned_data
-    course = Course(id=data['course_id'], name=data['course_name'])
-    lecture = Lecture(id=data['lecture_id'], title=data['lecture_title'])
+    course_service = EcampusCourseService()
+    courses = course_service.list_courses()
+    course = next((c for c in courses if c.id == data['course_id']), None)
+    if course is None:
+        return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+
+    lectures = course_service.list_lectures(course.id)
+    lecture = next((l for l in lectures if l.id == data['lecture_id']), None)
+    if lecture is None:
+        return HttpResponse('강의를 찾을 수 없습니다.', status=200)
 
     job = LectureDownloadOrchestrator().start(course, lecture)
     if job is None:
@@ -746,10 +760,18 @@ def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpRespons
     """다운로드 이력을 삭제한다 (htmx hx-post, hx-swap="delete"). 존재하지 않는 job도 200으로 처리한다.
 
     DB 레코드 삭제와 파일시스템 삭제는 뷰가 아니라 apps.sejong.lecture.services.job_cleanup에서 수행한다.
+    진행 중(PENDING/RUNNING)인 작업은 삭제할 수 없다 - 오케스트레이터가 job.id로 동시
+    실행을 제한하므로, 진행 중인 행을 지우면 그 제한이 무력화되고 백그라운드 스레드가
+    이미 읽어간 job 인스턴스의 후속 save()가 DatabaseError를 낼 수 있다. 이 경우
+    hx-swap="delete"가 행을 지우면 안 되므로 200이 아닌 409로 응답한다(htmx는 2xx/3xx
+    응답에서만 스왑을 수행한다).
     """
     job = LectureDownloadJob.objects.filter(pk=job_id).first()
-    if job is not None:
-        delete_download_job(job)
+    if job is None:
+        return HttpResponse(status=200)
+    if job.status in (LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING):
+        return HttpResponse('진행 중인 다운로드는 삭제할 수 없습니다.', status=409)
+    delete_download_job(job)
     return HttpResponse(status=200)
 
 

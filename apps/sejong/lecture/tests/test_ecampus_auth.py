@@ -6,6 +6,7 @@ from apps.sejong.lecture.services.ecampus_auth import (
     EcampusMoodleAuthService,
     EcampusSession,
     _is_login_successful,
+    _NetworkLoginError,
 )
 
 
@@ -133,6 +134,34 @@ def test_login_returns_none_when_credentials_missing(settings) -> None:
     service = EcampusMoodleAuthService()
 
     assert service._login() is None
+
+
+def test_create_session_does_not_set_backoff_on_network_error() -> None:
+    """네트워크 오류(타임아웃/5xx)는 자격증명 거부가 아니므로 backoff를 걸면 안 된다."""
+    service = EcampusMoodleAuthService()
+
+    with patch.object(EcampusMoodleAuthService, '_login', side_effect=_NetworkLoginError):
+        result1 = service.create_session()
+
+    assert result1 is None
+    assert EcampusMoodleAuthService._last_login_failure_at is None
+
+    fresh_session = EcampusSession(session=MagicMock())
+    with patch.object(EcampusMoodleAuthService, '_login', return_value=fresh_session) as mock_login:
+        result2 = service.create_session(force_refresh=True, stale=None)
+
+    assert result2 is fresh_session
+    mock_login.assert_called_once()
+
+
+def test_create_session_sets_backoff_only_on_credential_rejection() -> None:
+    """자격증명이 실제로 거부된 경우(_login()이 None 반환)에만 backoff가 걸린다."""
+    service = EcampusMoodleAuthService()
+
+    with patch.object(EcampusMoodleAuthService, '_login', return_value=None):
+        service.create_session()
+
+    assert EcampusMoodleAuthService._last_login_failure_at is not None
 
 
 def test_fetch_with_retry_returns_result_without_retry_when_not_expired() -> None:

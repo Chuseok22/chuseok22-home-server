@@ -27,14 +27,30 @@ class LectureConfig(AppConfig):
 
         from apps.sejong.lecture.models import LectureDownloadJob
 
-        updated_count = LectureDownloadJob.objects.filter(
-            status__in=[LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING],
+        orphaned_jobs = list(
+            LectureDownloadJob.objects.filter(
+                status__in=[LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING],
+            ),
+        )
+        if not orphaned_jobs:
+            return
+
+        LectureDownloadJob.objects.filter(
+            id__in=[job.id for job in orphaned_jobs],
         ).update(
             status=LectureDownloadJob.Status.FAILED,
             error_message='서버 재시작으로 중단됨',
         )
-        if updated_count:
-            logger.warning('서버 기동 시 고아 다운로드 작업 %d건을 FAILED로 정리했습니다.', updated_count)
+        logger.warning('서버 기동 시 고아 다운로드 작업 %d건을 FAILED로 정리했습니다.', len(orphaned_jobs))
+
+        # 다운로드 중 SIGKILL되면 downloader.py의 예외 핸들러가 실행되지 않아 미완성
+        # `<id>.mp4.part` 임시파일이 영구 볼륨에 그대로 남는다 - 고아 job과 함께 정리한다.
+        for job in orphaned_jobs:
+            temp_path = job.storage_root / f'{job.output_filename}.part'
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError as e:
+                logger.warning('고아 임시파일 삭제 실패 (job_id=%s): %s', job.id, e)
 
 
 def _should_run_orphan_cleanup() -> bool:
