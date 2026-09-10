@@ -76,6 +76,21 @@ class LibraryReserveForm(LibraryReserveSlotForm):
         return cleaned
 
 
+class LectureCourseSelectForm(forms.Form):
+    """강좌/강의 목록 조회 요청. course_id가 없으면 강좌 목록, 있으면 해당 강좌의 강의 목록을 조회한다."""
+
+    course_id = forms.CharField(max_length=20, required=False)
+
+
+class LectureDownloadRequestForm(forms.Form):
+    """강의 다운로드 요청 검증. LectureDownloadJob 필드 길이 제약과 동일하게 맞춘다."""
+
+    course_id = forms.CharField(max_length=20)
+    course_name = forms.CharField(max_length=200)
+    lecture_id = forms.CharField(max_length=20)
+    lecture_title = forms.CharField(max_length=200)
+
+
 class PlaceSuggestionForm(forms.Form):
     restaurant_name = forms.CharField(max_length=100, label='상호명')
     kakao_place_url = forms.URLField(required=False, label='카카오맵 링크')

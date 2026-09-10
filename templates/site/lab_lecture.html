@@ -1,0 +1,37 @@
+{% extends "site/base.html" %}
+
+{% block title %}강의 다운로드 — 백지훈{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">강의 다운로드</h1>
+
+<section class="mb-10">
+  <h2 class="text-lg font-semibold mb-2">강좌 목록</h2>
+  <div id="courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
+    {% include 'site/partials/list_skeleton.html' %}
+  </div>
+  <div
+    id="courses"
+    aria-live="polite"
+    hx-get="{% url 'site:lab-lecture-courses' %}"
+    hx-trigger="load"
+    hx-indicator="#courses-skeleton"
+  ></div>
+  <div id="lectures" class="mt-4" aria-live="polite"></div>
+  <div id="download-result" class="mt-4" aria-live="polite"></div>
+</section>
+
+<section>
+  <h2 class="text-lg font-semibold mb-2">다운로드 이력</h2>
+  <div id="history-skeleton" class="htmx-indicator-block" aria-hidden="true">
+    {% include 'site/partials/list_skeleton.html' %}
+  </div>
+  <div
+    id="history"
+    aria-live="polite"
+    hx-get="{% url 'site:lab-lecture-history' %}"
+    hx-trigger="load"
+    hx-indicator="#history-skeleton"
+  ></div>
+</section>
+{% endblock %}

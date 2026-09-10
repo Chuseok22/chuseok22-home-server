@@ -1,0 +1,48 @@
+{% if courses is not None %}
+  {% if courses %}
+  <ul class="menu bg-base-200 rounded-box">
+    {% for course in courses %}
+    <li>
+      <button
+        type="button"
+        class="btn btn-ghost justify-start"
+        hx-get="{% url 'site:lab-lecture-courses' %}"
+        hx-target="#lectures"
+        hx-indicator="#courses-skeleton"
+        hx-vals='{"course_id": "{{ course.id|escapejs }}"}'
+      >{{ course.name }}</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="opacity-60">수강 중인 강좌가 없습니다.</p>
+  {% endif %}
+{% elif lectures is not None %}
+  <p class="font-semibold mb-2">{{ course_name }} — 강의 목록</p>
+  {% if lectures %}
+  <ul class="menu bg-base-200 rounded-box">
+    {% for lecture in lectures %}
+    <li class="flex-row items-center justify-between gap-2">
+      <span>{{ lecture.title }}</span>
+      <form
+        hx-post="{% url 'site:lab-lecture-download' %}"
+        hx-target="#download-result"
+        hx-disabled-elt="find button"
+        class="shrink-0"
+      >
+        <input type="hidden" name="course_id" value="{{ course_id }}">
+        <input type="hidden" name="course_name" value="{{ course_name }}">
+        <input type="hidden" name="lecture_id" value="{{ lecture.id }}">
+        <input type="hidden" name="lecture_title" value="{{ lecture.title }}">
+        <button type="submit" class="btn btn-primary btn-xs">
+          다운로드
+          <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="opacity-60">이 강좌에는 다운로드할 강의가 없습니다.</p>
+  {% endif %}
+{% endif %}

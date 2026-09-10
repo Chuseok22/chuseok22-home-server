@@ -6,10 +6,11 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator
 from django.db.models import F
-from django.http import HttpRequest, HttpResponse, JsonResponse, QueryDict
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import escape
 from django.views.decorators.http import require_POST, require_http_methods
 
 from apps.activity.models import GithubProfileStats
@@ -56,9 +57,16 @@ from apps.sejong.library.services.study_room_reservation import (
     ReservationParams,
     StudyRoomReservationService,
 )
+from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
+from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
+from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService
+from apps.sejong.lecture.services.job_cleanup import delete_download_job
 from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
 from apps.site.forms import (
+    LectureCourseSelectForm,
+    LectureDownloadRequestForm,
     LibraryDateForm,
     LibraryReserveForm,
     LibraryReserveSlotForm,
@@ -656,6 +664,108 @@ def lab_student_search(request: HttpRequest) -> HttpResponse:
         return HttpResponse('세종대 Classic 서비스에 연결할 수 없습니다.', status=200)
 
     return render(request, 'site/partials/student_results.html', {'results': results})
+
+
+@owner_required
+def lab_lecture(request: HttpRequest) -> HttpResponse:
+    """강의 다운로드 페이지 (소유자 전용)."""
+    return render(request, 'site/lab_lecture.html')
+
+
+@owner_required
+def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
+    """강좌 목록(course_id 없음) 또는 강의 목록(course_id 있음)을 조회한다 (htmx 부분 응답).
+
+    로그인 실패·강좌를 찾을 수 없는 경우 모두 200으로 반환한다. course_id가 주어져도
+    클라이언트가 보낸 강좌명을 신뢰하지 않고 list_courses()로 다시 조회해 실제 강좌명을
+    확인한다.
+    """
+    form = LectureCourseSelectForm(request.GET)
+    if not form.is_valid():
+        return HttpResponse('요청 형식이 올바르지 않습니다.', status=200)
+
+    ecampus_session = EcampusMoodleAuthService().create_session()
+    if ecampus_session is None:
+        return HttpResponse('집현캠퍼스 로그인에 실패했습니다.', status=200)
+
+    course_service = EcampusCourseService()
+    course_id = form.cleaned_data['course_id']
+
+    if not course_id:
+        courses = course_service.list_courses()
+        return render(
+            request,
+            'site/partials/lecture_courses.html',
+            {'courses': courses, 'lectures': None, 'course_id': None, 'course_name': None},
+        )
+
+    courses = course_service.list_courses()
+    course = next((c for c in courses if c.id == course_id), None)
+    if course is None:
+        return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+
+    lectures = course_service.list_lectures(course.id)
+    return render(
+        request,
+        'site/partials/lecture_courses.html',
+        {'courses': None, 'lectures': lectures, 'course_id': course.id, 'course_name': course.name},
+    )
+
+
+@owner_required
+def lab_lecture_download(request: HttpRequest) -> HttpResponse:
+    """강의 다운로드 요청 처리 (htmx 부분 응답). 검증 실패·중복 요청 모두 200으로 반환한다."""
+    form = LectureDownloadRequestForm(request.POST)
+    if not form.is_valid():
+        return HttpResponse('입력값이 올바르지 않습니다.', status=200)
+
+    data = form.cleaned_data
+    course = Course(id=data['course_id'], name=data['course_name'])
+    lecture = Lecture(id=data['lecture_id'], title=data['lecture_title'])
+
+    job = LectureDownloadOrchestrator().start(course, lecture)
+    if job is None:
+        return HttpResponse('이미 진행 중인 다운로드 작업이 있습니다. 완료 후 다시 시도하세요.', status=200)
+
+    return HttpResponse(
+        f'"{escape(lecture.title)}" 다운로드를 시작했습니다. 완료 시 텔레그램으로 알림을 보냅니다.',
+        status=200,
+    )
+
+
+@owner_required
+def lab_lecture_history(request: HttpRequest) -> HttpResponse:
+    """강의 다운로드 이력 목록 (htmx 부분 응답)."""
+    jobs = LectureDownloadJob.objects.all()
+    return render(request, 'site/partials/lecture_history.html', {'jobs': jobs})
+
+
+@owner_required
+@require_POST
+def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpResponse:
+    """다운로드 이력을 삭제한다 (htmx hx-post, hx-swap="delete"). 존재하지 않는 job도 200으로 처리한다.
+
+    DB 레코드 삭제와 파일시스템 삭제는 뷰가 아니라 apps.sejong.lecture.services.job_cleanup에서 수행한다.
+    """
+    job = LectureDownloadJob.objects.filter(pk=job_id).first()
+    if job is not None:
+        delete_download_job(job)
+    return HttpResponse(status=200)
+
+
+@owner_required
+def lab_lecture_history_file(request: HttpRequest, job_id: int) -> HttpResponse:
+    """완료된 강의 다운로드 파일을 스트리밍으로 제공한다.
+
+    job_id(URL 경로 파라미터)로만 파일을 식별하고 사용자 입력으로 경로를 직접 조합하지
+    않아 경로 조작(path traversal)을 차단한다. status가 COMPLETED가 아니거나 파일이
+    실제로 존재하지 않으면 404를 반환한다.
+    """
+    job = get_object_or_404(LectureDownloadJob, pk=job_id, status=LectureDownloadJob.Status.COMPLETED)
+    file_path = job.storage_root / job.file_relative_path
+    if not file_path.is_file():
+        raise Http404('다운로드된 파일을 찾을 수 없습니다.')
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=f'{job.lecture_title}.mp4')
 
 
 _CHAT_MAX_MESSAGE_LENGTH = 2000
