@@ -38,6 +38,7 @@ LOCAL_APPS = [
     'apps.core',
     'apps.notifications',
     'apps.sejong.library',
+    'apps.sejong.lecture',
     'apps.activity',
     'apps.projects',
     'apps.profile',
