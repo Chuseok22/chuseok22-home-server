@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -44,6 +45,37 @@ def test_ready_updates_orphan_jobs_when_running_as_gunicorn(settings) -> None:
     job = LectureDownloadJob.objects.get()
     assert job.status == LectureDownloadJob.Status.FAILED
     assert job.error_message == '서버 재시작으로 중단됨'
+
+
+@pytest.mark.django_db
+def test_ready_removes_orphaned_part_files(settings, tmp_path: Path) -> None:
+    """SIGKILL로 다운로드 도중 죽으면 downloader.py의 실패 핸들러가 실행되지 않아
+    미완성 `<id>.mp4.part`가 영구 볼륨에 그대로 남는다 - 고아 job과 함께 지워야 한다."""
+    settings.DEBUG = False
+    settings.MEDIA_ROOT = tmp_path / 'output' / 'media'
+    job = LectureDownloadJob.objects.create(
+        course_id='1', course_name='c', lecture_id='1', lecture_title='l',
+        status=LectureDownloadJob.Status.RUNNING,
+    )
+    part_path = job.storage_root / f'{job.output_filename}.part'
+    part_path.parent.mkdir(parents=True, exist_ok=True)
+    part_path.write_bytes(b'incomplete')
+
+    with patch('apps.sejong.lecture.apps.sys.argv', ['/app/.venv/bin/gunicorn', 'config.wsgi:application']):
+        LectureConfig('apps.sejong.lecture', __import__('apps.sejong.lecture', fromlist=['x'])).ready()
+
+    assert not part_path.exists()
+
+
+@pytest.mark.django_db
+def test_ready_with_no_orphaned_jobs_is_a_noop(settings) -> None:
+    """정리할 job이 없으면 조기 반환한다 - 예외 없이 끝나고 아무 것도 바뀌지 않아야 한다."""
+    settings.DEBUG = False
+
+    with patch('apps.sejong.lecture.apps.sys.argv', ['/app/.venv/bin/gunicorn', 'config.wsgi:application']):
+        LectureConfig('apps.sejong.lecture', __import__('apps.sejong.lecture', fromlist=['x'])).ready()
+
+    assert LectureDownloadJob.objects.count() == 0
 
 
 @pytest.mark.django_db

@@ -733,7 +733,7 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
         return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
 
     lectures = course_service.list_lectures(course.id)
-    lecture = next((l for l in lectures if l.id == data['lecture_id']), None)
+    lecture = next((item for item in lectures if item.id == data['lecture_id']), None)
     if lecture is None:
         return HttpResponse('강의를 찾을 수 없습니다.', status=200)
 

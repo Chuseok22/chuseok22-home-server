@@ -31,6 +31,21 @@ def test_start_creates_pending_job_and_starts_background_thread() -> None:
 
 
 @pytest.mark.django_db
+def test_start_truncates_course_name_and_lecture_title_to_field_limit() -> None:
+    """Moodle에서 긁어온 이름/제목은 길이 제한이 없으므로, DB 컬럼(max_length=200)을
+    넘겨 락 안에서 DataError가 나지 않도록 잘라서 저장해야 한다."""
+    long_course = Course(id='101', name='자' * 250)
+    long_lecture = Lecture(id='5001', title='주' * 250)
+
+    with patch('apps.sejong.lecture.services.download_orchestrator.threading.Thread'):
+        job = LectureDownloadOrchestrator().start(long_course, long_lecture)
+
+    assert job is not None
+    assert len(job.course_name) == 200
+    assert len(job.lecture_title) == 200
+
+
+@pytest.mark.django_db
 def test_start_returns_none_when_job_already_pending() -> None:
     LectureDownloadJob.objects.create(
         course_id='999', course_name='이미 진행 중', lecture_id='1', lecture_title='기존 강의',
@@ -93,9 +108,12 @@ def test_run_success_marks_completed_and_sends_telegram_alert() -> None:
         ) as mock_alert,
         # 테스트 DB 커넥션은 pytest-django의 트랜잭션 격리에 쓰이므로 실제로 닫으면 안 된다 —
         # connection.close() 호출 자체는 test_run_closes_db_connection_in_finally에서 별도 검증한다.
-        patch('apps.sejong.lecture.services.download_orchestrator.connection.close'),
+        patch('apps.sejong.lecture.services.download_orchestrator.connection.close') as mock_close,
     ):
         LectureDownloadOrchestrator()._run(job.id)
+
+    # ffmpeg 호출 전(idle 커넥션 방지)과 finally, 최소 2번은 close()가 불려야 한다.
+    assert mock_close.call_count >= 2
 
     job.refresh_from_db()
     assert job.status == LectureDownloadJob.Status.COMPLETED

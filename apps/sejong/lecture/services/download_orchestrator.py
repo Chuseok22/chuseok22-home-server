@@ -43,9 +43,11 @@ class LectureDownloadOrchestrator:
 
             job = LectureDownloadJob.objects.create(
                 course_id=course.id,
-                course_name=course.name,
+                # Moodle에서 긁어온 이름/제목은 길이 제한이 없으므로, 모델 필드 max_length를
+                # 초과해 DataError로 락 안에서 요청이 죽는 일이 없도록 여기서 잘라둔다.
+                course_name=course.name[:200],
                 lecture_id=lecture.id,
-                lecture_title=lecture.title,
+                lecture_title=lecture.title[:200],
                 status=LectureDownloadJob.Status.PENDING,
             )
 
@@ -89,6 +91,11 @@ class LectureDownloadOrchestrator:
         if stream_url is None:
             self._mark_failed(job, '강의 스트림 URL을 찾을 수 없습니다.')
             return
+
+        # ffmpeg는 최대 _FFMPEG_TIMEOUT_SECONDS(2시간) 동안 실행될 수 있어, 그 사이 이
+        # 커넥션이 idle 상태로 방치되면 DB/네트워크 타임아웃으로 끊길 수 있다. 여기서
+        # 닫아두면 이후 첫 ORM 호출(job.save())에서 Django가 새 커넥션을 lazy하게 연다.
+        connection.close()
 
         relative_path = job.output_filename
         output_path = job.storage_root / relative_path
