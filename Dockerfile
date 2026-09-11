@@ -15,11 +15,13 @@ WORKDIR /app
 # 시스템 패키지
 # - ca-certificates: https 요청 시 인증서 문제 방지 (httpx 등)
 # - nodejs/npm: django-tailwind 빌드에 필요
+# - ffmpeg: 집현캠퍼스 강의 HLS(m3u8) 다운로드/mp4 병합에 필요
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       ca-certificates \
       nodejs \
-      npm && \
+      npm \
+      ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # requirements 먼저 복사해 Docker 레이어 캐시 활용

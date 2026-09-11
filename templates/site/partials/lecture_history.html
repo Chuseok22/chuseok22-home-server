@@ -1,0 +1,52 @@
+{% if jobs %}
+<div class="overflow-x-auto">
+  <table class="table table-zebra">
+    <thead>
+      <tr>
+        <th scope="col">강좌</th>
+        <th scope="col">강의</th>
+        <th scope="col">상태</th>
+        <th scope="col">요청 시각</th>
+        <th scope="col"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr id="job-row-{{ job.id }}">
+        <td>{{ job.course_name }}</td>
+        <td>{{ job.lecture_title }}</td>
+        <td>
+          {% if job.status == 'completed' %}
+          <span class="badge badge-success">완료</span>
+          {% elif job.status == 'failed' %}
+          <span class="badge badge-error" title="{{ job.error_message }}">실패</span>
+          {% elif job.status == 'running' %}
+          <span class="badge badge-info">진행중</span>
+          {% else %}
+          <span class="badge badge-ghost">대기</span>
+          {% endif %}
+        </td>
+        <td class="text-xs opacity-60">{{ job.created_at|date:'Y-m-d H:i' }}</td>
+        <td class="flex gap-2 justify-end">
+          {% if job.status == 'completed' %}
+          <a href="{% url 'site:lab-lecture-history-file' job.id %}" class="btn btn-ghost btn-xs">다운로드</a>
+          {% endif %}
+          {% if job.status == 'completed' or job.status == 'failed' %}
+          <button
+            type="button"
+            class="btn btn-ghost btn-xs"
+            hx-post="{% url 'site:lab-lecture-history-delete' job.id %}"
+            hx-target="#job-row-{{ job.id }}"
+            hx-swap="delete"
+            hx-confirm="{{ job.lecture_title }} 다운로드 이력을 삭제할까요?"
+          >삭제</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="opacity-60">다운로드 이력이 없습니다.</p>
+{% endif %}

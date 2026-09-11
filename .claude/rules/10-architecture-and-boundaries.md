@@ -21,6 +21,7 @@
 - management command는 전체 흐름을 조율하되 세부 로직은 직접 구현하지 않는다.
 - REST API: DRF `APIView` / `@api_view`, JWT 인증 (`SimpleJWT`)
 - 주기 실행 작업은 외부 크론이 아니라 `apps.core`의 `django-apscheduler` 기반 인앱 스케줄러(`scheduler.py`, `ScheduledJobConfig` 모델)로 등록·관리한다. 새 주기 작업 추가 시 이 스케줄러에 등록하고, 별도 시스템 크론을 새로 만들지 않는다.
+- **요청 트리거형 1회성 백그라운드 작업**(사용자별 파라미터를 받아 그 즉시 비동기로 실행해야 하는 작업. 예: `apps.sejong.lecture`의 강의 다운로드)은 위 스케줄러 대상이 아니다 — `apps.core.scheduler`는 정적 `JOB_DEFINITIONS` + `CronTrigger` 전용이라 파라미터화된 1회성 작업을 표현할 수 없다. Celery/Redis도 금지이므로, Gunicorn 단일 워커·다중 스레드(`--workers 1 --threads N`) 배포를 전제로 `threading.Thread(daemon=True)` + DB 상태 모델(진행 상태를 pending/running/completed/failed로 기록)로 처리한다. 이 패턴을 쓸 때 필수 사항: (1) 동시 실행 수를 클래스 레벨 `threading.Lock`으로 원자적으로 제한, (2) 스레드 종료 시 `django.db.connection.close()`로 커넥션 정리(DB 커넥션은 스레드 로컬이라 자동으로 닫히지 않음), (3) 배포는 컨테이너를 즉시 SIGKILL로 교체하므로(`.github/workflows/`) 앱 기동 시(`AppConfig.ready()`) 고아 상태(pending/running)를 실패로 정리. 참고 구현: `apps.sejong.lecture.services.download_orchestrator.LectureDownloadOrchestrator`, `apps.sejong.lecture.apps.LectureConfig.ready()`.
 
 ## Module boundaries
 
