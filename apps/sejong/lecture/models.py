@@ -39,8 +39,3 @@ class LectureDownloadJob(models.Model):
         """
         return Path(settings.MEDIA_ROOT).parent / 'lectures'
 
-    @property
-    def output_filename(self) -> str:
-        """`storage_root` 기준 최종 mp4 파일명. download_orchestrator와 apps.py의
-        고아 임시파일 정리 로직이 같은 네이밍 규칙을 쓰도록 한 곳에 모아둔다."""
-        return f'{self.id}.mp4'

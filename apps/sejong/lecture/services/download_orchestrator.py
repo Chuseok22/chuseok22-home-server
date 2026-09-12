@@ -10,6 +10,7 @@ from apps.sejong.lecture.models import LectureDownloadJob
 from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
 from apps.sejong.lecture.services.downloader import HlsDownloader, _mask_urls_in_text
 from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService
+from apps.sejong.lecture.services.filename import build_lecture_filename
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class LectureDownloadOrchestrator:
         # 닫아두면 이후 첫 ORM 호출(job.save())에서 Django가 새 커넥션을 lazy하게 연다.
         connection.close()
 
-        relative_path = job.output_filename
+        relative_path = build_lecture_filename(job.course_name, job.lecture_title, job.id)
         output_path = job.storage_root / relative_path
         HlsDownloader().download_to_mp4(stream_url, output_path)
 

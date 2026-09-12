@@ -6,6 +6,7 @@ from apps.sejong.lecture.models import LectureDownloadJob
 from apps.sejong.lecture.services.course import Course, Lecture
 from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
 from apps.sejong.lecture.services.ecampus_auth import EcampusSession
+from apps.sejong.lecture.services.filename import build_lecture_filename
 
 _COURSE = Course(id='101', name='자료구조')
 _LECTURE = Lecture(id='5001', title='1주차 강의')
@@ -117,7 +118,7 @@ def test_run_success_marks_completed_and_sends_telegram_alert() -> None:
 
     job.refresh_from_db()
     assert job.status == LectureDownloadJob.Status.COMPLETED
-    assert job.file_relative_path == f'{job.id}.mp4'
+    assert job.file_relative_path == build_lecture_filename(job.course_name, job.lecture_title, job.id)
     assert job.completed_at is not None
     mock_download.assert_called_once()
     mock_alert.assert_called_once()
@@ -242,7 +243,7 @@ def test_run_success_keeps_completed_status_when_telegram_alert_raises() -> None
 
     job.refresh_from_db()
     assert job.status == LectureDownloadJob.Status.COMPLETED
-    assert job.file_relative_path == job.output_filename
+    assert job.file_relative_path == build_lecture_filename(job.course_name, job.lecture_title, job.id)
 
 
 @pytest.mark.django_db

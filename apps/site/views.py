@@ -61,6 +61,7 @@ from apps.sejong.lecture.models import LectureDownloadJob
 from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
 from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
 from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService
+from apps.sejong.lecture.services.filename import build_lecture_filename
 from apps.sejong.lecture.services.job_cleanup import delete_download_job
 from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
@@ -805,7 +806,8 @@ def lab_lecture_history_file(request: HttpRequest, job_id: int) -> HttpResponse:
     file_path = job.storage_root / job.file_relative_path
     if not file_path.is_file():
         raise Http404('다운로드된 파일을 찾을 수 없습니다.')
-    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=f'{job.lecture_title}.mp4')
+    filename = build_lecture_filename(job.course_name, job.lecture_title)
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
 
 _CHAT_MAX_MESSAGE_LENGTH = 2000
