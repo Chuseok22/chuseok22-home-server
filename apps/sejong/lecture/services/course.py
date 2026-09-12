@@ -193,8 +193,17 @@ def _parse_past_courses(html: str) -> list[Course]:
         row = link.find_parent('tr')
         cells = row.select('td') if row else []
         if len(cells) < 2:
+            logger.warning(
+                '과거강좌 조회 결과 행에서 연도/학기 <td>를 찾지 못해 강좌를 건너뜀 '
+                '(course_id=%s) - HTML 구조 변경 가능성',
+                match.group(1),
+            )
             continue
         year = cells[0].get_text(strip=True)
+        # 연도 셀이 숫자가 아니면(빈 값, 비정상 텍스트 등) 원문을 그대로 두지 않고 'all'로
+        # 폴백한다 - semester와 동일한 이유: 원문이 LECTURE_YEAR_CHOICES의 ChoiceField 검증을
+        # 통과하지 못하면 이 강좌를 클릭했을 때 조회 자체가 실패하게 된다.
+        year = year if year.isdigit() else 'all'
         semester_label = cells[1].get_text(strip=True)
         semester = _SEMESTER_CODE_BY_LABEL.get(semester_label, 'all')
         course_id = match.group(1)

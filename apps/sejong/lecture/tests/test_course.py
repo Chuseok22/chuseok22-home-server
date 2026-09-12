@@ -39,6 +39,30 @@ _UNKNOWN_SEMESTER_LABEL_HTML = '''
 </body></html>
 '''
 
+_UNKNOWN_YEAR_LABEL_HTML = '''
+<html><body>
+<a href="https://ecampus.sejong.ac.kr/login/logout.php?sesskey=x">로그아웃</a>
+<table><tbody>
+<tr><td>알수없음</td><td>1학기</td><td>
+  <a href="https://ecampus.sejong.ac.kr/course/view.php?id=99002" class="coursefullname">
+    연도미상강좌</a>
+</td></tr>
+</tbody></table>
+</body></html>
+'''
+
+_MISSING_YEAR_SEMESTER_CELLS_HTML = '''
+<html><body>
+<a href="https://ecampus.sejong.ac.kr/login/logout.php?sesskey=x">로그아웃</a>
+<table><tbody>
+<tr><td>
+  <a href="https://ecampus.sejong.ac.kr/course/view.php?id=99003" class="coursefullname">
+    셀누락강좌</a>
+</td></tr>
+</tbody></table>
+</body></html>
+'''
+
 _LECTURES_HTML = '''
 <html><body>
 <ul>
@@ -198,6 +222,36 @@ def test_search_past_courses_maps_unknown_semester_label_to_all() -> None:
         courses = service.search_past_courses(year='2023', semester='all')
 
     assert courses == [Course(id='99001', name='특별강좌', year='2023', semester='all')]
+
+
+def test_search_past_courses_maps_unknown_year_label_to_all() -> None:
+    """연도 셀이 숫자가 아니면 'all' 코드로 폴백한다 - semester와 동일한 이유로, ChoiceField가
+    거부하지 않는 값이어야 이 강좌를 클릭했을 때 조회가 실패하지 않는다."""
+    service = EcampusCourseService()
+    http_session = MagicMock()
+    http_session.get.return_value = _fake_response(_UNKNOWN_YEAR_LABEL_HTML)
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        courses = service.search_past_courses(year='2023', semester='all')
+
+    assert courses == [Course(id='99002', name='연도미상강좌', year='all', semester='10')]
+
+
+def test_search_past_courses_skips_row_with_missing_cells_and_logs_warning(caplog) -> None:
+    """연도/학기 <td>가 부족한 행은 강좌를 건너뛰되, HTML 구조 변경을 감지할 수 있도록
+    warning을 남긴다."""
+    service = EcampusCourseService()
+    http_session = MagicMock()
+    http_session.get.return_value = _fake_response(_MISSING_YEAR_SEMESTER_CELLS_HTML)
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        with caplog.at_level('WARNING'):
+            courses = service.search_past_courses(year='2023', semester='all')
+
+    assert courses == []
+    assert any('99003' in record.getMessage() for record in caplog.records)
 
 
 def test_search_past_courses_returns_empty_list_when_not_authenticated() -> None:
