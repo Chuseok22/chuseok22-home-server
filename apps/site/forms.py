@@ -91,27 +91,42 @@ LECTURE_SEMESTER_CHOICES = [
 
 
 class LectureCourseSelectForm(forms.Form):
-    """강좌/강의 목록 조회 요청.
+    """강좌 조회(course_id 없음) 또는 강의 목록 조회(course_id 있음) 요청.
 
-    course_id가 없으면 강좌 목록(year/semester가 둘 다 있으면 해당 과거 학기 검색 결과, 아니면
-    이번 학기 목록)을, course_id가 있으면 해당 강좌의 강의 목록을 조회한다.
+    year/semester는 항상 필수다 - "이번 학기 전용 자동 조회" 경로가 없어져 모든 조회가
+    EcampusCourseService.search_past_courses()를 거치므로, 조회 대상 학기를 반드시 명시해야 한다.
     """
 
     course_id = forms.CharField(max_length=20, required=False)
-    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES, required=False)
-    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES, required=False)
+    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES)
+    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
 class LectureDownloadRequestForm(forms.Form):
-    """강의 다운로드 요청 검증. course_id/lecture_id만 받는다 - course_name/lecture_title은
-    뷰가 서버에서 다시 조회해 확정하므로(클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다.
-    year/semester는 과거강좌에서 다운로드를 요청할 때 서버가 어느 학기에서 강좌를 재검증할지
-    알려주기 위한 값이다(둘 다 있을 때만 과거강좌 검색으로 재검증됨 - find_course 참고)."""
+    """강의 다운로드 요청 검증. course_name/lecture_title은 뷰가 서버에서 다시 조회해 확정하므로
+    (클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다. year/semester도 필수다 -
+    find_course()가 어느 학기에서 강좌를 재검증할지 서버가 항상 알아야 한다."""
 
     course_id = forms.CharField(max_length=20)
     lecture_id = forms.CharField(max_length=20)
-    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES, required=False)
-    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES, required=False)
+    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES)
+    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
+
+
+def default_lecture_year_and_semester() -> tuple[str, str]:
+    """오늘 날짜 기준으로 현재 학기의 (연도, 학기 코드)를 근사치로 추정한다. 계절학기 경계 등
+    실제 학사 일정과 정확히 일치하지 않을 수 있으나, 사용자가 드롭다운을 직접 바꿀 수 있으므로
+    근사치로 충분하다. 겨울계절수업(1~2월)은 전년도 학사년도에 속하므로 연도를 하나 뺀다 -
+    2027년 1월이면 ('2026', '21')을 반환한다."""
+    today = date.today()
+    month = today.month
+    if month in (1, 2):
+        return str(today.year - 1), '21'
+    if 3 <= month <= 6:
+        return str(today.year), '10'
+    if month in (7, 8):
+        return str(today.year), '11'
+    return str(today.year), '20'
 
 
 class PlaceSuggestionForm(forms.Form):

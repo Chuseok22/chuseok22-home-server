@@ -5,57 +5,43 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-6">강의 다운로드</h1>
 
-<section class="mb-10">
-  <h2 class="text-lg font-semibold mb-2">강좌 목록</h2>
+<section class="mb-6 bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5">
+  <h2 class="text-lg font-semibold mb-3">강좌 조회</h2>
+  <form
+    class="flex flex-wrap items-end gap-2 mb-4"
+    hx-get="{% url 'site:lab-lecture-courses' %}"
+    hx-target="#courses"
+    hx-trigger="load, submit"
+    hx-indicator="#courses-skeleton"
+  >
+    <div>
+      <label for="course-year" class="label-text block mb-1">연도</label>
+      <select id="course-year" name="year" class="select select-bordered select-sm">
+        {% for value, label in year_choices %}
+        <option value="{{ value }}" {% if value == default_year %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="course-semester" class="label-text block mb-1">학기</label>
+      <select id="course-semester" name="semester" class="select select-bordered select-sm">
+        {% for value, label in semester_choices %}
+        <option value="{{ value }}" {% if value == default_semester %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-sm btn-primary">조회</button>
+  </form>
   <div id="courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
     {% include 'site/partials/list_skeleton.html' %}
   </div>
-  <div
-    id="courses"
-    aria-live="polite"
-    hx-get="{% url 'site:lab-lecture-courses' %}"
-    hx-trigger="load"
-    hx-indicator="#courses-skeleton"
-  ></div>
+  <div id="courses" aria-live="polite"></div>
   <div id="lectures" class="mt-4" aria-live="polite"></div>
   <div id="download-result" class="mt-4" aria-live="polite"></div>
 </section>
 
-<section class="mb-10">
-  <h2 class="text-lg font-semibold mb-2">과거강좌 조회</h2>
-  <form
-    class="flex flex-wrap items-end gap-2 mb-4"
-    hx-get="{% url 'site:lab-lecture-courses' %}"
-    hx-target="#past-courses"
-    hx-indicator="#past-courses-skeleton"
-  >
-    <div>
-      <label for="past-course-year" class="label-text block mb-1">연도</label>
-      <select id="past-course-year" name="year" class="select select-bordered select-sm">
-        {% for value, label in year_choices %}
-        <option value="{{ value }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label for="past-course-semester" class="label-text block mb-1">학기</label>
-      <select id="past-course-semester" name="semester" class="select select-bordered select-sm">
-        {% for value, label in semester_choices %}
-        <option value="{{ value }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn btn-sm btn-primary">검색</button>
-  </form>
-  <div id="past-courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
-    {% include 'site/partials/list_skeleton.html' %}
-  </div>
-  <div id="past-courses" aria-live="polite"></div>
-  <div id="past-lectures" class="mt-4" aria-live="polite"></div>
-</section>
-
-<section>
-  <h2 class="text-lg font-semibold mb-2">다운로드 이력</h2>
+<section class="bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5">
+  <h2 class="text-lg font-semibold mb-3">다운로드 이력</h2>
   <div id="history-skeleton" class="htmx-indicator-block" aria-hidden="true">
     {% include 'site/partials/list_skeleton.html' %}
   </div>
