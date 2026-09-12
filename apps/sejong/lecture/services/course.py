@@ -99,6 +99,18 @@ class EcampusCourseService:
             return None, True
         return _parse_past_courses(response.text), False
 
+    def find_course(
+        self, course_id: str, year: str | None = None, semester: str | None = None,
+    ) -> Course | None:
+        """course_id로 강좌를 찾는다. year와 semester가 모두 주어지면 해당 과거 학기 검색
+        결과에서, 아니면 이번 학기 목록에서 찾는다."""
+        courses = (
+            self.search_past_courses(year=year, semester=semester)
+            if year and semester
+            else self.list_courses()
+        )
+        return next((c for c in courses if c.id == course_id), None)
+
     def list_lectures(self, course_id: str) -> list[Lecture]:
         """코스 페이지에서 강의(영상) 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
         operation = functools.partial(self._fetch_lectures_with_session, course_id=course_id)

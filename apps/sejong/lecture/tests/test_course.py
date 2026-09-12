@@ -311,3 +311,49 @@ def test_search_past_courses_empty_result_does_not_log_warning(caplog) -> None:
 
     assert courses == []
     assert len(caplog.records) == 0
+
+
+def test_find_course_uses_list_courses_when_year_semester_missing() -> None:
+    service = EcampusCourseService()
+    target = Course(id='101', name='자료구조')
+
+    with patch.object(EcampusCourseService, 'list_courses', return_value=[target]):
+        assert service.find_course('101') == target
+
+
+def test_find_course_uses_search_past_courses_when_year_semester_given() -> None:
+    service = EcampusCourseService()
+    target = Course(id='201', name='이산수학')
+
+    with (
+        patch.object(EcampusCourseService, 'list_courses') as mock_current,
+        patch.object(EcampusCourseService, 'search_past_courses', return_value=[target]) as mock_past,
+    ):
+        result = service.find_course('201', year='2023', semester='10')
+
+    assert result == target
+    mock_past.assert_called_once_with(year='2023', semester='10')
+    mock_current.assert_not_called()
+
+
+def test_find_course_returns_none_when_not_found() -> None:
+    service = EcampusCourseService()
+
+    with patch.object(EcampusCourseService, 'list_courses', return_value=[]):
+        assert service.find_course('999') is None
+
+
+def test_find_course_uses_list_courses_when_only_year_given() -> None:
+    """year/semester가 둘 다 있어야만 과거강좌 검색으로 간주한다 - 하나만 오면 이번 학기로 취급."""
+    service = EcampusCourseService()
+    target = Course(id='101', name='자료구조')
+
+    with (
+        patch.object(EcampusCourseService, 'list_courses', return_value=[target]) as mock_current,
+        patch.object(EcampusCourseService, 'search_past_courses') as mock_past,
+    ):
+        result = service.find_course('101', year='2023', semester=None)
+
+    assert result == target
+    mock_current.assert_called_once()
+    mock_past.assert_not_called()
