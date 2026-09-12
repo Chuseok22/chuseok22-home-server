@@ -5,6 +5,7 @@ import pytest
 
 from apps.sejong.lecture.apps import LectureConfig, _should_run_orphan_cleanup
 from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.services.filename import build_lecture_filename
 
 
 @pytest.mark.parametrize(
@@ -50,14 +51,14 @@ def test_ready_updates_orphan_jobs_when_running_as_gunicorn(settings) -> None:
 @pytest.mark.django_db
 def test_ready_removes_orphaned_part_files(settings, tmp_path: Path) -> None:
     """SIGKILL로 다운로드 도중 죽으면 downloader.py의 실패 핸들러가 실행되지 않아
-    미완성 `<id>.mp4.part`가 영구 볼륨에 그대로 남는다 - 고아 job과 함께 지워야 한다."""
+    미완성 `.part` 임시파일이 영구 볼륨에 그대로 남는다 - 고아 job과 함께 지워야 한다."""
     settings.DEBUG = False
     settings.MEDIA_ROOT = tmp_path / 'output' / 'media'
     job = LectureDownloadJob.objects.create(
         course_id='1', course_name='c', lecture_id='1', lecture_title='l',
         status=LectureDownloadJob.Status.RUNNING,
     )
-    part_path = job.storage_root / f'{job.output_filename}.part'
+    part_path = job.storage_root / f'{build_lecture_filename(job.course_name, job.lecture_title, job.id)}.part'
     part_path.parent.mkdir(parents=True, exist_ok=True)
     part_path.write_bytes(b'incomplete')
 
