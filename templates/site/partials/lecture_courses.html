@@ -7,8 +7,8 @@
         type="button"
         class="btn btn-ghost justify-start"
         hx-get="{% url 'site:lab-lecture-courses' %}"
-        hx-target="#lectures"
-        hx-indicator="#courses-skeleton"
+        hx-target="{% if year and semester %}#past-lectures{% else %}#lectures{% endif %}"
+        hx-indicator="{% if year and semester %}#past-courses-skeleton{% else %}#courses-skeleton{% endif %}"
         hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ year|default:""|escapejs }}", "semester": "{{ semester|default:""|escapejs }}"}'
       >{{ course.name }}</button>
     </li>

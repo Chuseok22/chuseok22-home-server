@@ -368,7 +368,7 @@ def test_과거강좌에서_강좌_선택시_해당_학기에서_재검증() -> 
         patch(
             'apps.site.views.EcampusCourseService.search_past_courses',
             return_value=fake_past_courses,
-        ),
+        ) as mock_search,
         patch('apps.site.views.EcampusCourseService.list_courses') as mock_current,
         patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
     ):
@@ -380,6 +380,7 @@ def test_과거강좌에서_강좌_선택시_해당_학기에서_재검증() -> 
     body = response.content.decode()
     assert response.status_code == 200
     assert '1주차 강의' in body
+    mock_search.assert_called_once_with(year='2023', semester='10')
     mock_current.assert_not_called()
 
 
@@ -397,7 +398,7 @@ def test_과거강좌_다운로드_요청시_해당_학기에서_재검증() -> 
         patch(
             'apps.site.views.EcampusCourseService.search_past_courses',
             return_value=fake_past_courses,
-        ),
+        ) as mock_search,
         patch('apps.site.views.EcampusCourseService.list_courses') as mock_current,
         patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
         patch('apps.site.views.LectureDownloadOrchestrator.start', return_value=fake_job) as mock_start,
@@ -408,5 +409,6 @@ def test_과거강좌_다운로드_요청시_해당_학기에서_재검증() -> 
 
     assert response.status_code == 200
     assert '다운로드를 시작' in response.content.decode()
+    mock_search.assert_called_once_with(year='2023', semester='10')
     mock_current.assert_not_called()
     mock_start.assert_called_once()

@@ -31,6 +31,15 @@ _CURRENT_COURSES_HTML = '''
       </div>
     </a>
   </div></li>
+  <li><div class="course-box">
+    <a href="https://ecampus.sejong.ac.kr/course/view.php?id=33229" class="course-link">
+      <div class="course-name">
+        <div class="course-label"><div class="badge badge-course">교과</div></div>
+        <div class="course-title"><h3>컴퓨터게임과메타버스 (011317-001) 썸네일
+          <span class="semester-name">(2학기)</span></h3><span class="prof">한창완</span></div>
+      </div>
+    </a>
+  </div></li>
 </ul>
 </body></html>
 '''
