@@ -1,25 +1,51 @@
-{% if courses is not None %}
-  {% if courses %}
-  <ul class="menu bg-base-200 rounded-box">
-    {% for course in courses %}
-    <li>
-      <button
-        type="button"
-        class="btn btn-ghost justify-start"
-        hx-get="{% url 'site:lab-lecture-courses' %}"
-        hx-target="{% if year and semester %}#past-lectures{% else %}#lectures{% endif %}"
-        hx-indicator="{% if year and semester %}#past-courses-skeleton{% else %}#courses-skeleton{% endif %}"
-        hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ year|default:""|escapejs }}", "semester": "{{ semester|default:""|escapejs }}"}'
-      >{{ course.name }}</button>
-    </li>
+{% if course_groups is not None %}
+  <div id="lectures" hx-swap-oob="innerHTML"></div>
+  <div id="download-result" hx-swap-oob="innerHTML"></div>
+  {% if course_groups %}
+    {% for group in course_groups %}
+      {% if group.label %}
+      <div class="collapse collapse-arrow bg-base-200 rounded-box mb-2">
+        <input type="checkbox" {% if forloop.first %}checked{% endif %} />
+        <div class="collapse-title font-semibold">
+          {{ group.label }}
+          <span class="opacity-50 font-normal text-sm">({{ group.courses|length }}개)</span>
+        </div>
+        <div class="collapse-content">
+          <ul class="menu">
+            {% for course in group.courses %}
+            <li>
+              <button
+                type="button"
+                class="btn btn-ghost justify-start"
+                hx-get="{% url 'site:lab-lecture-courses' %}"
+                hx-target="#lectures"
+                hx-indicator="#courses-skeleton"
+                hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ course.year|escapejs }}", "semester": "{{ course.semester|escapejs }}"}'
+              >{{ course.name }}</button>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% else %}
+      <ul class="menu bg-base-200 rounded-box">
+        {% for course in group.courses %}
+        <li>
+          <button
+            type="button"
+            class="btn btn-ghost justify-start"
+            hx-get="{% url 'site:lab-lecture-courses' %}"
+            hx-target="#lectures"
+            hx-indicator="#courses-skeleton"
+            hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ course.year|escapejs }}", "semester": "{{ course.semester|escapejs }}"}'
+          >{{ course.name }}</button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
     {% endfor %}
-  </ul>
   {% else %}
-    {% if year and semester %}
-    <p class="opacity-60">해당 학기에 강좌가 없습니다.</p>
-    {% else %}
-    <p class="opacity-60">수강 중인 강좌가 없습니다.</p>
-    {% endif %}
+  <p class="opacity-60">해당 학기에 강좌가 없습니다.</p>
   {% endif %}
 {% elif lectures is not None %}
   <p class="font-semibold mb-2">{{ course_name }} — 강의 목록</p>
@@ -36,8 +62,8 @@
       >
         <input type="hidden" name="course_id" value="{{ course_id }}">
         <input type="hidden" name="lecture_id" value="{{ lecture.id }}">
-        <input type="hidden" name="year" value="{{ year|default:'' }}">
-        <input type="hidden" name="semester" value="{{ semester|default:'' }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="semester" value="{{ semester }}">
         <button type="submit" class="btn btn-primary btn-xs">
           다운로드
           <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>

@@ -8,7 +8,7 @@ from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOr
 from apps.sejong.lecture.services.ecampus_auth import EcampusSession
 from apps.sejong.lecture.services.filename import build_lecture_filename
 
-_COURSE = Course(id='101', name='자료구조')
+_COURSE = Course(id='101', name='자료구조', year='2026', semester='20')
 _LECTURE = Lecture(id='5001', title='1주차 강의')
 
 
@@ -35,7 +35,7 @@ def test_start_creates_pending_job_and_starts_background_thread() -> None:
 def test_start_truncates_course_name_and_lecture_title_to_field_limit() -> None:
     """Moodle에서 긁어온 이름/제목은 길이 제한이 없으므로, DB 컬럼(max_length=200)을
     넘겨 락 안에서 DataError가 나지 않도록 잘라서 저장해야 한다."""
-    long_course = Course(id='101', name='자' * 250)
+    long_course = Course(id='101', name='자' * 250, year='2026', semester='20')
     long_lecture = Lecture(id='5001', title='주' * 250)
 
     with patch('apps.sejong.lecture.services.download_orchestrator.threading.Thread'):

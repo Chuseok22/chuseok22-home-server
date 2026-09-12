@@ -59,6 +59,7 @@ from apps.sejong.library.services.study_room_reservation import (
 )
 from apps.sejong.lecture.models import LectureDownloadJob
 from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
+from apps.site.services.lecture_course_grouping import group_courses_by_semester
 from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
 from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService
 from apps.sejong.lecture.services.filename import build_lecture_filename
@@ -67,7 +68,6 @@ from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
 from apps.site.forms import (
     LECTURE_SEMESTER_CHOICES,
-    LECTURE_YEAR_CHOICES,
     LectureCourseSelectForm,
     LectureDownloadRequestForm,
     LibraryDateForm,
@@ -76,6 +76,8 @@ from apps.site.forms import (
     PlaceSuggestionForm,
     PostEditForm,
     StudentSearchForm,
+    default_lecture_year_and_semester,
+    lecture_year_choices,
 )
 from apps.site.models import Tool
 from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
@@ -672,10 +674,16 @@ def lab_student_search(request: HttpRequest) -> HttpResponse:
 @owner_required
 def lab_lecture(request: HttpRequest) -> HttpResponse:
     """강의 다운로드 페이지 (소유자 전용)."""
+    default_year, default_semester = default_lecture_year_and_semester()
     return render(
         request,
         'site/lab_lecture.html',
-        {'year_choices': LECTURE_YEAR_CHOICES, 'semester_choices': LECTURE_SEMESTER_CHOICES},
+        {
+            'year_choices': lecture_year_choices(),
+            'semester_choices': LECTURE_SEMESTER_CHOICES,
+            'default_year': default_year,
+            'default_semester': default_semester,
+        },
     )
 
 
@@ -683,9 +691,10 @@ def lab_lecture(request: HttpRequest) -> HttpResponse:
 def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
     """강좌 목록(course_id 없음) 또는 강의 목록(course_id 있음)을 조회한다 (htmx 부분 응답).
 
-    year/semester가 둘 다 주어지면 해당 과거 학기를 검색하고, 아니면 이번 학기 목록을 조회한다.
-    로그인 실패·강좌를 찾을 수 없는 경우 모두 200으로 반환한다. course_id가 주어져도
-    클라이언트가 보낸 강좌명을 신뢰하지 않고 서버에서 다시 조회해 실제 강좌명을 확인한다.
+    year/semester는 항상 필수다 - "이번 학기 전용 자동 조회" 경로가 없어져 모든 조회가
+    search_past_courses()를 통해 이뤄진다. 로그인 실패·강좌를 찾을 수 없는 경우 모두 200으로
+    반환한다. course_id가 주어져도 클라이언트가 보낸 강좌명을 신뢰하지 않고 서버에서 다시 조회해
+    실제 강좌명을 확인한다.
     """
     form = LectureCourseSelectForm(request.GET)
     if not form.is_valid():
@@ -697,22 +706,16 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
 
     course_service = EcampusCourseService()
     course_id = form.cleaned_data['course_id']
-    year = form.cleaned_data['year'] or None
-    semester = form.cleaned_data['semester'] or None
+    year = form.cleaned_data['year']
+    semester = form.cleaned_data['semester']
 
     if not course_id:
-        courses = (
-            course_service.search_past_courses(year=year, semester=semester)
-            if year and semester
-            else course_service.list_courses()
-        )
+        courses = course_service.search_past_courses(year=year, semester=semester)
+        course_groups = group_courses_by_semester(courses, year=year, semester=semester)
         return render(
             request,
             'site/partials/lecture_courses.html',
-            {
-                'courses': courses, 'lectures': None, 'course_id': None, 'course_name': None,
-                'year': year, 'semester': semester,
-            },
+            {'course_groups': course_groups, 'lectures': None, 'course_id': None, 'course_name': None},
         )
 
     course = course_service.find_course(course_id, year=year, semester=semester)
@@ -724,8 +727,8 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
         request,
         'site/partials/lecture_courses.html',
         {
-            'courses': None, 'lectures': lectures, 'course_id': course.id, 'course_name': course.name,
-            'year': year, 'semester': semester,
+            'course_groups': None, 'lectures': lectures, 'course_id': course.id,
+            'course_name': course.name, 'year': course.year, 'semester': course.semester,
         },
     )
 
@@ -745,9 +748,7 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
 
     data = form.cleaned_data
     course_service = EcampusCourseService()
-    course = course_service.find_course(
-        data['course_id'], year=data.get('year') or None, semester=data.get('semester') or None,
-    )
+    course = course_service.find_course(data['course_id'], year=data['year'], semester=data['semester'])
     if course is None:
         return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
 
