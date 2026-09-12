@@ -7,6 +7,7 @@ from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, 
 
 _NON_LOGIN_URL = 'https://ecampus.sejong.ac.kr/my/'
 _LOGIN_URL = 'https://ecampus.sejong.ac.kr/login/index.php'
+_LOGIN_URL_ALT = 'https://ecampus.sejong.ac.kr/login.php'
 
 _COURSES_HTML = '''
 <html><body>
@@ -172,3 +173,18 @@ def test_get_stream_url_does_not_cache_across_calls() -> None:
 
     assert result1 == first_url
     assert result2 == second_url
+
+
+def test_is_moodle_login_redirect_recognizes_both_login_paths() -> None:
+    from apps.sejong.lecture.services.course import _is_moodle_login_redirect
+
+    assert _is_moodle_login_redirect(_fake_response('', url=_LOGIN_URL)) is True
+    assert _is_moodle_login_redirect(_fake_response('', url=_LOGIN_URL_ALT)) is True
+    assert _is_moodle_login_redirect(_fake_response('', url=_NON_LOGIN_URL)) is False
+
+
+def test_is_authenticated_page_checks_logout_link_presence() -> None:
+    from apps.sejong.lecture.services.course import _is_authenticated_page
+
+    assert _is_authenticated_page(_fake_response('<a href="logout.php">로그아웃</a>')) is True
+    assert _is_authenticated_page(_fake_response('<p>로그인이 필요합니다</p>')) is False

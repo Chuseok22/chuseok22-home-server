@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 _MY_COURSES_URL = 'https://ecampus.sejong.ac.kr/my/'
 _COURSE_VIEW_URL = 'https://ecampus.sejong.ac.kr/course/view.php'
 _VIEWER_URL = 'https://ecampus.sejong.ac.kr/mod/vod/viewer.php'
-_LOGIN_PAGE_PATH = '/login/index.php'
+_LOGIN_REDIRECT_PATHS = {'/login/index.php', '/login.php'}
 _REQUEST_TIMEOUT = 15
 
 _COURSE_ID_RE = re.compile(r'id=(\d+)')
@@ -63,7 +63,7 @@ class EcampusCourseService:
             logger.error('강좌 목록 조회 실패: %s', e)
             return None, False
 
-        if _is_session_expired(response):
+        if _is_moodle_login_redirect(response):
             return None, True
         return _parse_courses(response.text), False
 
@@ -87,7 +87,7 @@ class EcampusCourseService:
             logger.error('강의 목록 조회 실패 (course_id=%s): %s', course_id, e)
             return None, False
 
-        if _is_session_expired(response):
+        if _is_moodle_login_redirect(response):
             return None, True
         return _parse_lectures(response.text), False
 
@@ -115,7 +115,7 @@ class EcampusCourseService:
             logger.error('스트림 URL 조회 실패 (lecture_id=%s): %s', lecture_id, e)
             return None, False
 
-        if _is_session_expired(response):
+        if _is_moodle_login_redirect(response):
             return None, True
 
         match = _M3U8_URL_RE.search(response.text)
@@ -125,9 +125,25 @@ class EcampusCourseService:
         return match.group(0), False
 
 
-def _is_session_expired(response: requests.Response) -> bool:
-    """응답이 로그인 페이지로 리다이렉트됐으면 Moodle 세션이 만료된 것으로 판정한다."""
-    return urlparse(response.url).path == _LOGIN_PAGE_PATH
+def _is_moodle_login_redirect(response: requests.Response) -> bool:
+    """course/view.php, viewer.php 용 - 경로 기반 세션 만료 판정.
+
+    Moodle이 세션 만료 시 리다이렉트하는 로그인 경로가 페이지마다 다름을 실측으로 확인했다
+    (/my/ -> /login/index.php, dashboard.php/과거강좌 페이지 -> /login.php). 이 함수는 두 경로를
+    모두 인식한다.
+    """
+    return urlparse(response.url).path in _LOGIN_REDIRECT_PATHS
+
+
+def _is_authenticated_page(response: requests.Response) -> bool:
+    """dashboard.php, local/ubion/user/index.php 용 - 컨텐츠 기반 인증 판정.
+
+    이 두 페이지는 세션 만료 시 리다이렉트 없이 빈 위젯을 담은 200 응답을 줄 수 있어(집현캠퍼스
+    강좌 목록 조회 실패 버그의 근본 원인이었다), 경로 대신 페이지 본문에 로그아웃 링크(logout.php)
+    가 있는지로 인증 여부를 판정한다. course/view.php에는 이 문자열이 없음을 실측으로 확인했으므로
+    그 페이지에는 이 함수를 쓰지 않는다.
+    """
+    return 'logout.php' in response.text
 
 
 def _parse_courses(html: str) -> list[Course]:
