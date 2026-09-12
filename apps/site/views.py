@@ -65,6 +65,8 @@ from apps.sejong.lecture.services.job_cleanup import delete_download_job
 from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
 from apps.site.forms import (
+    LECTURE_SEMESTER_CHOICES,
+    LECTURE_YEAR_CHOICES,
     LectureCourseSelectForm,
     LectureDownloadRequestForm,
     LibraryDateForm,
@@ -669,7 +671,11 @@ def lab_student_search(request: HttpRequest) -> HttpResponse:
 @owner_required
 def lab_lecture(request: HttpRequest) -> HttpResponse:
     """강의 다운로드 페이지 (소유자 전용)."""
-    return render(request, 'site/lab_lecture.html')
+    return render(
+        request,
+        'site/lab_lecture.html',
+        {'year_choices': LECTURE_YEAR_CHOICES, 'semester_choices': LECTURE_SEMESTER_CHOICES},
+    )
 
 
 @owner_required
