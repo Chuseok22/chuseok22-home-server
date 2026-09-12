@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 _CURRENT_COURSES_URL = 'https://ecampus.sejong.ac.kr/dashboard.php'
 _COURSE_VIEW_URL = 'https://ecampus.sejong.ac.kr/course/view.php'
+_PAST_COURSES_URL = 'https://ecampus.sejong.ac.kr/local/ubion/user/index.php'
 _VIEWER_URL = 'https://ecampus.sejong.ac.kr/mod/vod/viewer.php'
 _LOGIN_REDIRECT_PATHS = {'/login/index.php', '/login.php'}
 _REQUEST_TIMEOUT = 15
@@ -70,6 +71,33 @@ class EcampusCourseService:
         if not _is_authenticated_page(response):
             return None, True
         return _parse_current_courses(response.text), False
+
+    def search_past_courses(self, year: str, semester: str) -> list[Course]:
+        """연도/학기로 과거강좌를 검색한다. year/semester는 세종대 select 옵션값을 그대로 받는다
+        (예: '2024', 'all', '10', '20', 'all'). 실패 시 빈 리스트를 반환한다."""
+        operation = functools.partial(
+            self._fetch_past_courses_with_session, year=year, semester=semester,
+        )
+        result = self._auth.fetch_with_retry(operation)
+        return result if result is not None else []
+
+    def _fetch_past_courses_with_session(
+        self, ecampus_session: EcampusSession, year: str, semester: str,
+    ) -> tuple[list[Course] | None, bool]:
+        try:
+            response = ecampus_session.session.get(
+                _PAST_COURSES_URL,
+                params={'year': year, 'semester': semester},
+                timeout=_REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error('과거강좌 조회 실패 (year=%s, semester=%s): %s', year, semester, e)
+            return None, False
+
+        if not _is_authenticated_page(response):
+            return None, True
+        return _parse_past_courses(response.text), False
 
     def list_lectures(self, course_id: str) -> list[Lecture]:
         """코스 페이지에서 강의(영상) 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
@@ -167,6 +195,25 @@ def _parse_current_courses(html: str) -> list[Course]:
         if title_el is None:
             continue
         name = next(title_el.stripped_strings, '')
+        if not name:
+            continue
+        courses.setdefault(match.group(1), name)
+    return [Course(id=course_id, name=name) for course_id, name in courses.items()]
+
+
+def _parse_past_courses(html: str) -> list[Course]:
+    """`local/ubion/user/index.php` 검색 결과 테이블을 파싱한다.
+
+    `a.coursefullname`은 뱃지가 앵커 밖에 있어 텍스트가 이미 깨끗하므로 `get_text(strip=True)`를
+    그대로 쓴다.
+    """
+    soup = BeautifulSoup(html, 'lxml')
+    courses: dict[str, str] = {}
+    for link in soup.select('a.coursefullname[href*="course/view.php?id="]'):
+        match = _COURSE_ID_RE.search(link.get('href', ''))
+        if not match:
+            continue
+        name = link.get_text(strip=True)
         if not name:
             continue
         courses.setdefault(match.group(1), name)
