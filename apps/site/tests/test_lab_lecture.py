@@ -133,6 +133,19 @@ def test_존재하지_않는_강좌_선택시_200으로_에러메시지_반환()
 
 
 @pytest.mark.django_db
+def test_강좌_조회_잘못된_연도_학기_값은_거부() -> None:
+    client = Client()
+    _login_owner(client)
+
+    response = client.get(
+        reverse('site:lab-lecture-courses'), {'year': '1999', 'semester': '1학기'},
+    )
+
+    assert response.status_code == 200
+    assert '올바르지 않습니다' in response.content.decode()
+
+
+@pytest.mark.django_db
 def test_다운로드_요청_성공() -> None:
     """course_name/lecture_title은 더 이상 클라이언트 제출값을 신뢰하지 않고
     서버에서 EcampusCourseService로 다시 조회해 확정한다."""
@@ -221,6 +234,19 @@ def test_다운로드_요청_필수값_누락시_200으로_에러메시지_반�
     _login_owner(client)
 
     response = client.post(reverse('site:lab-lecture-download'), {'course_id': '101'})
+
+    assert response.status_code == 200
+    assert '올바르지 않습니다' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_다운로드_요청_잘못된_연도_학기_값은_거부() -> None:
+    client = Client()
+    _login_owner(client)
+
+    response = client.post(reverse('site:lab-lecture-download'), {
+        'course_id': '101', 'lecture_id': '5001', 'year': '1999', 'semester': '1학기',
+    })
 
     assert response.status_code == 200
     assert '올바르지 않습니다' in response.content.decode()

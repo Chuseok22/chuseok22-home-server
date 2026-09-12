@@ -68,7 +68,6 @@ from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
 from apps.site.forms import (
     LECTURE_SEMESTER_CHOICES,
-    LECTURE_YEAR_CHOICES,
     LectureCourseSelectForm,
     LectureDownloadRequestForm,
     LibraryDateForm,
@@ -78,6 +77,7 @@ from apps.site.forms import (
     PostEditForm,
     StudentSearchForm,
     default_lecture_year_and_semester,
+    lecture_year_choices,
 )
 from apps.site.models import Tool
 from apps.site.services.chatbot import ChatbotConfigError, get_chat_reply
@@ -679,7 +679,7 @@ def lab_lecture(request: HttpRequest) -> HttpResponse:
         request,
         'site/lab_lecture.html',
         {
-            'year_choices': LECTURE_YEAR_CHOICES,
+            'year_choices': lecture_year_choices(),
             'semester_choices': LECTURE_SEMESTER_CHOICES,
             'default_year': default_year,
             'default_semester': default_semester,

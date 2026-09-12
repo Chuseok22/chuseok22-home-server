@@ -78,9 +78,15 @@ class LibraryReserveForm(LibraryReserveSlotForm):
         return cleaned
 
 
-LECTURE_YEAR_CHOICES = [('all', '전체')] + [
-    (str(year), str(year)) for year in range(date.today().year, 2002, -1)
-]
+def lecture_year_choices() -> list[tuple[str, str]]:
+    """연도 select 옵션을 호출할 때마다 새로 계산한다. 모듈 로드 시점에 한 번만 계산해 상수로
+    두면(예전 LECTURE_YEAR_CHOICES), 연도가 바뀐 뒤 재배포 전까지는 새 연도가 선택지에 없어
+    그 연도로 실제 파싱된 강좌의 year 값이 ChoiceField 검증에서 거부되는 문제가 있었다."""
+    return [('all', '전체')] + [
+        (str(year), str(year)) for year in range(date.today().year, 2002, -1)
+    ]
+
+
 LECTURE_SEMESTER_CHOICES = [
     ('all', '전체'),
     ('10', '1학기'),
@@ -98,7 +104,7 @@ class LectureCourseSelectForm(forms.Form):
     """
 
     course_id = forms.CharField(max_length=20, required=False)
-    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES)
+    year = forms.ChoiceField(choices=lecture_year_choices)
     semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
@@ -109,7 +115,7 @@ class LectureDownloadRequestForm(forms.Form):
 
     course_id = forms.CharField(max_length=20)
     lecture_id = forms.CharField(max_length=20)
-    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES)
+    year = forms.ChoiceField(choices=lecture_year_choices)
     semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
