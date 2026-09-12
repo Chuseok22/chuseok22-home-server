@@ -1,3 +1,5 @@
+from datetime import date
+
 from django import forms
 
 from apps.sejong.library.services.validation import validate_attendee_count
@@ -76,18 +78,40 @@ class LibraryReserveForm(LibraryReserveSlotForm):
         return cleaned
 
 
+LECTURE_YEAR_CHOICES = [('all', '전체')] + [
+    (str(year), str(year)) for year in range(date.today().year, 2002, -1)
+]
+LECTURE_SEMESTER_CHOICES = [
+    ('all', '전체'),
+    ('10', '1학기'),
+    ('11', '여름계절수업'),
+    ('20', '2학기'),
+    ('21', '겨울계절수업'),
+]
+
+
 class LectureCourseSelectForm(forms.Form):
-    """강좌/강의 목록 조회 요청. course_id가 없으면 강좌 목록, 있으면 해당 강좌의 강의 목록을 조회한다."""
+    """강좌/강의 목록 조회 요청.
+
+    course_id가 없으면 강좌 목록(year/semester가 둘 다 있으면 해당 과거 학기 검색 결과, 아니면
+    이번 학기 목록)을, course_id가 있으면 해당 강좌의 강의 목록을 조회한다.
+    """
 
     course_id = forms.CharField(max_length=20, required=False)
+    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES, required=False)
+    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES, required=False)
 
 
 class LectureDownloadRequestForm(forms.Form):
     """강의 다운로드 요청 검증. course_id/lecture_id만 받는다 - course_name/lecture_title은
-    뷰가 서버에서 다시 조회해 확정하므로(클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다."""
+    뷰가 서버에서 다시 조회해 확정하므로(클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다.
+    year/semester는 과거강좌에서 다운로드를 요청할 때 서버가 어느 학기에서 강좌를 재검증할지
+    알려주기 위한 값이다(둘 다 있을 때만 과거강좌 검색으로 재검증됨 - find_course 참고)."""
 
     course_id = forms.CharField(max_length=20)
     lecture_id = forms.CharField(max_length=20)
+    year = forms.ChoiceField(choices=LECTURE_YEAR_CHOICES, required=False)
+    semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES, required=False)
 
 
 class PlaceSuggestionForm(forms.Form):
