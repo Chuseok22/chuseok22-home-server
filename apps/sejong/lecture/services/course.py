@@ -11,7 +11,7 @@ from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, 
 
 logger = logging.getLogger(__name__)
 
-_MY_COURSES_URL = 'https://ecampus.sejong.ac.kr/my/'
+_CURRENT_COURSES_URL = 'https://ecampus.sejong.ac.kr/dashboard.php'
 _COURSE_VIEW_URL = 'https://ecampus.sejong.ac.kr/course/view.php'
 _VIEWER_URL = 'https://ecampus.sejong.ac.kr/mod/vod/viewer.php'
 _LOGIN_REDIRECT_PATHS = {'/login/index.php', '/login.php'}
@@ -49,23 +49,27 @@ class EcampusCourseService:
         self._auth = EcampusMoodleAuthService()
 
     def list_courses(self) -> list[Course]:
-        """`/my/` 대시보드에서 강좌 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
+        """`dashboard.php`의 "나의강좌" 위젯에서 이번 학기 강좌 목록을 조회한다. 실패 시 빈
+        리스트를 반환한다."""
         result = self._auth.fetch_with_retry(self._fetch_courses_with_session)
-        return result if result is not None else []
+        courses = result if result is not None else []
+        if result is not None and not courses:
+            logger.warning('인증은 정상이나 이번 학기 강좌 목록이 0개로 파싱됨 - HTML 구조 변경 가능성')
+        return courses
 
     def _fetch_courses_with_session(
         self, ecampus_session: EcampusSession,
     ) -> tuple[list[Course] | None, bool]:
         try:
-            response = ecampus_session.session.get(_MY_COURSES_URL, timeout=_REQUEST_TIMEOUT)
+            response = ecampus_session.session.get(_CURRENT_COURSES_URL, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as e:
             logger.error('강좌 목록 조회 실패: %s', e)
             return None, False
 
-        if _is_moodle_login_redirect(response):
+        if not _is_authenticated_page(response):
             return None, True
-        return _parse_courses(response.text), False
+        return _parse_current_courses(response.text), False
 
     def list_lectures(self, course_id: str) -> list[Lecture]:
         """코스 페이지에서 강의(영상) 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
@@ -146,20 +150,23 @@ def _is_authenticated_page(response: requests.Response) -> bool:
     return 'logout.php' in response.text
 
 
-def _parse_courses(html: str) -> list[Course]:
-    """`/my/` 대시보드 HTML에서 강좌 목록을 파싱한다.
+def _parse_current_courses(html: str) -> list[Course]:
+    """`dashboard.php`의 "나의강좌" 위젯에서 이번 학기 강좌 목록을 파싱한다.
 
-    강좌 카드 하나가 썸네일 링크와 제목 링크 등 여러 `<a>`를 가질 수 있어 id 기준으로
-    중복을 제거한다(제목 텍스트가 있는 첫 번째 링크만 채택).
+    `a.course-link`가 뱃지·교수명까지 통째로 감싸고 있어 anchor 전체 텍스트를 쓰면 뒤섞인다.
+    `.course-title h3`의 stripped_strings 첫 항목만 취해 중첩된 `<span class="semester-name">`이
+    강좌명에 섞여 들어가는 것을 방지한다(`_extract_instance_name`과 동일한 패턴).
     """
     soup = BeautifulSoup(html, 'lxml')
     courses: dict[str, str] = {}
-    for link in soup.select('a[href*="course/view.php?id="]'):
-        href = link.get('href', '')
-        match = _COURSE_ID_RE.search(href)
+    for link in soup.select('a.course-link[href*="course/view.php?id="]'):
+        match = _COURSE_ID_RE.search(link.get('href', ''))
         if not match:
             continue
-        name = link.get_text(strip=True)
+        title_el = link.select_one('.course-title h3')
+        if title_el is None:
+            continue
+        name = next(title_el.stripped_strings, '')
         if not name:
             continue
         courses.setdefault(match.group(1), name)
