@@ -4,10 +4,12 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils.http import content_disposition_header
 
 from apps.sejong.lecture.models import LectureDownloadJob
 from apps.sejong.lecture.services.course import Course, Lecture
 from apps.sejong.lecture.services.ecampus_auth import EcampusSession
+from apps.sejong.lecture.services.filename import build_lecture_filename
 
 User = get_user_model()
 
@@ -412,3 +414,27 @@ def test_과거강좌_다운로드_요청시_해당_학기에서_재검증() -> 
     mock_search.assert_called_once_with(year='2023', semester='10')
     mock_current.assert_not_called()
     mock_start.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_완료된_강의_다운로드_파일명에_강좌명이_포함된다(tmp_path) -> None:
+    client = Client()
+    _login_owner(client)
+
+    with override_settings(MEDIA_ROOT=tmp_path / 'output' / 'media'):
+        job = LectureDownloadJob.objects.create(
+            course_id='101', course_name='자료구조', lecture_id='5001', lecture_title='1주차 강의',
+            status=LectureDownloadJob.Status.COMPLETED,
+            file_relative_path='1.mp4',
+        )
+        file_path = job.storage_root / job.file_relative_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b'fake video content')
+
+        response = client.get(
+            reverse('site:lab-lecture-history-file', kwargs={'job_id': job.id}),
+        )
+
+    expected_filename = build_lecture_filename(job.course_name, job.lecture_title)
+    assert response.status_code == 200
+    assert response['Content-Disposition'] == content_disposition_header(True, expected_filename)
