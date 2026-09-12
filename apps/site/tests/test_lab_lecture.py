@@ -327,3 +327,88 @@ def test_완료된_작업의_파일_다운로드_성공(tmp_path) -> None:
 
     assert response.status_code == 200
     assert b''.join(response.streaming_content) == b'fake-mp4-content'
+
+
+@pytest.mark.django_db
+def test_연도_학기_지정시_과거강좌_검색() -> None:
+    client = Client()
+    _login_owner(client)
+    fake_session = EcampusSession(session=MagicMock())
+    fake_past_courses = [Course(id='201', name='이산수학')]
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            'apps.site.views.EcampusCourseService.search_past_courses',
+            return_value=fake_past_courses,
+        ) as mock_search,
+        patch('apps.site.views.EcampusCourseService.list_courses') as mock_current,
+    ):
+        response = client.get(
+            reverse('site:lab-lecture-courses'), {'year': '2023', 'semester': '10'},
+        )
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert '이산수학' in body
+    mock_search.assert_called_once_with(year='2023', semester='10')
+    mock_current.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_과거강좌에서_강좌_선택시_해당_학기에서_재검증() -> None:
+    client = Client()
+    _login_owner(client)
+    fake_session = EcampusSession(session=MagicMock())
+    fake_past_courses = [Course(id='201', name='이산수학')]
+    fake_lectures = [Lecture(id='7001', title='1주차 강의')]
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            'apps.site.views.EcampusCourseService.search_past_courses',
+            return_value=fake_past_courses,
+        ) as mock_search,
+        patch('apps.site.views.EcampusCourseService.list_courses') as mock_current,
+        patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
+    ):
+        response = client.get(
+            reverse('site:lab-lecture-courses'),
+            {'course_id': '201', 'year': '2023', 'semester': '10'},
+        )
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert '1주차 강의' in body
+    mock_search.assert_called_once_with(year='2023', semester='10')
+    mock_current.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_과거강좌_다운로드_요청시_해당_학기에서_재검증() -> None:
+    client = Client()
+    _login_owner(client)
+    fake_past_courses = [Course(id='201', name='이산수학')]
+    fake_lectures = [Lecture(id='7001', title='1주차 강의')]
+    fake_job = LectureDownloadJob(
+        id=1, course_id='201', course_name='이산수학', lecture_id='7001', lecture_title='1주차 강의',
+    )
+
+    with (
+        patch(
+            'apps.site.views.EcampusCourseService.search_past_courses',
+            return_value=fake_past_courses,
+        ) as mock_search,
+        patch('apps.site.views.EcampusCourseService.list_courses') as mock_current,
+        patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
+        patch('apps.site.views.LectureDownloadOrchestrator.start', return_value=fake_job) as mock_start,
+    ):
+        response = client.post(reverse('site:lab-lecture-download'), {
+            'course_id': '201', 'lecture_id': '7001', 'year': '2023', 'semester': '10',
+        })
+
+    assert response.status_code == 200
+    assert '다운로드를 시작' in response.content.decode()
+    mock_search.assert_called_once_with(year='2023', semester='10')
+    mock_current.assert_not_called()
+    mock_start.assert_called_once()

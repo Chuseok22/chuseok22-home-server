@@ -7,12 +7,58 @@ from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, 
 
 _NON_LOGIN_URL = 'https://ecampus.sejong.ac.kr/my/'
 _LOGIN_URL = 'https://ecampus.sejong.ac.kr/login/index.php'
+_LOGIN_URL_ALT = 'https://ecampus.sejong.ac.kr/login.php'
 
-_COURSES_HTML = '''
+_CURRENT_COURSES_HTML = '''
 <html><body>
-<a href="https://ecampus.sejong.ac.kr/course/view.php?id=33293"><img src="thumb.png"></a>
-<a href="https://ecampus.sejong.ac.kr/course/view.php?id=33293">알고리즘및실습</a>
-<a href="https://ecampus.sejong.ac.kr/course/view.php?id=33229">컴퓨터게임과메타버스</a>
+<a href="https://ecampus.sejong.ac.kr/login/logout.php?sesskey=x">로그아웃</a>
+<ul class="my-course-lists">
+  <li><div class="course-box">
+    <a href="https://ecampus.sejong.ac.kr/course/view.php?id=33293" class="course-link">
+      <div class="course-name">
+        <div class="course-label"><div class="badge badge-course">교과</div></div>
+        <div class="course-title"><h3>알고리즘및실습 (011495-003)
+          <span class="semester-name">(2학기)</span></h3><span class="prof">우현수</span></div>
+      </div>
+    </a>
+  </div></li>
+  <li><div class="course-box">
+    <a href="https://ecampus.sejong.ac.kr/course/view.php?id=33229" class="course-link">
+      <div class="course-name">
+        <div class="course-label"><div class="badge badge-course">교과</div></div>
+        <div class="course-title"><h3>컴퓨터게임과메타버스 (011317-001)
+          <span class="semester-name">(2학기)</span></h3><span class="prof">한창완</span></div>
+      </div>
+    </a>
+  </div></li>
+  <li><div class="course-box">
+    <a href="https://ecampus.sejong.ac.kr/course/view.php?id=33229" class="course-link">
+      <div class="course-name">
+        <div class="course-label"><div class="badge badge-course">교과</div></div>
+        <div class="course-title"><h3>컴퓨터게임과메타버스 (011317-001) 썸네일
+          <span class="semester-name">(2학기)</span></h3><span class="prof">한창완</span></div>
+      </div>
+    </a>
+  </div></li>
+</ul>
+</body></html>
+'''
+
+_PAST_COURSES_HTML = '''
+<html><body>
+<a href="https://ecampus.sejong.ac.kr/login/logout.php?sesskey=x">로그아웃</a>
+<table><tbody class="my-course-lists">
+<tr><td>2023</td><td>2학기</td><td>
+  <div class="course-flex"><span class="badge badge-course">교과</span>
+  <a href="https://ecampus.sejong.ac.kr/course/view.php?id=31245" class="coursefullname">
+    공업수학1 (000304-003)</a></div>
+</td></tr>
+<tr><td>2023</td><td>2학기</td><td>
+  <div class="course-flex"><span class="badge badge-course">교과</span>
+  <a href="https://ecampus.sejong.ac.kr/course/view.php?id=31493" class="coursefullname">
+    컴퓨터네트워크 (003284-003)</a></div>
+</td></tr>
+</tbody></table>
 </body></html>
 '''
 
@@ -62,16 +108,16 @@ def _patch_create_session(*sessions: EcampusSession | None):
     return patch.object(EcampusMoodleAuthService, 'create_session', side_effect=list(sessions))
 
 
-def test_list_courses_parses_id_and_name_and_dedupes_by_course_id() -> None:
+def test_list_courses_parses_dashboard_widget_and_dedupes_by_course_id() -> None:
     service = EcampusCourseService()
-    session = _session_returning(_fake_response(_COURSES_HTML))
+    session = _session_returning(_fake_response(_CURRENT_COURSES_HTML))
 
     with _patch_create_session(session):
         courses = service.list_courses()
 
     assert courses == [
-        Course(id='33293', name='알고리즘및실습'),
-        Course(id='33229', name='컴퓨터게임과메타버스'),
+        Course(id='33293', name='알고리즘및실습 (011495-003)'),
+        Course(id='33229', name='컴퓨터게임과메타버스 (011317-001)'),
     ]
 
 
@@ -85,28 +131,61 @@ def test_list_courses_returns_empty_list_on_request_exception() -> None:
         assert service.list_courses() == []
 
 
-def test_list_courses_retries_once_after_session_expiry_and_succeeds() -> None:
-    """첫 응답이 로그인 페이지로 리다이렉트되면(세션 만료) 강제 재인증 후 재시도해 성공한다."""
+def test_list_courses_retries_once_when_not_authenticated_and_succeeds() -> None:
+    """logout.php가 없는 응답(비인증 상태)이 오면 강제 재인증 후 재시도해 성공한다."""
     service = EcampusCourseService()
-    expired_session = _session_returning(_fake_response('<html></html>', url=_LOGIN_URL))
-    fresh_session = _session_returning(_fake_response(_COURSES_HTML))
+    not_authenticated = _session_returning(_fake_response('<html><body>로그인 필요</body></html>'))
+    authenticated = _session_returning(_fake_response(_CURRENT_COURSES_HTML))
 
-    with _patch_create_session(expired_session, fresh_session):
+    with _patch_create_session(not_authenticated, authenticated):
         courses = service.list_courses()
 
     assert courses == [
-        Course(id='33293', name='알고리즘및실습'),
-        Course(id='33229', name='컴퓨터게임과메타버스'),
+        Course(id='33293', name='알고리즘및실습 (011495-003)'),
+        Course(id='33229', name='컴퓨터게임과메타버스 (011317-001)'),
     ]
 
 
-def test_list_courses_returns_empty_list_when_still_expired_after_retry() -> None:
+def test_list_courses_returns_empty_list_when_still_not_authenticated_after_retry() -> None:
     service = EcampusCourseService()
-    expired_session = _session_returning(_fake_response('<html></html>', url=_LOGIN_URL))
-    still_expired_session = _session_returning(_fake_response('<html></html>', url=_LOGIN_URL))
+    not_authenticated = _session_returning(_fake_response('<html><body>로그인 필요</body></html>'))
+    still_not_authenticated = _session_returning(
+        _fake_response('<html><body>로그인 필요</body></html>'),
+    )
 
-    with _patch_create_session(expired_session, still_expired_session):
+    with _patch_create_session(not_authenticated, still_not_authenticated):
         assert service.list_courses() == []
+
+
+def test_list_courses_logs_warning_when_authenticated_but_empty(caplog) -> None:
+    """인증은 정상(logout.php 존재)인데 강좌가 0개로 파싱되면 재발 방지용 warning을 남긴다."""
+    service = EcampusCourseService()
+    session = _session_returning(
+        _fake_response('<html><body><a href="logout.php">로그아웃</a></body></html>'),
+    )
+
+    with _patch_create_session(session):
+        with caplog.at_level('WARNING'):
+            courses = service.list_courses()
+
+    assert courses == []
+    assert any('0개로 파싱' in record.message for record in caplog.records)
+
+
+def test_list_courses_does_not_log_warning_when_not_authenticated(caplog) -> None:
+    """인증 자체가 안 된 경우(재시도까지 실패)는 별도 경로에서 이미 로그를 남기므로 이 경고는
+    남기지 않는다."""
+    service = EcampusCourseService()
+    not_authenticated = _session_returning(_fake_response('<html><body>로그인 필요</body></html>'))
+    still_not_authenticated = _session_returning(
+        _fake_response('<html><body>로그인 필요</body></html>'),
+    )
+
+    with _patch_create_session(not_authenticated, still_not_authenticated):
+        with caplog.at_level('WARNING'):
+            service.list_courses()
+
+    assert not any('0개로 파싱' in record.message for record in caplog.records)
 
 
 def test_list_lectures_ignores_non_vod_activities_and_strips_accesshide_text() -> None:
@@ -172,3 +251,118 @@ def test_get_stream_url_does_not_cache_across_calls() -> None:
 
     assert result1 == first_url
     assert result2 == second_url
+
+
+def test_is_moodle_login_redirect_recognizes_both_login_paths() -> None:
+    from apps.sejong.lecture.services.course import _is_moodle_login_redirect
+
+    assert _is_moodle_login_redirect(_fake_response('', url=_LOGIN_URL)) is True
+    assert _is_moodle_login_redirect(_fake_response('', url=_LOGIN_URL_ALT)) is True
+    assert _is_moodle_login_redirect(_fake_response('', url=_NON_LOGIN_URL)) is False
+
+
+def test_is_authenticated_page_checks_logout_link_presence() -> None:
+    from apps.sejong.lecture.services.course import _is_authenticated_page
+
+    assert _is_authenticated_page(_fake_response('<a href="logout.php">로그아웃</a>')) is True
+    assert _is_authenticated_page(_fake_response('<p>로그인이 필요합니다</p>')) is False
+
+
+def test_search_past_courses_parses_table_and_sends_year_semester_params() -> None:
+    service = EcampusCourseService()
+    http_session = MagicMock()
+    http_session.get.return_value = _fake_response(_PAST_COURSES_HTML)
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        courses = service.search_past_courses(year='2023', semester='10')
+
+    assert courses == [
+        Course(id='31245', name='공업수학1 (000304-003)'),
+        Course(id='31493', name='컴퓨터네트워크 (003284-003)'),
+    ]
+    http_session.get.assert_called_once()
+    _, kwargs = http_session.get.call_args
+    assert kwargs['params'] == {'year': '2023', 'semester': '10'}
+
+
+def test_search_past_courses_returns_empty_list_when_not_authenticated() -> None:
+    service = EcampusCourseService()
+    not_authenticated = _session_returning(_fake_response('<html><body>로그인 필요</body></html>'))
+    still_not_authenticated = _session_returning(
+        _fake_response('<html><body>로그인 필요</body></html>'),
+    )
+
+    with _patch_create_session(not_authenticated, still_not_authenticated):
+        assert service.search_past_courses(year='2023', semester='10') == []
+
+
+def test_search_past_courses_returns_empty_list_on_request_exception() -> None:
+    service = EcampusCourseService()
+    http_session = MagicMock()
+    http_session.get.side_effect = requests.RequestException('network error')
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        assert service.search_past_courses(year='2023', semester='10') == []
+
+
+def test_search_past_courses_empty_result_does_not_log_warning(caplog) -> None:
+    """과거강좌가 0개인 것은 정상 상황(이력 없음)이므로 warning을 남기지 않는다."""
+    service = EcampusCourseService()
+    session = _session_returning(
+        _fake_response('<html><body><a href="logout.php">로그아웃</a></body></html>'),
+    )
+
+    with _patch_create_session(session):
+        with caplog.at_level('WARNING'):
+            courses = service.search_past_courses(year='2003', semester='10')
+
+    assert courses == []
+    assert len(caplog.records) == 0
+
+
+def test_find_course_uses_list_courses_when_year_semester_missing() -> None:
+    service = EcampusCourseService()
+    target = Course(id='101', name='자료구조')
+
+    with patch.object(EcampusCourseService, 'list_courses', return_value=[target]):
+        assert service.find_course('101') == target
+
+
+def test_find_course_uses_search_past_courses_when_year_semester_given() -> None:
+    service = EcampusCourseService()
+    target = Course(id='201', name='이산수학')
+
+    with (
+        patch.object(EcampusCourseService, 'list_courses') as mock_current,
+        patch.object(EcampusCourseService, 'search_past_courses', return_value=[target]) as mock_past,
+    ):
+        result = service.find_course('201', year='2023', semester='10')
+
+    assert result == target
+    mock_past.assert_called_once_with(year='2023', semester='10')
+    mock_current.assert_not_called()
+
+
+def test_find_course_returns_none_when_not_found() -> None:
+    service = EcampusCourseService()
+
+    with patch.object(EcampusCourseService, 'list_courses', return_value=[]):
+        assert service.find_course('999') is None
+
+
+def test_find_course_uses_list_courses_when_only_year_given() -> None:
+    """year/semester가 둘 다 있어야만 과거강좌 검색으로 간주한다 - 하나만 오면 이번 학기로 취급."""
+    service = EcampusCourseService()
+    target = Course(id='101', name='자료구조')
+
+    with (
+        patch.object(EcampusCourseService, 'list_courses', return_value=[target]) as mock_current,
+        patch.object(EcampusCourseService, 'search_past_courses') as mock_past,
+    ):
+        result = service.find_course('101', year='2023', semester=None)
+
+    assert result == target
+    mock_current.assert_called_once()
+    mock_past.assert_not_called()

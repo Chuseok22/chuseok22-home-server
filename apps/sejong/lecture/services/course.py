@@ -11,10 +11,11 @@ from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, 
 
 logger = logging.getLogger(__name__)
 
-_MY_COURSES_URL = 'https://ecampus.sejong.ac.kr/my/'
+_CURRENT_COURSES_URL = 'https://ecampus.sejong.ac.kr/dashboard.php'
 _COURSE_VIEW_URL = 'https://ecampus.sejong.ac.kr/course/view.php'
+_PAST_COURSES_URL = 'https://ecampus.sejong.ac.kr/local/ubion/user/index.php'
 _VIEWER_URL = 'https://ecampus.sejong.ac.kr/mod/vod/viewer.php'
-_LOGIN_PAGE_PATH = '/login/index.php'
+_LOGIN_REDIRECT_PATHS = {'/login/index.php', '/login.php'}
 _REQUEST_TIMEOUT = 15
 
 _COURSE_ID_RE = re.compile(r'id=(\d+)')
@@ -49,23 +50,66 @@ class EcampusCourseService:
         self._auth = EcampusMoodleAuthService()
 
     def list_courses(self) -> list[Course]:
-        """`/my/` 대시보드에서 강좌 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
+        """`dashboard.php`의 "나의강좌" 위젯에서 이번 학기 강좌 목록을 조회한다. 실패 시 빈
+        리스트를 반환한다."""
         result = self._auth.fetch_with_retry(self._fetch_courses_with_session)
-        return result if result is not None else []
+        courses = result if result is not None else []
+        if result is not None and not courses:
+            logger.warning('인증은 정상이나 이번 학기 강좌 목록이 0개로 파싱됨 - HTML 구조 변경 가능성')
+        return courses
 
     def _fetch_courses_with_session(
         self, ecampus_session: EcampusSession,
     ) -> tuple[list[Course] | None, bool]:
         try:
-            response = ecampus_session.session.get(_MY_COURSES_URL, timeout=_REQUEST_TIMEOUT)
+            response = ecampus_session.session.get(_CURRENT_COURSES_URL, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as e:
             logger.error('강좌 목록 조회 실패: %s', e)
             return None, False
 
-        if _is_session_expired(response):
+        if not _is_authenticated_page(response):
             return None, True
-        return _parse_courses(response.text), False
+        return _parse_current_courses(response.text), False
+
+    def search_past_courses(self, year: str, semester: str) -> list[Course]:
+        """연도/학기로 과거강좌를 검색한다. year/semester는 세종대 select 옵션값을 그대로 받는다
+        (예: '2024', 'all', '10', '20', 'all'). 실패 시 빈 리스트를 반환한다."""
+        operation = functools.partial(
+            self._fetch_past_courses_with_session, year=year, semester=semester,
+        )
+        result = self._auth.fetch_with_retry(operation)
+        return result if result is not None else []
+
+    def _fetch_past_courses_with_session(
+        self, ecampus_session: EcampusSession, year: str, semester: str,
+    ) -> tuple[list[Course] | None, bool]:
+        try:
+            response = ecampus_session.session.get(
+                _PAST_COURSES_URL,
+                params={'year': year, 'semester': semester},
+                timeout=_REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error('과거강좌 조회 실패 (year=%s, semester=%s): %s', year, semester, e)
+            return None, False
+
+        if not _is_authenticated_page(response):
+            return None, True
+        return _parse_past_courses(response.text), False
+
+    def find_course(
+        self, course_id: str, year: str | None = None, semester: str | None = None,
+    ) -> Course | None:
+        """course_id로 강좌를 찾는다. year와 semester가 모두 주어지면 해당 과거 학기 검색
+        결과에서, 아니면 이번 학기 목록에서 찾는다."""
+        courses = (
+            self.search_past_courses(year=year, semester=semester)
+            if year and semester
+            else self.list_courses()
+        )
+        return next((c for c in courses if c.id == course_id), None)
 
     def list_lectures(self, course_id: str) -> list[Lecture]:
         """코스 페이지에서 강의(영상) 목록을 조회한다. 실패 시 빈 리스트를 반환한다."""
@@ -87,7 +131,7 @@ class EcampusCourseService:
             logger.error('강의 목록 조회 실패 (course_id=%s): %s', course_id, e)
             return None, False
 
-        if _is_session_expired(response):
+        if _is_moodle_login_redirect(response):
             return None, True
         return _parse_lectures(response.text), False
 
@@ -115,7 +159,7 @@ class EcampusCourseService:
             logger.error('스트림 URL 조회 실패 (lecture_id=%s): %s', lecture_id, e)
             return None, False
 
-        if _is_session_expired(response):
+        if _is_moodle_login_redirect(response):
             return None, True
 
         match = _M3U8_URL_RE.search(response.text)
@@ -125,22 +169,60 @@ class EcampusCourseService:
         return match.group(0), False
 
 
-def _is_session_expired(response: requests.Response) -> bool:
-    """응답이 로그인 페이지로 리다이렉트됐으면 Moodle 세션이 만료된 것으로 판정한다."""
-    return urlparse(response.url).path == _LOGIN_PAGE_PATH
+def _is_moodle_login_redirect(response: requests.Response) -> bool:
+    """course/view.php, viewer.php 용 - 경로 기반 세션 만료 판정.
+
+    Moodle이 세션 만료 시 리다이렉트하는 로그인 경로가 페이지마다 다름을 실측으로 확인했다
+    (/my/ -> /login/index.php, dashboard.php/과거강좌 페이지 -> /login.php). 이 함수는 두 경로를
+    모두 인식한다.
+    """
+    return urlparse(response.url).path in _LOGIN_REDIRECT_PATHS
 
 
-def _parse_courses(html: str) -> list[Course]:
-    """`/my/` 대시보드 HTML에서 강좌 목록을 파싱한다.
+def _is_authenticated_page(response: requests.Response) -> bool:
+    """dashboard.php, local/ubion/user/index.php 용 - 컨텐츠 기반 인증 판정.
 
-    강좌 카드 하나가 썸네일 링크와 제목 링크 등 여러 `<a>`를 가질 수 있어 id 기준으로
-    중복을 제거한다(제목 텍스트가 있는 첫 번째 링크만 채택).
+    이 두 페이지는 세션 만료 시 리다이렉트 없이 빈 위젯을 담은 200 응답을 줄 수 있어(집현캠퍼스
+    강좌 목록 조회 실패 버그의 근본 원인이었다), 경로 대신 페이지 본문에 로그아웃 링크(logout.php)
+    가 있는지로 인증 여부를 판정한다. course/view.php에는 이 문자열이 없음을 실측으로 확인했으므로
+    그 페이지에는 이 함수를 쓰지 않는다.
+    """
+    return 'logout.php' in response.text
+
+
+def _parse_current_courses(html: str) -> list[Course]:
+    """`dashboard.php`의 "나의강좌" 위젯에서 이번 학기 강좌 목록을 파싱한다.
+
+    `a.course-link`가 뱃지·교수명까지 통째로 감싸고 있어 anchor 전체 텍스트를 쓰면 뒤섞인다.
+    `.course-title h3`의 stripped_strings 첫 항목만 취해 중첩된 `<span class="semester-name">`이
+    강좌명에 섞여 들어가는 것을 방지한다(`_extract_instance_name`과 동일한 패턴).
     """
     soup = BeautifulSoup(html, 'lxml')
     courses: dict[str, str] = {}
-    for link in soup.select('a[href*="course/view.php?id="]'):
-        href = link.get('href', '')
-        match = _COURSE_ID_RE.search(href)
+    for link in soup.select('a.course-link[href*="course/view.php?id="]'):
+        match = _COURSE_ID_RE.search(link.get('href', ''))
+        if not match:
+            continue
+        title_el = link.select_one('.course-title h3')
+        if title_el is None:
+            continue
+        name = next(title_el.stripped_strings, '')
+        if not name:
+            continue
+        courses.setdefault(match.group(1), name)
+    return [Course(id=course_id, name=name) for course_id, name in courses.items()]
+
+
+def _parse_past_courses(html: str) -> list[Course]:
+    """`local/ubion/user/index.php` 검색 결과 테이블을 파싱한다.
+
+    `a.coursefullname`은 뱃지가 앵커 밖에 있어 텍스트가 이미 깨끗하므로 `get_text(strip=True)`를
+    그대로 쓴다.
+    """
+    soup = BeautifulSoup(html, 'lxml')
+    courses: dict[str, str] = {}
+    for link in soup.select('a.coursefullname[href*="course/view.php?id="]'):
+        match = _COURSE_ID_RE.search(link.get('href', ''))
         if not match:
             continue
         name = link.get_text(strip=True)
