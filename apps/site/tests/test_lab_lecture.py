@@ -72,6 +72,30 @@ def test_강좌_조회_결과_표시() -> None:
 
 
 @pytest.mark.django_db
+def test_강좌_조회_응답은_이전_강의목록과_다운로드결과를_비운다() -> None:
+    """학기를 바꿔 다시 조회했을 때 이전에 선택했던 강좌의 강의 목록(#lectures)과 다운로드
+    결과 메시지(#download-result)가 화면에 남아있지 않도록, 강좌 조회 응답은 항상 이 두
+    영역을 htmx out-of-band swap으로 비운다(CodeRabbit PR #163 리뷰 반영)."""
+    client = Client()
+    _login_owner(client)
+    fake_session = EcampusSession(session=MagicMock())
+    fake_courses = [Course(id='101', name='자료구조', year='2026', semester='20')]
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch('apps.site.views.EcampusCourseService.search_past_courses', return_value=fake_courses),
+    ):
+        response = client.get(
+            reverse('site:lab-lecture-courses'), {'year': '2026', 'semester': '20'},
+        )
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert 'id="lectures" hx-swap-oob' in body
+    assert 'id="download-result" hx-swap-oob' in body
+
+
+@pytest.mark.django_db
 def test_강좌가_없으면_안내문구_반환() -> None:
     client = Client()
     _login_owner(client)

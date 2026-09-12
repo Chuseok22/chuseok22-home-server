@@ -1,4 +1,6 @@
 {% if course_groups is not None %}
+  <div id="lectures" hx-swap-oob="innerHTML"></div>
+  <div id="download-result" hx-swap-oob="innerHTML"></div>
   {% if course_groups %}
     {% for group in course_groups %}
       {% if group.label %}
