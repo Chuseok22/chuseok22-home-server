@@ -18,17 +18,17 @@
   {% csrf_token %}
   <label class="form-control">
     <span class="label-text">상호명</span>
-    {{ form.restaurant_name }}
+    <input type="text" name="restaurant_name" class="input input-bordered" value="{{ form.restaurant_name.value|default:'' }}" maxlength="100" required>
     {% if form.restaurant_name.errors %}<span class="text-error text-sm">{{ form.restaurant_name.errors|join:', ' }}</span>{% endif %}
   </label>
   <label class="form-control">
     <span class="label-text">카카오맵 링크 (선택)</span>
-    {{ form.kakao_place_url }}
+    <input type="url" name="kakao_place_url" class="input input-bordered" value="{{ form.kakao_place_url.value|default:'' }}">
     {% if form.kakao_place_url.errors %}<span class="text-error text-sm">{{ form.kakao_place_url.errors|join:', ' }}</span>{% endif %}
   </label>
   <label class="form-control">
     <span class="label-text">추천 이유 (선택)</span>
-    {{ form.message }}
+    <textarea name="message" class="textarea textarea-bordered">{{ form.message.value|default:'' }}</textarea>
     {% if form.message.errors %}<span class="text-error text-sm">{{ form.message.errors|join:', ' }}</span>{% endif %}
   </label>
   <button type="submit" class="btn btn-primary self-start">제보하기</button>
