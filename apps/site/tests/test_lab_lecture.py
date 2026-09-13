@@ -307,6 +307,63 @@ def test_이력이_없으면_안내문구_반환() -> None:
 
 
 @pytest.mark.django_db
+def test_이력_목록은_페이지당_20개로_제한된다() -> None:
+    client = Client()
+    _login_owner(client)
+    for i in range(25):
+        LectureDownloadJob.objects.create(
+            course_id='101', course_name='자료구조', lecture_id=str(i), lecture_title=f'{i}주차 강의',
+            status=LectureDownloadJob.Status.COMPLETED,
+        )
+
+    response = client.get(reverse('site:lab-lecture-history'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    # 완료 상태 행은 "삭제" 버튼의 hx-target도 job-row- 문자열을 포함하므로, 행 개수는
+    # <tr id="job-row-...">(여는 태그)만 세어 정확히 행 단위로 카운트한다.
+    assert body.count('<tr id="job-row-') == 20
+    assert '다음' in body
+    assert '이전' not in body
+
+
+@pytest.mark.django_db
+def test_이력_목록_두번째_페이지_조회() -> None:
+    client = Client()
+    _login_owner(client)
+    for i in range(25):
+        LectureDownloadJob.objects.create(
+            course_id='101', course_name='자료구조', lecture_id=str(i), lecture_title=f'{i}주차 강의',
+            status=LectureDownloadJob.Status.COMPLETED,
+        )
+
+    response = client.get(reverse('site:lab-lecture-history'), {'page': '2'})
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert body.count('<tr id="job-row-') == 5
+    assert '이전' in body
+    assert '다음' not in body
+
+
+@pytest.mark.django_db
+def test_이력이_페이지당_개수_이하면_페이지네이션_링크가_없다() -> None:
+    client = Client()
+    _login_owner(client)
+    LectureDownloadJob.objects.create(
+        course_id='101', course_name='자료구조', lecture_id='5001', lecture_title='1주차 강의',
+        status=LectureDownloadJob.Status.COMPLETED,
+    )
+
+    response = client.get(reverse('site:lab-lecture-history'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert '이전' not in body
+    assert '다음' not in body
+
+
+@pytest.mark.django_db
 def test_이력_삭제() -> None:
     client = Client()
     _login_owner(client)

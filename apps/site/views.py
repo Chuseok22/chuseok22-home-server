@@ -777,11 +777,19 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
     )
 
 
+_LECTURE_HISTORY_PER_PAGE = 20
+
+
 @owner_required
 def lab_lecture_history(request: HttpRequest) -> HttpResponse:
-    """강의 다운로드 이력 목록 (htmx 부분 응답)."""
-    jobs = LectureDownloadJob.objects.all()
-    return render(request, 'site/partials/lecture_history.html', {'jobs': jobs})
+    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션한다(페이지당
+    20개, 최신순 - LectureDownloadJob.Meta.ordering)."""
+    paginator = Paginator(LectureDownloadJob.objects.all(), _LECTURE_HISTORY_PER_PAGE)
+    page_number = request.GET.get('page', '1')
+    page_obj = paginator.get_page(page_number if page_number.isdecimal() else 1)
+    return render(
+        request, 'site/partials/lecture_history.html', {'jobs': page_obj, 'page_obj': page_obj},
+    )
 
 
 @owner_required
