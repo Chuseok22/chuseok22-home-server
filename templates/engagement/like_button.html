@@ -1,7 +1,7 @@
 {% load engagement_tags %}
 <button
   id="like-button"
-  class="btn btn-sm {% if is_liked %}btn-primary{% else %}btn-outline{% endif %}"
+  class="btn btn-sm relative {% if is_liked %}btn-primary{% else %}btn-outline{% endif %}"
   hx-post="{% url 'engagement:like-toggle' target|content_type_app_label target|content_type_model target.pk %}"
   hx-target="#like-button"
   hx-swap="outerHTML"
@@ -9,5 +9,5 @@
   hx-disabled-elt="this"
 >
   ❤️ {{ like_count }}
-  <span id="like-spinner" class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
+  <span id="like-spinner" class="htmx-indicator loading loading-spinner loading-xs absolute right-2 top-1/2 -translate-y-1/2" aria-hidden="true"></span>
 </button>

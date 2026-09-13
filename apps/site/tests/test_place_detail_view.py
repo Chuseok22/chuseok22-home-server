@@ -50,3 +50,20 @@ def test_로그인_사용자에게_좋아요_버튼이_보인다(mock_send_admin
 
     assert 'id="like-button"' in body
     assert '❤️ 1' in body
+
+
+@pytest.mark.django_db
+@patch('apps.notifications.services.telegram.TelegramService.send_admin_alert', return_value=True)
+def test_좋아요_버튼과_댓글_등록_버튼의_로딩_스피너는_절대위치로_렌더링된다(mock_send_admin_alert: MagicMock) -> None:
+    """스피너가 opacity:0으로 숨겨져도 flex 레이아웃 공간을 차지하면 텍스트가 버튼 중앙에서
+    벗어나 보인다(GitHub 이슈 #164) - 스피너를 absolute로 배치해 텍스트 레이아웃에 영향을
+    주지 않는지 검증한다."""
+    user = User.objects.create_user(username='reader')
+    place = Place.objects.create(name='몽탄', latitude=Decimal('37.54'), longitude=Decimal('127.07'))
+
+    client = Client()
+    client.force_login(user)
+    response = client.get(reverse('site:place-detail', kwargs={'pk': place.pk}))
+    body = response.content.decode()
+
+    assert body.count('loading-spinner loading-xs absolute') == 2  # 좋아요 버튼 + 댓글 등록 버튼
