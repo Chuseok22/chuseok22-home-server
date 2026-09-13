@@ -689,12 +689,16 @@ def lab_lecture(request: HttpRequest) -> HttpResponse:
 
 @owner_required
 def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
-    """강좌 목록(course_id 없음) 또는 강의 목록(course_id 있음)을 조회한다 (htmx 부분 응답).
+    """강좌 목록을 조회한다 (htmx 부분 응답). course_id가 함께 오면 그 강좌의 강의 목록을
+    강좌 목록 안에 인라인으로 펼쳐서 함께 렌더링한다("펼쳐진 강좌 = 요청된 course_id"로
+    판단하므로, 다른 강좌를 클릭하면 그 강좌만 펼쳐진 새 렌더링 결과로 교체되어 별도 JS 없이
+    한 번에 하나만 열리는 것이 보장된다 - GitHub 이슈 #164).
 
     year/semester는 항상 필수다 - "이번 학기 전용 자동 조회" 경로가 없어져 모든 조회가
     search_past_courses()를 통해 이뤄진다. 로그인 실패·강좌를 찾을 수 없는 경우 모두 200으로
-    반환한다. course_id가 주어져도 클라이언트가 보낸 강좌명을 신뢰하지 않고 서버에서 다시 조회해
-    실제 강좌명을 확인한다.
+    반환한다. course_id가 주어져도 클라이언트가 보낸 강좌명을 신뢰하지 않고, 이미 조회한
+    courses 목록 안에서 다시 찾아 실제 강좌명을 확인한다(find_course()를 다시 호출하면
+    search_past_courses가 두 번 실행되므로, 이미 있는 courses 목록에서 직접 찾는다).
     """
     form = LectureCourseSelectForm(request.GET)
     if not form.is_valid():
@@ -709,26 +713,32 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
     year = form.cleaned_data['year']
     semester = form.cleaned_data['semester']
 
-    if not course_id:
-        courses = course_service.search_past_courses(year=year, semester=semester)
-        course_groups = group_courses_by_semester(courses, year=year, semester=semester)
-        return render(
-            request,
-            'site/partials/lecture_courses.html',
-            {'course_groups': course_groups, 'lectures': None, 'course_id': None, 'course_name': None},
-        )
+    courses = course_service.search_past_courses(year=year, semester=semester)
+    course_groups = group_courses_by_semester(courses, year=year, semester=semester)
 
-    course = course_service.find_course(course_id, year=year, semester=semester)
-    if course is None:
-        return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+    expanded_course_id = None
+    expanded_lectures = None
+    if course_id:
+        course = next((c for c in courses if c.id == course_id), None)
+        if course is None:
+            return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+        expanded_course_id = course.id
+        expanded_lectures = course_service.list_lectures(course.id)
 
-    lectures = course_service.list_lectures(course.id)
     return render(
         request,
         'site/partials/lecture_courses.html',
         {
-            'course_groups': None, 'lectures': lectures, 'course_id': course.id,
-            'course_name': course.name, 'year': course.year, 'semester': course.semester,
+            'course_groups': course_groups,
+            'expanded_course_id': expanded_course_id,
+            'expanded_lectures': expanded_lectures,
+            # 강좌 버튼의 재조회 hx-vals가 써야 하는 값 - course.year/course.semester가 아니라
+            # 이 검색에 쓰인 필터값이다. 예: year='all'/semester='all'로 조회한 결과에서 강좌를
+            # 클릭했을 때, 그 강좌 자신의 학기(예: '2023'/'10')로 재조회하면 group_courses_by_semester가
+            # 단일 그룹(label=None)만 반환해 방금 보고 있던 다른 학기들이 전부 화면에서 사라진다
+            # (fable5.1 검토로 발견 - GitHub 이슈 #164 계획 리뷰).
+            'search_year': year,
+            'search_semester': semester,
         },
     )
 
@@ -767,32 +777,49 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
     )
 
 
+_LECTURE_HISTORY_PER_PAGE = 20
+
+
+def _render_lecture_history_page(request: HttpRequest, page_number: str) -> HttpResponse:
+    """다운로드 이력 목록을 지정한 페이지로 렌더링한다 (htmx 부분 응답). 페이지네이션 재계산이
+    필요한 두 진입점(목록 조회, 삭제 후 갱신)이 공유한다."""
+    paginator = Paginator(LectureDownloadJob.objects.all(), _LECTURE_HISTORY_PER_PAGE)
+    page_obj = paginator.get_page(page_number if page_number.isdecimal() else 1)
+    return render(
+        request, 'site/partials/lecture_history.html', {'jobs': page_obj, 'page_obj': page_obj},
+    )
+
+
 @owner_required
 def lab_lecture_history(request: HttpRequest) -> HttpResponse:
-    """강의 다운로드 이력 목록 (htmx 부분 응답)."""
-    jobs = LectureDownloadJob.objects.all()
-    return render(request, 'site/partials/lecture_history.html', {'jobs': jobs})
+    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션한다(페이지당
+    20개, 최신순 - LectureDownloadJob.Meta.ordering)."""
+    return _render_lecture_history_page(request, request.GET.get('page', '1'))
 
 
 @owner_required
 @require_POST
 def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpResponse:
-    """다운로드 이력을 삭제한다 (htmx hx-post, hx-swap="delete"). 존재하지 않는 job도 200으로 처리한다.
+    """다운로드 이력을 삭제한다 (htmx hx-post). 존재하지 않는 job도 200으로 처리한다.
+
+    성공 시(존재하지 않는 job 포함) #history 전체를 현재 페이지로 다시 렌더링해 응답한다 -
+    삭제된 행만 hx-swap="delete"로 지우면 페이지네이터가 재계산되지 않아, 마지막 페이지의
+    마지막 행을 지웠을 때 빈 테이블 위에 stale한 페이지 번호가 남는 문제가 있었다
+    (CodeRabbit/Codex PR 리뷰로 발견 - GitHub 이슈 #164).
 
     DB 레코드 삭제와 파일시스템 삭제는 뷰가 아니라 apps.sejong.lecture.services.job_cleanup에서 수행한다.
     진행 중(PENDING/RUNNING)인 작업은 삭제할 수 없다 - 오케스트레이터가 job.id로 동시
     실행을 제한하므로, 진행 중인 행을 지우면 그 제한이 무력화되고 백그라운드 스레드가
-    이미 읽어간 job 인스턴스의 후속 save()가 DatabaseError를 낼 수 있다. 이 경우
-    hx-swap="delete"가 행을 지우면 안 되므로 200이 아닌 409로 응답한다(htmx는 2xx/3xx
-    응답에서만 스왑을 수행한다).
+    이미 읽어간 job 인스턴스의 후속 save()가 DatabaseError를 낼 수 있다. 이 경우 200이 아닌
+    409로 응답해 #history가 갱신되지 않게 한다(htmx는 2xx/3xx 응답에서만 스왑을 수행한다).
     """
     job = LectureDownloadJob.objects.filter(pk=job_id).first()
     if job is None:
-        return HttpResponse(status=200)
+        return _render_lecture_history_page(request, request.GET.get('page', '1'))
     if job.status in (LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING):
         return HttpResponse('진행 중인 다운로드는 삭제할 수 없습니다.', status=409)
     delete_download_job(job)
-    return HttpResponse(status=200)
+    return _render_lecture_history_page(request, request.GET.get('page', '1'))
 
 
 @owner_required

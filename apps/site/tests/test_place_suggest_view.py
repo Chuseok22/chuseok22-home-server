@@ -76,6 +76,25 @@ def test_상호명_없이는_제보할_수_없다() -> None:
 
 
 @pytest.mark.django_db
+def test_제보_폼_입력_필드는_DaisyUI_클래스로_스타일링된다() -> None:
+    """@tailwindcss/forms strategy: 'class' 전환(GitHub 이슈 #164) 이후 Django가 렌더링하는
+    bare <input>/<textarea>는 더 이상 전역 리셋을 받지 못한다 - 이 페이지처럼 직접 DaisyUI
+    클래스를 명시하지 않은 필드는 스타일이 완전히 사라진다(fable5.1 독립 검토로 발견). 세 필드
+    모두 DaisyUI input/textarea 클래스를 갖는지 고정한다."""
+    user = User.objects.create_user(username='visitor')
+    client = Client()
+    client.force_login(user)
+
+    response = client.get(reverse('site:place-suggest'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'name="restaurant_name" class="input input-bordered"' in body
+    assert 'name="kakao_place_url" class="input input-bordered"' in body
+    assert 'name="message" class="textarea textarea-bordered"' in body
+
+
+@pytest.mark.django_db
 def test_분당_5회_초과시_429를_반환한다() -> None:
     user = User.objects.create_user(username='visitor')
     client = Client()

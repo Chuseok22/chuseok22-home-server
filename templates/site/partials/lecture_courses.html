@@ -1,78 +1,32 @@
-{% if course_groups is not None %}
-  <div id="lectures" hx-swap-oob="innerHTML"></div>
-  <div id="download-result" hx-swap-oob="innerHTML"></div>
-  {% if course_groups %}
-    {% for group in course_groups %}
-      {% if group.label %}
-      <div class="collapse collapse-arrow bg-base-200 rounded-box mb-2">
-        <input type="checkbox" {% if forloop.first %}checked{% endif %} />
-        <div class="collapse-title font-semibold">
-          {{ group.label }}
-          <span class="opacity-50 font-normal text-sm">({{ group.courses|length }}개)</span>
-        </div>
-        <div class="collapse-content">
-          <ul class="menu">
-            {% for course in group.courses %}
-            <li>
-              <button
-                type="button"
-                class="btn btn-ghost justify-start"
-                hx-get="{% url 'site:lab-lecture-courses' %}"
-                hx-target="#lectures"
-                hx-indicator="#courses-skeleton"
-                hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ course.year|escapejs }}", "semester": "{{ course.semester|escapejs }}"}'
-              >{{ course.name }}</button>
-            </li>
-            {% endfor %}
-          </ul>
-        </div>
+{% load lecture_tags %}
+{% if not expanded_course_id %}
+<div id="download-result" hx-swap-oob="innerHTML"></div>
+{% endif %}
+{% if course_groups %}
+  {% for group in course_groups %}
+    {% if group.label %}
+    <div class="collapse collapse-arrow bg-base-200 rounded-box mb-2">
+      <input type="checkbox" {% if forloop.first or group.courses|contains_course_id:expanded_course_id %}checked{% endif %} />
+      <div class="collapse-title font-semibold">
+        {{ group.label }}
+        <span class="opacity-50 font-normal text-sm">({{ group.courses|length }}개)</span>
       </div>
-      {% else %}
-      <ul class="menu bg-base-200 rounded-box">
-        {% for course in group.courses %}
-        <li>
-          <button
-            type="button"
-            class="btn btn-ghost justify-start"
-            hx-get="{% url 'site:lab-lecture-courses' %}"
-            hx-target="#lectures"
-            hx-indicator="#courses-skeleton"
-            hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ course.year|escapejs }}", "semester": "{{ course.semester|escapejs }}"}'
-          >{{ course.name }}</button>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-    {% endfor %}
-  {% else %}
-  <p class="opacity-60">해당 학기에 강좌가 없습니다.</p>
-  {% endif %}
-{% elif lectures is not None %}
-  <p class="font-semibold mb-2">{{ course_name }} — 강의 목록</p>
-  {% if lectures %}
-  <ul class="menu bg-base-200 rounded-box">
-    {% for lecture in lectures %}
-    <li class="flex-row items-center justify-between gap-2">
-      <span>{{ lecture.title }}</span>
-      <form
-        hx-post="{% url 'site:lab-lecture-download' %}"
-        hx-target="#download-result"
-        hx-disabled-elt="find button"
-        class="shrink-0"
-      >
-        <input type="hidden" name="course_id" value="{{ course_id }}">
-        <input type="hidden" name="lecture_id" value="{{ lecture.id }}">
-        <input type="hidden" name="year" value="{{ year }}">
-        <input type="hidden" name="semester" value="{{ semester }}">
-        <button type="submit" class="btn btn-primary btn-xs">
-          다운로드
-          <span class="htmx-indicator loading loading-spinner loading-xs" aria-hidden="true"></span>
-        </button>
-      </form>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="opacity-60">이 강좌에는 다운로드할 강의가 없습니다.</p>
-  {% endif %}
+      <div class="collapse-content">
+        <ul class="menu">
+          {% for course in group.courses %}
+          {% include 'site/partials/lecture_course_item.html' %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% else %}
+    <ul class="menu bg-base-200 rounded-box">
+      {% for course in group.courses %}
+      {% include 'site/partials/lecture_course_item.html' %}
+      {% endfor %}
+    </ul>
+    {% endif %}
+  {% endfor %}
+{% else %}
+<p class="opacity-60">해당 학기에 강좌가 없습니다.</p>
 {% endif %}

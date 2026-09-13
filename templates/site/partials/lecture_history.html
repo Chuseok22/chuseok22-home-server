@@ -35,9 +35,9 @@
           <button
             type="button"
             class="btn btn-ghost btn-xs"
-            hx-post="{% url 'site:lab-lecture-history-delete' job.id %}"
-            hx-target="#job-row-{{ job.id }}"
-            hx-swap="delete"
+            hx-post="{% url 'site:lab-lecture-history-delete' job.id %}?page={{ page_obj.number }}"
+            hx-target="#history"
+            hx-swap="innerHTML"
             hx-confirm="{{ job.lecture_title }} 다운로드 이력을 삭제할까요?"
           >삭제</button>
           {% endif %}
@@ -47,6 +47,29 @@
     </tbody>
   </table>
 </div>
+{% if page_obj.has_other_pages %}
+<div class="flex items-center justify-center gap-4 mt-4">
+  {% if page_obj.has_previous %}
+  <a
+    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}"
+    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}"
+    hx-target="#history"
+    hx-swap="innerHTML"
+    class="btn btn-sm btn-ghost"
+  >이전</a>
+  {% endif %}
+  <span class="text-sm opacity-70">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a
+    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}"
+    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}"
+    hx-target="#history"
+    hx-swap="innerHTML"
+    class="btn btn-sm btn-ghost"
+  >다음</a>
+  {% endif %}
+</div>
+{% endif %}
 {% else %}
 <p class="opacity-60">다운로드 이력이 없습니다.</p>
 {% endif %}

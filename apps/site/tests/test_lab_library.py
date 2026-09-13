@@ -187,6 +187,9 @@ def test_예약_폼은_제출_버튼_비활성화_속성과_스피너를_포함�
 
     assert 'hx-disabled-elt="find button"' in body
     assert 'loading-spinner' in body
+    # 스피너가 숨겨져도 레이아웃 공간을 차지해 "예약하기" 텍스트가 중앙에서 벗어나 보이는
+    # 버그(GitHub 이슈 #164) 방지 - 절대위치로 배치했는지 검증한다.
+    assert 'loading-spinner loading-xs absolute' in body
 
 
 @pytest.mark.django_db

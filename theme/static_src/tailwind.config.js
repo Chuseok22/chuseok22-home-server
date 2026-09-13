@@ -55,11 +55,14 @@ module.exports = {
     },
     plugins: [
         /**
-         * '@tailwindcss/forms' is the forms plugin that provides a minimal styling
-         * for forms. If you don't like it or have own styling for forms,
-         * comment the line below to disable '@tailwindcss/forms'.
+         * '@tailwindcss/forms'의 기본 strategy('base')는 bare <select>/<input>/<textarea>
+         * 태그 셀렉터에 전역 리셋을 주입해 DaisyUI의 .select/.input 클래스 스타일과 충돌한다
+         * (강좌 조회 드롭다운이 매우 좁게 렌더링되는 버그의 원인이었다 - GitHub 이슈 #164).
+         * 프로젝트 전체가 DaisyUI의 select-bordered/input-bordered 클래스만 쓰고
+         * form-select/form-input 접두 클래스는 쓰지 않으므로, strategy: 'class'로 바꿔
+         * bare 태그 리셋 자체를 끈다.
          */
-        require('@tailwindcss/forms'),
+        require('@tailwindcss/forms')({ strategy: 'class' }),
         require('@tailwindcss/typography'),
         require('@tailwindcss/aspect-ratio'),
         require('daisyui'),
