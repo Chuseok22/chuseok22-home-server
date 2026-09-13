@@ -780,12 +780,10 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
 _LECTURE_HISTORY_PER_PAGE = 20
 
 
-@owner_required
-def lab_lecture_history(request: HttpRequest) -> HttpResponse:
-    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션한다(페이지당
-    20개, 최신순 - LectureDownloadJob.Meta.ordering)."""
+def _render_lecture_history_page(request: HttpRequest, page_number: str) -> HttpResponse:
+    """다운로드 이력 목록을 지정한 페이지로 렌더링한다 (htmx 부분 응답). 페이지네이션 재계산이
+    필요한 두 진입점(목록 조회, 삭제 후 갱신)이 공유한다."""
     paginator = Paginator(LectureDownloadJob.objects.all(), _LECTURE_HISTORY_PER_PAGE)
-    page_number = request.GET.get('page', '1')
     page_obj = paginator.get_page(page_number if page_number.isdecimal() else 1)
     return render(
         request, 'site/partials/lecture_history.html', {'jobs': page_obj, 'page_obj': page_obj},
@@ -793,24 +791,35 @@ def lab_lecture_history(request: HttpRequest) -> HttpResponse:
 
 
 @owner_required
+def lab_lecture_history(request: HttpRequest) -> HttpResponse:
+    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션한다(페이지당
+    20개, 최신순 - LectureDownloadJob.Meta.ordering)."""
+    return _render_lecture_history_page(request, request.GET.get('page', '1'))
+
+
+@owner_required
 @require_POST
 def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpResponse:
-    """다운로드 이력을 삭제한다 (htmx hx-post, hx-swap="delete"). 존재하지 않는 job도 200으로 처리한다.
+    """다운로드 이력을 삭제한다 (htmx hx-post). 존재하지 않는 job도 200으로 처리한다.
+
+    성공 시(존재하지 않는 job 포함) #history 전체를 현재 페이지로 다시 렌더링해 응답한다 -
+    삭제된 행만 hx-swap="delete"로 지우면 페이지네이터가 재계산되지 않아, 마지막 페이지의
+    마지막 행을 지웠을 때 빈 테이블 위에 stale한 페이지 번호가 남는 문제가 있었다
+    (CodeRabbit/Codex PR 리뷰로 발견 - GitHub 이슈 #164).
 
     DB 레코드 삭제와 파일시스템 삭제는 뷰가 아니라 apps.sejong.lecture.services.job_cleanup에서 수행한다.
     진행 중(PENDING/RUNNING)인 작업은 삭제할 수 없다 - 오케스트레이터가 job.id로 동시
     실행을 제한하므로, 진행 중인 행을 지우면 그 제한이 무력화되고 백그라운드 스레드가
-    이미 읽어간 job 인스턴스의 후속 save()가 DatabaseError를 낼 수 있다. 이 경우
-    hx-swap="delete"가 행을 지우면 안 되므로 200이 아닌 409로 응답한다(htmx는 2xx/3xx
-    응답에서만 스왑을 수행한다).
+    이미 읽어간 job 인스턴스의 후속 save()가 DatabaseError를 낼 수 있다. 이 경우 200이 아닌
+    409로 응답해 #history가 갱신되지 않게 한다(htmx는 2xx/3xx 응답에서만 스왑을 수행한다).
     """
     job = LectureDownloadJob.objects.filter(pk=job_id).first()
     if job is None:
-        return HttpResponse(status=200)
+        return _render_lecture_history_page(request, request.GET.get('page', '1'))
     if job.status in (LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING):
         return HttpResponse('진행 중인 다운로드는 삭제할 수 없습니다.', status=409)
     delete_download_job(job)
-    return HttpResponse(status=200)
+    return _render_lecture_history_page(request, request.GET.get('page', '1'))
 
 
 @owner_required

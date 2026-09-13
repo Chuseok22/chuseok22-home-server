@@ -406,6 +406,37 @@ def test_존재하지_않는_이력_삭제요청도_200() -> None:
 
 
 @pytest.mark.django_db
+def test_이력_삭제_후_페이지네이션이_갱신된다() -> None:
+    """행 삭제 응답이 갱신된 이력 목록을 반환해야 한다 - hx-swap="delete"로 삭제한 <tr>만
+    DOM에서 제거하고 페이지네이터를 재계산하지 않으면, 마지막 페이지의 마지막 행을 지웠을 때
+    빈 테이블 위에 이전 페이지 수("2 / 2" 등)가 stale하게 남는다(CodeRabbit/Codex PR 리뷰로
+    발견). 21개 중 2페이지(1개)의 유일한 행을 지우면 1페이지(20개)로 자동 클램프되고
+    페이지네이션 링크 자체가 사라져야 한다."""
+    client = Client()
+    _login_owner(client)
+    jobs = [
+        LectureDownloadJob.objects.create(
+            course_id='101', course_name='자료구조', lecture_id=str(i), lecture_title=f'{i}주차 강의',
+            status=LectureDownloadJob.Status.COMPLETED,
+        )
+        for i in range(21)
+    ]
+    # 최신순 정렬이므로 2페이지(21번째)에 있는 행은 가장 먼저 생성된 jobs[0]이다.
+    last_page_job = jobs[0]
+
+    response = client.post(
+        reverse('site:lab-lecture-history-delete', args=[last_page_job.id]), {'page': '2'},
+    )
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert not LectureDownloadJob.objects.filter(pk=last_page_job.id).exists()
+    assert body.count('<tr id="job-row-') == 20
+    assert '이전' not in body
+    assert '다음' not in body
+
+
+@pytest.mark.django_db
 def test_완료되지_않은_작업의_파일_다운로드는_404() -> None:
     client = Client()
     _login_owner(client)
