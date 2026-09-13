@@ -593,6 +593,12 @@ def test_강좌를_클릭하면_해당_강좌만_인라인으로_펼쳐진다() 
     assert '1주차 강의' in body
     mock_list.assert_called_once_with('101')
     assert '<div id="lectures"' not in body
+    # course_id가 있는 요청(강좌 클릭)에서는 #download-result를 비우지 않는다 - 직전 다운로드
+    # 상태 메시지를 유지해야 하기 때문이다(course_id 없는 검색 요청에서만 비운다).
+    assert 'id="download-result" hx-swap-oob' not in body
+    # course_id로 요청한 강좌(101)만 강의 목록이 인라인으로 펼쳐지고, 다른 강좌(102)는
+    # 펼쳐지지 않는다 - 다운로드 폼의 lecture_id hidden input이 정확히 1개만 렌더링돼야 한다.
+    assert body.count('name="lecture_id"') == 1
 
 
 @pytest.mark.django_db
