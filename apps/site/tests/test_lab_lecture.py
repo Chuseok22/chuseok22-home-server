@@ -33,8 +33,12 @@ def test_소유자는_강의_페이지_접근_가능() -> None:
     _login_owner(client)
 
     response = client.get(reverse('site:lab-lecture'))
+    body = response.content.decode()
 
     assert response.status_code == 200
+    # 연도/학기 select가 좁게 렌더링되어 텍스트가 잘리는 버그(GitHub 이슈 #164) 방지
+    assert 'id="course-year" name="year" class="select select-bordered select-sm min-w-32"' in body
+    assert 'id="course-semester" name="semester" class="select select-bordered select-sm min-w-32"' in body
 
 
 @pytest.mark.django_db

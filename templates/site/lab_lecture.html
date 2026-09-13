@@ -16,7 +16,7 @@
   >
     <div>
       <label for="course-year" class="label-text block mb-1">연도</label>
-      <select id="course-year" name="year" class="select select-bordered select-sm">
+      <select id="course-year" name="year" class="select select-bordered select-sm min-w-32">
         {% for value, label in year_choices %}
         <option value="{{ value }}" {% if value == default_year %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
@@ -24,7 +24,7 @@
     </div>
     <div>
       <label for="course-semester" class="label-text block mb-1">학기</label>
-      <select id="course-semester" name="semester" class="select select-bordered select-sm">
+      <select id="course-semester" name="semester" class="select select-bordered select-sm min-w-32">
         {% for value, label in semester_choices %}
         <option value="{{ value }}" {% if value == default_semester %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
