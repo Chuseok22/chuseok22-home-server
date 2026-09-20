@@ -78,11 +78,19 @@ _LECTURES_HTML = '''
 </body></html>
 '''
 
-_VIEWER_HTML = '''
-<html><body><script>
-var streamUrl = "https://32bpbuqp8241.edge.naverncp.com/hls/abc/f0872056/mp4/f0872056.mp4/index.m3u8";
-</script></body></html>
+# 실제 viewer.php 응답 구조를 마스킹한 픽스처 - 스트림 URL이 <video data-setup-lazy> JSON 안에
+# 슬래시가 `\/`로 이스케이프된 채 들어 있다. `\/`를 그대로 두려면 raw 문자열이어야 한다.
+_VIEWER_HTML = r'''
+<html><body>
+<div id="vod_viewer">
+<video id="my-video" class="video-js vjs-default-skin" poster="https://cdn.example.com/thumbnail/tn_1.png" data-setup-lazy='{"language":"ko","fluid":true,"sources":{"src":"https:\/\/cdn.example.com\/hls\/TOKEN\/lecture-id\/mp4\/lecture-id.mp4\/index.m3u8","type":"application\/x-mpegURL"}}'>
+<p class="vjs-no-js">JavaScript가 필요합니다.</p>
+</video>
+</div>
+</body></html>
 '''
+
+_PLAIN_M3U8_URL = 'https://cdn.example.com/hls/TOKEN/plain/index.m3u8'
 
 
 def _fake_response(text: str, url: str = _NON_LOGIN_URL) -> MagicMock:
@@ -135,8 +143,53 @@ def test_get_stream_url_extracts_m3u8_url_from_html() -> None:
         stream_url = service.get_stream_url(lecture_id='376940')
 
     assert stream_url == (
-        'https://32bpbuqp8241.edge.naverncp.com/hls/abc/f0872056/mp4/f0872056.mp4/index.m3u8'
+        'https://cdn.example.com/hls/TOKEN/lecture-id/mp4/lecture-id.mp4/index.m3u8'
     )
+
+
+def _get_stream_url_from(html: str) -> str | None:
+    service = EcampusCourseService()
+    session = _session_returning(_fake_response(html))
+
+    with _patch_create_session(session):
+        return service.get_stream_url(lecture_id='376940')
+
+
+def test_get_stream_url_returns_none_when_player_config_json_is_broken_and_no_plain_url() -> None:
+    html = "<html><body><video data-setup-lazy='{not json'></video></body></html>"
+
+    assert _get_stream_url_from(html) is None
+
+
+def test_get_stream_url_falls_back_to_plain_url_when_player_config_json_is_broken() -> None:
+    html = (
+        "<html><body><video data-setup-lazy='{not json'></video>"
+        f'<script>var streamUrl = "{_PLAIN_M3U8_URL}";</script></body></html>'
+    )
+
+    assert _get_stream_url_from(html) == _PLAIN_M3U8_URL
+
+
+def test_get_stream_url_returns_none_when_player_config_src_is_not_https() -> None:
+    html = (
+        "<html><body><video data-setup-lazy='"
+        '{"sources":{"src":"http:\\/\\/cdn.example.com\\/hls\\/TOKEN\\/index.m3u8"}}'
+        "'></video></body></html>"
+    )
+
+    assert _get_stream_url_from(html) is None
+
+
+def test_get_stream_url_returns_none_when_player_config_has_no_sources() -> None:
+    html = "<html><body><video data-setup-lazy='{\"language\":\"ko\"}'></video></body></html>"
+
+    assert _get_stream_url_from(html) is None
+
+
+def test_get_stream_url_falls_back_to_plain_url_when_player_config_is_absent() -> None:
+    html = f'<html><body><script>var streamUrl = "{_PLAIN_M3U8_URL}";</script></body></html>'
+
+    assert _get_stream_url_from(html) == _PLAIN_M3U8_URL
 
 
 def test_get_stream_url_returns_none_when_not_found_in_body() -> None:
