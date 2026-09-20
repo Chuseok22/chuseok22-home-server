@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ _REQUEST_TIMEOUT = 15
 
 _COURSE_ID_RE = re.compile(r'id=(\d+)')
 _LECTURE_ID_RE = re.compile(r'module-(\d+)')
+# 플레이어 설정 JSON에서 추출하지 못했을 때의 평문 폴백용 정규식.
 # https만 허용 - CDN 인증 토큰이 URL 경로에 포함되므로 http로 노출되면 전송 중 그대로 드러난다.
 _M3U8_URL_RE = re.compile(r'https://[^\s"\'<>]+index\.m3u8')
 
@@ -143,11 +145,11 @@ class EcampusCourseService:
         if _is_moodle_login_redirect(response):
             return None, True
 
-        match = _M3U8_URL_RE.search(response.text)
-        if not match:
+        stream_url = _extract_stream_url(response.text)
+        if stream_url is None:
             logger.error('응답 본문에서 index.m3u8 URL을 찾을 수 없습니다 (lecture_id=%s).', lecture_id)
             return None, False
-        return match.group(0), False
+        return stream_url, False
 
 
 def _is_moodle_login_redirect(response: requests.Response) -> bool:
@@ -157,6 +159,44 @@ def _is_moodle_login_redirect(response: requests.Response) -> bool:
     (/my/ -> /login/index.php, 과거강좌 페이지 -> /login.php). 이 함수는 두 경로를 모두 인식한다.
     """
     return urlparse(response.url).path in _LOGIN_REDIRECT_PATHS
+
+
+def _extract_stream_url_from_player_config(html: str) -> str | None:
+    """`<video data-setup-lazy>` 속성의 JSON(`sources.src`)에서 스트림 URL을 추출한다.
+
+    실제 응답에서는 URL의 슬래시가 `\\/`로 JSON 이스케이프돼 있어 본문 정규식만으로는 매칭할 수 없다.
+    이 속성 JSON에는 CDN 인증 토큰이 들어 있으므로 어떤 경로에서도 원문이나 URL을 로그에 남기지 않는다.
+    """
+    video = BeautifulSoup(html, 'lxml').select_one('video[data-setup-lazy]')
+    if video is None:
+        return None
+    raw_config = video.get('data-setup-lazy')
+    if not isinstance(raw_config, str):
+        return None
+    try:
+        config = json.loads(raw_config)
+    except ValueError:
+        return None
+    if not isinstance(config, dict):
+        return None
+    sources = config.get('sources')
+    if not isinstance(sources, dict):
+        return None
+    source_url = sources.get('src')
+    if not isinstance(source_url, str):
+        return None
+    if source_url.startswith('https://') and source_url.endswith('index.m3u8'):
+        return source_url
+    return None
+
+
+def _extract_stream_url(html: str) -> str | None:
+    """플레이어 설정 JSON을 우선 시도하고, 실패하면 본문의 평문 URL 정규식으로 폴백한다."""
+    stream_url = _extract_stream_url_from_player_config(html)
+    if stream_url is not None:
+        return stream_url
+    match = _M3U8_URL_RE.search(html)
+    return match.group(0) if match else None
 
 
 def _is_authenticated_page(response: requests.Response) -> bool:
