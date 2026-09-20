@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 from .base import BaseCrawler, BaseNoticeItem
+from .http_session import build_retry_session
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ class SejongNoticeCrawler(BaseCrawler):
 
     def crawl(self) -> list[SejongNoticeItem]:
         try:
-            response = requests.get(self.list_url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+            with build_retry_session() as session:
+                response = session.get(self.list_url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as e:
             logger.error('세종대 공지 목록 요청 실패: %s', e)
