@@ -1,14 +1,20 @@
+import threading
 from datetime import date, datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import MagicMock, patch
 
 import requests
 from django.test import TestCase
 from bs4 import BeautifulSoup
+from urllib3.response import HTTPResponse
+from urllib3.util.retry import Retry
 
 from apps.notifications.crawlers.dacon import DaconCrawler, DaconItem
 from apps.notifications.crawlers.dreamspon import DreamsponCrawler, DreamsponItem
 from apps.notifications.crawlers.dreamspon_auth import DreamsponSession
 from apps.notifications.crawlers.linkareer import ContestItem, LinkareerCrawler
+from apps.notifications.crawlers.http_session import _ExponentialBackoffRetry
+from apps.notifications.crawlers.sejong import SejongNoticeCrawler
 from apps.notifications.crawlers.sejong_do import SejongDoCrawler
 from apps.notifications.crawlers.github_trending import GithubTrendingCrawler, TrendingRepoEntry
 from apps.ai.models import PromptTemplate
@@ -851,3 +857,130 @@ class TestGetCrawlerGithubTrending(TestCase):
         from apps.notifications.crawlers import get_crawler
         crawler = get_crawler('github_trending', 'https://github.com/trending?since=daily')
         self.assertIsInstance(crawler, GithubTrendingCrawler)
+
+
+_SEJONG_NOTICE_HTML = """
+<table><tbody>
+<tr>
+  <td><a href="?mode=view&articleNo=1001"><span class="b-title">재시도 성공 공지</span></a></td>
+  <td><span class="b-date">2026.09.20</span></td>
+</tr>
+</tbody></table>
+"""
+
+_SEJONG_DO_HTML = """
+<a href="/ko/program/all/view/2001" data-idx="2001">
+  <b class="title">재시도 성공 프로그램</b>
+</a>
+"""
+
+
+class _SequencedHandler(BaseHTTPRequestHandler):
+    """서버 인스턴스에 지정된 상태코드를 요청 순서대로 응답한다."""
+
+    def do_GET(self) -> None:
+        server: '_SequencedServer' = self.server  # type: ignore[assignment]
+        server.request_count += 1
+        index = min(server.request_count, len(server.status_codes)) - 1
+        status_code = server.status_codes[index]
+        body = server.ok_body.encode('utf-8') if status_code == 200 else b'error'
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:
+        return
+
+
+class _SequencedServer(HTTPServer):
+    def __init__(self, status_codes: list[int], ok_body: str) -> None:
+        super().__init__(('127.0.0.1', 0), _SequencedHandler)
+        self.status_codes = status_codes
+        self.ok_body = ok_body
+        self.request_count = 0
+
+
+class _RetryCrawlerTestCase(TestCase):
+    """로컬 http.server로 상태코드 시퀀스를 재현해 Retry 동작을 실제로 검증한다."""
+
+    def setUp(self) -> None:
+        sleep_patcher = patch.object(Retry, 'sleep')
+        self.mock_sleep = sleep_patcher.start()
+        self.addCleanup(sleep_patcher.stop)
+
+    def _start_server(self, status_codes: list[int], ok_body: str) -> _SequencedServer:
+        server = _SequencedServer(status_codes, ok_body)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server
+
+    def _url(self, server: _SequencedServer) -> str:
+        return f'http://127.0.0.1:{server.server_port}/list'
+
+
+class TestSejongNoticeCrawlerRetry(_RetryCrawlerTestCase):
+    def test_404_두번_후_200이면_세번째_응답으로_성공(self) -> None:
+        server = self._start_server([404, 404, 200], _SEJONG_NOTICE_HTML)
+
+        items = SejongNoticeCrawler(self._url(server)).crawl()
+
+        self.assertEqual([item.article_id for item in items], ['1001'])
+        self.assertEqual(server.request_count, 3)
+        self.assertEqual(self.mock_sleep.call_count, 2)
+
+    def test_502_한번_후_200이면_성공(self) -> None:
+        server = self._start_server([502, 200], _SEJONG_NOTICE_HTML)
+
+        items = SejongNoticeCrawler(self._url(server)).crawl()
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(server.request_count, 2)
+        self.assertEqual(self.mock_sleep.call_count, 1)
+
+    def test_계속_404이면_정확히_3회_시도_후_빈_리스트와_에러로그(self) -> None:
+        server = self._start_server([404, 404, 404, 404], _SEJONG_NOTICE_HTML)
+
+        with self.assertLogs('apps.notifications.crawlers.sejong', level='ERROR') as captured:
+            items = SejongNoticeCrawler(self._url(server)).crawl()
+
+        self.assertEqual(items, [])
+        self.assertEqual(server.request_count, 3)
+        self.assertEqual(len(captured.records), 1)
+
+    def test_403은_재시도하지_않는다(self) -> None:
+        server = self._start_server([403, 200], _SEJONG_NOTICE_HTML)
+
+        with self.assertLogs('apps.notifications.crawlers.sejong', level='ERROR'):
+            items = SejongNoticeCrawler(self._url(server)).crawl()
+
+        self.assertEqual(items, [])
+        self.assertEqual(server.request_count, 1)
+        self.mock_sleep.assert_not_called()
+
+
+class TestSejongDoCrawlerRetry(_RetryCrawlerTestCase):
+    def test_404_한번_후_200이면_성공(self) -> None:
+        server = self._start_server([404, 200], _SEJONG_DO_HTML)
+
+        items = SejongDoCrawler(self._url(server)).crawl()
+
+        self.assertEqual([item.article_id for item in items], ['2001'])
+        self.assertEqual(server.request_count, 2)
+
+
+class TestExponentialBackoffRetry(TestCase):
+    def test_재시도_대기시간이_1초_2초로_증가(self) -> None:
+        retry = _ExponentialBackoffRetry(total=2, status_forcelist=(404,), backoff_factor=1)
+        self.assertEqual(retry.get_backoff_time(), 0)
+
+        response = HTTPResponse(status=404)
+        retry = retry.increment(method='GET', url='/', response=response)
+        self.assertEqual(retry.get_backoff_time(), 1.0)
+
+        retry = retry.increment(method='GET', url='/', response=response)
+        self.assertEqual(retry.get_backoff_time(), 2.0)
