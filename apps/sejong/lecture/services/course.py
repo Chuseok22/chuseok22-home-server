@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 
 _COURSE_VIEW_URL = 'https://ecampus.sejong.ac.kr/course/view.php'
 _PAST_COURSES_URL = 'https://ecampus.sejong.ac.kr/local/ubion/user/index.php'
+_IRREGULAR_COURSES_URL = 'https://ecampus.sejong.ac.kr/local/ubassistant/my.php'
 _VIEWER_URL = 'https://ecampus.sejong.ac.kr/mod/vod/viewer.php'
 _LOGIN_REDIRECT_PATHS = {'/login/index.php', '/login.php'}
 _REQUEST_TIMEOUT = 15
+_IRREGULAR_MAX_PAGES = 10
 
 _COURSE_ID_RE = re.compile(r'id=(\d+)')
 _LECTURE_ID_RE = re.compile(r'module-(\d+)')
@@ -31,6 +33,17 @@ class Course:
     name: str
     year: str
     semester: str  # '10'(1학기)/'11'(여름계절수업)/'20'(2학기)/'21'(겨울계절수업)/'all'(라벨을 알 수 없을 때 폴백) 코드값
+
+
+@dataclass(frozen=True)
+class IrregularCourse:
+    """`local/ubassistant/my.php`(비교과강좌 조회)의 강좌. 비교과는 학기 개념이 없어 연도만 가진다."""
+
+    id: str
+    name: str
+    # 연도 셀 값(예: '2026'). 숫자가 아니면 'all'로 폴백한다 - Course.year와 같은 이유로, 원문을
+    # 두면 폼의 연도 ChoiceField 검증을 통과하지 못해 그 강좌의 강의 조회·다운로드가 막힌다.
+    year: str
 
 
 _SEMESTER_CODE_BY_LABEL = {
@@ -92,6 +105,52 @@ class EcampusCourseService:
         """course_id로 강좌를 찾는다. year/semester로 특정한 학기의 조회 결과에서 매칭되는
         강좌를 찾는다."""
         courses = self.search_past_courses(year=year, semester=semester)
+        return next((c for c in courses if c.id == course_id), None)
+
+    def search_irregular_courses(self, year: str) -> list[IrregularCourse]:
+        """연도로 비교과 강좌를 조회한다. year는 my.php select 옵션값을 그대로 받는다(예: '2026', 'all').
+        결과가 여러 페이지면 모두 순회해 하나의 목록으로 합친다. 실패 시 빈 리스트를 반환한다."""
+        operation = functools.partial(self._fetch_irregular_courses_with_session, year=year)
+        result = self._auth.fetch_with_retry(operation)
+        return result if result is not None else []
+
+    def _fetch_irregular_courses_with_session(
+        self, ecampus_session: EcampusSession, year: str,
+    ) -> tuple[list[IrregularCourse] | None, bool]:
+        courses: dict[str, IrregularCourse] = {}
+        page = 1
+        last_page = 1
+        # 한 페이지에 보이는 번호가 생략 표기일 수 있어, 페이지를 받을 때마다 보이는 최대 번호를
+        # 누적해 갱신한다. 상한을 두어 응답이 이상해도 무한 순회하지 않는다.
+        while page <= min(last_page, _IRREGULAR_MAX_PAGES):
+            try:
+                response = ecampus_session.session.get(
+                    _IRREGULAR_COURSES_URL,
+                    params={'year': year, 'page': page},
+                    timeout=_REQUEST_TIMEOUT,
+                )
+                response.raise_for_status()
+            except requests.RequestException as e:
+                logger.error('비교과강좌 조회 실패 (year=%s, page=%s): %s', year, page, e)
+                return None, False
+
+            if not _is_authenticated_page(response):
+                return None, True
+            for course in _parse_irregular_courses(response.text):
+                courses.setdefault(course.id, course)
+            last_page = max(last_page, _parse_irregular_last_page(response.text))
+            page += 1
+
+        if last_page > _IRREGULAR_MAX_PAGES:
+            logger.warning(
+                '비교과강좌 페이지가 상한(%s)을 넘어 일부만 조회함 (year=%s, last_page=%s)',
+                _IRREGULAR_MAX_PAGES, year, last_page,
+            )
+        return list(courses.values()), False
+
+    def find_irregular_course(self, course_id: str, year: str) -> IrregularCourse | None:
+        """course_id로 비교과 강좌를 찾는다. year로 조회한 결과에서 매칭되는 강좌를 찾는다."""
+        courses = self.search_irregular_courses(year=year)
         return next((c for c in courses if c.id == course_id), None)
 
     def list_lectures(self, course_id: str) -> list[Lecture]:
@@ -251,6 +310,41 @@ def _parse_past_courses(html: str) -> list[Course]:
             course_id, Course(id=course_id, name=name, year=year, semester=semester),
         )
     return list(courses.values())
+
+
+def _parse_irregular_courses(html: str) -> list[IrregularCourse]:
+    """`local/ubassistant/my.php` 목록 테이블(`년도 | 강좌명 | 교수`)을 파싱한다.
+
+    강좌 링크가 없는 행(예: "강좌가 없습니다" 안내 행)은 건너뛴다. 같은 강좌 id는 한 번만 담는다.
+    """
+    soup = BeautifulSoup(html, 'lxml')
+    courses: dict[str, IrregularCourse] = {}
+    for row in soup.select('table.table-coursemos tbody tr'):
+        link = row.select_one('a[href*="course/view.php?id="]')
+        if link is None:
+            continue
+        match = _COURSE_ID_RE.search(link.get('href', ''))
+        name = link.get_text(strip=True)
+        if not match or not name:
+            continue
+        year_cell = row.select_one('td')
+        year = year_cell.get_text(strip=True) if year_cell else ''
+        year = year if year.isdigit() else 'all'
+        course_id = match.group(1)
+        courses.setdefault(course_id, IrregularCourse(id=course_id, name=name, year=year))
+    return list(courses.values())
+
+
+def _parse_irregular_last_page(html: str) -> int:
+    """`ul.pagination`에 보이는 페이지 번호 중 가장 큰 값을 반환한다. 현재 페이지 링크의 href는
+    '#'이라 href 대신 표시 텍스트의 숫자만 본다. 페이지네이션이 없으면 1이다."""
+    soup = BeautifulSoup(html, 'lxml')
+    numbers = [
+        int(text)
+        for text in (link.get_text(strip=True) for link in soup.select('ul.pagination a.page-link'))
+        if text.isdigit()
+    ]
+    return max(numbers, default=1)
 
 
 def _parse_lectures(html: str) -> list[Lecture]:

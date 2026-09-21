@@ -2,7 +2,12 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
+from apps.sejong.lecture.services.course import (
+    Course,
+    EcampusCourseService,
+    IrregularCourse,
+    Lecture,
+)
 from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, EcampusSession
 
 _NON_LOGIN_URL = 'https://ecampus.sejong.ac.kr/my/'
@@ -359,3 +364,238 @@ def test_find_course_returns_none_when_not_found() -> None:
 
     with patch.object(EcampusCourseService, 'search_past_courses', return_value=[]):
         assert service.find_course('999', year='2023', semester='10') is None
+
+
+_MY_PAGE_URL = 'https://ecampus.sejong.ac.kr/local/ubassistant/my.php'
+
+
+def _irregular_pagination_link(number: int, active_page: int) -> str:
+    """현재 페이지 링크의 href는 '#', 다른 페이지는 실제 URL이다(실측)."""
+    href = '#' if number == active_page else f'{_MY_PAGE_URL}?year=all&amp;page={number}'
+    active_class = ' active' if number == active_page else ''
+    return (
+        f'<li class="page-item{active_class}">'
+        f'<a class="nav_paging page-link" href="{href}">{number}</a></li>'
+    )
+
+
+def _irregular_page_html(
+    rows: list[tuple[str, str, str]],
+    page_numbers: tuple[int, ...] = (1,),
+    active_page: int = 1,
+    authenticated: bool = True,
+) -> str:
+    """`local/ubassistant/my.php` 응답을 흉내낸 HTML(실측 구조). rows는 (연도, 강좌 id, 강좌명) 목록."""
+    logout_link = (
+        '<a href="https://ecampus.sejong.ac.kr/login/logout.php?sesskey=MASKED">로그아웃</a>'
+        if authenticated
+        else ''
+    )
+    table_rows = ''.join(
+        f'<tr><td class="text-center">{year}</td>'
+        f'<td><a href="https://ecampus.sejong.ac.kr/course/view.php?id={course_id}">{name}</a></td>'
+        '<td class="text-center"></td></tr>'
+        for year, course_id, name in rows
+    )
+    pagination = ''.join(
+        _irregular_pagination_link(number, active_page) for number in page_numbers
+    )
+    return (
+        f'<html><body>{logout_link}'
+        '<table class="table table-striped table-bordered table-coursemos">'
+        '<thead><tr><th class="header">년도</th><th class="header">강좌명</th>'
+        '<th class="header">교수</th></tr></thead>'
+        f'<tbody>{table_rows}</tbody></table>'
+        f'<div class="text-center mt-3"><ul class="pagination justify-content-center">'
+        f'{pagination}</ul></div>'
+        '</body></html>'
+    )
+
+
+def _requested_params(session: EcampusSession) -> list[dict[str, object]]:
+    return [call.kwargs['params'] for call in session.session.get.call_args_list]
+
+
+def test_search_irregular_courses_parses_year_id_and_name_ignoring_professor_column() -> None:
+    service = EcampusCourseService()
+    html = _irregular_page_html([
+        ('2026', '34888', '2026-2학기 PBL 학생 OT (PBLT-02)'),
+        ('2024', '11800', '2024학년도 FL 학생 OT (FLLT-01)'),
+    ])
+    session = _session_returning(_fake_response(html))
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert courses == [
+        IrregularCourse(id='34888', name='2026-2학기 PBL 학생 OT (PBLT-02)', year='2026'),
+        IrregularCourse(id='11800', name='2024학년도 FL 학생 OT (FLLT-01)', year='2024'),
+    ]
+
+
+def test_search_irregular_courses_requests_my_php_with_year_and_first_page() -> None:
+    service = EcampusCourseService()
+    session = _session_returning(_fake_response(_irregular_page_html([])))
+
+    with _patch_create_session(session):
+        service.search_irregular_courses(year='2026')
+
+    assert _requested_params(session) == [{'year': '2026', 'page': 1}]
+
+
+def test_search_irregular_courses_falls_back_to_all_when_year_cell_is_not_numeric() -> None:
+    service = EcampusCourseService()
+    html = _irregular_page_html([('', '34888', '강좌 A'), ('상시', '34889', '강좌 B')])
+    session = _session_returning(_fake_response(html))
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert [course.year for course in courses] == ['all', 'all']
+
+
+def test_search_irregular_courses_skips_rows_without_course_link() -> None:
+    service = EcampusCourseService()
+    html = _irregular_page_html([('2026', '34888', '강좌 A')]).replace(
+        '</tbody>', '<tr><td colspan="3">등록된 강좌가 없습니다.</td></tr></tbody>',
+    )
+    session = _session_returning(_fake_response(html))
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert [course.id for course in courses] == ['34888']
+
+
+def test_search_irregular_courses_returns_empty_list_when_no_rows() -> None:
+    service = EcampusCourseService()
+    session = _session_returning(_fake_response(_irregular_page_html([])))
+
+    with _patch_create_session(session):
+        assert service.search_irregular_courses(year='2025') == []
+
+
+def test_search_irregular_courses_follows_pagination_and_merges_pages() -> None:
+    service = EcampusCourseService()
+    page_one = _irregular_page_html(
+        [('2026', '34888', '강좌 A')], page_numbers=(1, 2), active_page=1,
+    )
+    page_two = _irregular_page_html(
+        [('2023', '7695', '강좌 B')], page_numbers=(1, 2), active_page=2,
+    )
+    session = _session_returning(_fake_response(page_one), _fake_response(page_two))
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert [course.id for course in courses] == ['34888', '7695']
+    assert _requested_params(session) == [
+        {'year': 'all', 'page': 1}, {'year': 'all', 'page': 2},
+    ]
+
+
+def test_search_irregular_courses_deduplicates_courses_repeated_across_pages() -> None:
+    service = EcampusCourseService()
+    page_one = _irregular_page_html(
+        [('2026', '34888', '강좌 A')], page_numbers=(1, 2), active_page=1,
+    )
+    page_two = _irregular_page_html(
+        [('2026', '34888', '강좌 A')], page_numbers=(1, 2), active_page=2,
+    )
+    session = _session_returning(_fake_response(page_one), _fake_response(page_two))
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert [course.id for course in courses] == ['34888']
+
+
+def test_search_irregular_courses_stops_at_max_pages() -> None:
+    """페이지네이션에 99페이지가 보여도 상한(10페이지)까지만 요청한다."""
+    service = EcampusCourseService()
+    response = _fake_response(
+        _irregular_page_html([('2026', '34888', '강좌 A')], page_numbers=(1, 99), active_page=1),
+    )
+    session = _session_returning(*[response] * 10)
+
+    with _patch_create_session(session):
+        courses = service.search_irregular_courses(year='all')
+
+    assert [course.id for course in courses] == ['34888']
+    assert session.session.get.call_count == 10
+
+
+def test_search_irregular_courses_reauthenticates_once_when_session_expired() -> None:
+    service = EcampusCourseService()
+    expired = _session_returning(
+        _fake_response(_irregular_page_html([], authenticated=False)),
+    )
+    fresh = _session_returning(
+        _fake_response(_irregular_page_html([('2026', '34888', '강좌 A')])),
+    )
+
+    with _patch_create_session(expired, fresh):
+        courses = service.search_irregular_courses(year='2026')
+
+    assert [course.id for course in courses] == ['34888']
+
+
+def test_search_irregular_courses_returns_empty_list_on_request_exception() -> None:
+    service = EcampusCourseService()
+    http_session = MagicMock()
+    http_session.get.side_effect = requests.RequestException('network error')
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        assert service.search_irregular_courses(year='all') == []
+
+
+def test_search_irregular_courses_returns_empty_list_when_second_page_request_fails() -> None:
+    """중간 페이지가 실패하면 일부만 돌려주지 않고 전체를 실패(빈 목록)로 처리한다."""
+    service = EcampusCourseService()
+    page_one = _irregular_page_html(
+        [('2026', '34888', '강좌 A')], page_numbers=(1, 2), active_page=1,
+    )
+    http_session = MagicMock()
+    http_session.get.side_effect = [
+        _fake_response(page_one), requests.RequestException('network error'),
+    ]
+    session = EcampusSession(session=http_session)
+
+    with _patch_create_session(session):
+        assert service.search_irregular_courses(year='all') == []
+
+
+def test_find_irregular_course_returns_matching_course() -> None:
+    service = EcampusCourseService()
+    html = _irregular_page_html([('2026', '34888', '강좌 A'), ('2026', '31197', '강좌 B')])
+    session = _session_returning(_fake_response(html))
+
+    with _patch_create_session(session):
+        course = service.find_irregular_course(course_id='31197', year='2026')
+
+    assert course == IrregularCourse(id='31197', name='강좌 B', year='2026')
+
+
+def test_find_irregular_course_returns_none_when_not_in_results() -> None:
+    service = EcampusCourseService()
+    session = _session_returning(
+        _fake_response(_irregular_page_html([('2026', '34888', '강좌 A')])),
+    )
+
+    with _patch_create_session(session):
+        assert service.find_irregular_course(course_id='99999', year='2026') is None
+
+
+def test_parse_irregular_last_page_uses_largest_visible_page_number() -> None:
+    from apps.sejong.lecture.services.course import _parse_irregular_last_page
+
+    html = _irregular_page_html([], page_numbers=(1, 2, 3), active_page=1)
+
+    assert _parse_irregular_last_page(html) == 3
+
+
+def test_parse_irregular_last_page_returns_one_without_pagination() -> None:
+    from apps.sejong.lecture.services.course import _parse_irregular_last_page
+
+    assert _parse_irregular_last_page('<html><body>no pagination</body></html>') == 1
