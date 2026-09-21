@@ -1,0 +1,12 @@
+{% if not expanded_course_id %}
+<div id="irregular-download-result" hx-swap-oob="innerHTML"></div>
+{% endif %}
+{% if courses %}
+<ul class="menu bg-base-200 rounded-box">
+  {% for course in courses %}
+  {% include 'site/partials/irregular_lecture_course_item.html' %}
+  {% endfor %}
+</ul>
+{% else %}
+<p class="opacity-60">해당 연도에 비교과 강좌가 없습니다.</p>
+{% endif %}

@@ -27,6 +27,16 @@ urlpatterns = [
     path('lab/lecture/', views.lab_lecture, name='lab-lecture'),
     path('lab/lecture/courses/', views.lab_lecture_courses, name='lab-lecture-courses'),
     path('lab/lecture/download/', views.lab_lecture_download, name='lab-lecture-download'),
+    path(
+        'lab/lecture/irregular/courses/',
+        views.lab_lecture_irregular_courses,
+        name='lab-lecture-irregular-courses',
+    ),
+    path(
+        'lab/lecture/irregular/download/',
+        views.lab_lecture_irregular_download,
+        name='lab-lecture-irregular-download',
+    ),
     path('lab/lecture/history/', views.lab_lecture_history, name='lab-lecture-history'),
     path(
         'lab/lecture/history/<int:job_id>/delete/',

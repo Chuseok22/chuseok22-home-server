@@ -1,7 +1,12 @@
 from datetime import date
 from unittest.mock import patch
 
-from apps.site.forms import default_lecture_year_and_semester, lecture_year_choices
+from apps.site.forms import (
+    IrregularCourseSelectForm,
+    IrregularDownloadRequestForm,
+    default_lecture_year_and_semester,
+    lecture_year_choices,
+)
 
 
 def test_1월에는_전년도_겨울계절수업으로_계산된다() -> None:
@@ -31,3 +36,34 @@ def test_연도_선택지는_호출할_때마다_현재_연도를_반영한다()
 
     assert ('2030', '2030') in choices
     assert ('all', '전체') == choices[0]
+
+
+def test_비교과_강좌_조회_폼은_연도만_필수다() -> None:
+    form = IrregularCourseSelectForm(data={'year': '2026'})
+
+    assert form.is_valid()
+    assert form.cleaned_data == {'course_id': '', 'year': '2026'}
+
+
+def test_비교과_강좌_조회_폼은_전체_연도를_허용한다() -> None:
+    assert IrregularCourseSelectForm(data={'year': 'all'}).is_valid()
+
+
+def test_비교과_강좌_조회_폼은_연도가_없으면_거부한다() -> None:
+    assert not IrregularCourseSelectForm(data={}).is_valid()
+
+
+def test_비교과_강좌_조회_폼은_잘못된_연도를_거부한다() -> None:
+    assert not IrregularCourseSelectForm(data={'year': '1999'}).is_valid()
+
+
+def test_비교과_다운로드_폼은_course_id_lecture_id_year가_모두_필요하다() -> None:
+    valid = IrregularDownloadRequestForm(
+        data={'course_id': '34888', 'lecture_id': '5001', 'year': '2026'},
+    )
+    missing_lecture = IrregularDownloadRequestForm(
+        data={'course_id': '34888', 'year': '2026'},
+    )
+
+    assert valid.is_valid()
+    assert not missing_lecture.is_valid()
