@@ -67,6 +67,8 @@ from apps.sejong.lecture.services.job_cleanup import delete_download_job
 from apps.sejong.student.services.student_search import StudentSearchService
 from apps.site.decorators import owner_required
 from apps.site.forms import (
+    IrregularCourseSelectForm,
+    IrregularDownloadRequestForm,
     LECTURE_SEMESTER_CHOICES,
     LectureCourseSelectForm,
     LectureDownloadRequestForm,
@@ -759,6 +761,88 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
     data = form.cleaned_data
     course_service = EcampusCourseService()
     course = course_service.find_course(data['course_id'], year=data['year'], semester=data['semester'])
+    if course is None:
+        return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+
+    lectures = course_service.list_lectures(course.id)
+    lecture = next((item for item in lectures if item.id == data['lecture_id']), None)
+    if lecture is None:
+        return HttpResponse('강의를 찾을 수 없습니다.', status=200)
+
+    job = LectureDownloadOrchestrator().start(course, lecture)
+    if job is None:
+        return HttpResponse('이미 진행 중인 다운로드 작업이 있습니다. 완료 후 다시 시도하세요.', status=200)
+
+    return HttpResponse(
+        f'"{escape(lecture.title)}" 다운로드를 시작했습니다. 완료 시 텔레그램으로 알림을 보냅니다.',
+        status=200,
+    )
+
+
+@owner_required
+def lab_lecture_irregular_courses(request: HttpRequest) -> HttpResponse:
+    """비교과 강좌 목록을 조회한다 (htmx 부분 응답). course_id가 함께 오면 그 강좌의 강의 목록을
+    목록 안에 인라인으로 펼쳐서 함께 렌더링한다(교과용 lab_lecture_courses와 같은 방식).
+
+    비교과(local/ubassistant/my.php)는 학기 개념이 없어 연도만 받는다. 검증 실패·로그인 실패·
+    강좌를 찾을 수 없는 경우 모두 200으로 반환한다. course_id가 주어져도 클라이언트가 보낸 강좌명을
+    신뢰하지 않고, 이미 조회한 courses 목록에서 다시 찾아 실제 강좌명을 확인한다.
+    """
+    form = IrregularCourseSelectForm(request.GET)
+    if not form.is_valid():
+        return HttpResponse('요청 형식이 올바르지 않습니다.', status=200)
+
+    ecampus_session = EcampusMoodleAuthService().create_session()
+    if ecampus_session is None:
+        return HttpResponse('집현캠퍼스 로그인에 실패했습니다.', status=200)
+
+    course_service = EcampusCourseService()
+    course_id = form.cleaned_data['course_id']
+    year = form.cleaned_data['year']
+
+    courses = course_service.search_irregular_courses(year=year)
+
+    expanded_course_id = None
+    expanded_lectures = None
+    if course_id:
+        course = next((c for c in courses if c.id == course_id), None)
+        if course is None:
+            return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
+        expanded_course_id = course.id
+        expanded_lectures = course_service.list_lectures(course.id)
+
+    return render(
+        request,
+        'site/partials/irregular_lecture_courses.html',
+        {
+            'courses': courses,
+            'expanded_course_id': expanded_course_id,
+            'expanded_lectures': expanded_lectures,
+            # 강좌 버튼의 재조회 hx-vals가 써야 하는 값 - course.year가 아니라 이 검색에 쓰인 필터값이다.
+            # year='all'로 조회한 결과에서 강좌를 클릭했을 때 그 강좌의 연도로 재조회하면 다른 연도
+            # 강좌가 전부 화면에서 사라지기 때문이다(교과용 search_year와 같은 이유).
+            'search_year': year,
+        },
+    )
+
+
+@owner_required
+@require_POST
+def lab_lecture_irregular_download(request: HttpRequest) -> HttpResponse:
+    """비교과 강의 다운로드 요청 처리 (htmx 부분 응답). 검증 실패·중복 요청 모두 200으로 반환한다.
+    상태를 바꾸는 엔드포인트이므로 POST만 허용한다(GET은 405). `require_POST`는 이미 import돼 있다.
+
+    lab_lecture_download와 동일하게 클라이언트가 보낸 강좌명/강의명은 신뢰하지 않는다 -
+    course_id/lecture_id만 받아 서버에서 다시 조회하고, lecture_id가 실제로 그 course_id에
+    속하는지도 확인한다.
+    """
+    form = IrregularDownloadRequestForm(request.POST)
+    if not form.is_valid():
+        return HttpResponse('입력값이 올바르지 않습니다.', status=200)
+
+    data = form.cleaned_data
+    course_service = EcampusCourseService()
+    course = course_service.find_irregular_course(data['course_id'], year=data['year'])
     if course is None:
         return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
 

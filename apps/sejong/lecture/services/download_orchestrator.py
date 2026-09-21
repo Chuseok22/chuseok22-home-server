@@ -7,7 +7,12 @@ from django.utils import timezone
 
 from apps.notifications.services.telegram import TelegramService
 from apps.sejong.lecture.models import LectureDownloadJob
-from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
+from apps.sejong.lecture.services.course import (
+    Course,
+    EcampusCourseService,
+    IrregularCourse,
+    Lecture,
+)
 from apps.sejong.lecture.services.downloader import HlsDownloader, _mask_urls_in_text
 from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService
 from apps.sejong.lecture.services.filename import build_lecture_filename
@@ -27,7 +32,7 @@ class LectureDownloadOrchestrator:
 
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def start(self, course: Course, lecture: Lecture) -> LectureDownloadJob | None:
+    def start(self, course: Course | IrregularCourse, lecture: Lecture) -> LectureDownloadJob | None:
         """다운로드 작업을 생성하고 백그라운드 스레드로 실행을 시작한다.
 
         이미 대기(PENDING) 또는 진행중(RUNNING)인 작업이 있으면 새 요청을 거부하고 None을

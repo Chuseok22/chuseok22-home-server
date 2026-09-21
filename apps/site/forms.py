@@ -119,6 +119,26 @@ class LectureDownloadRequestForm(forms.Form):
     semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
+class IrregularCourseSelectForm(forms.Form):
+    """비교과 강좌 조회(course_id 없음) 또는 강의 목록 조회(course_id 있음) 요청.
+
+    비교과(local/ubassistant/my.php)는 학기 개념이 없어 연도만 필수다.
+    """
+
+    course_id = forms.CharField(max_length=20, required=False)
+    year = forms.ChoiceField(choices=lecture_year_choices)
+
+
+class IrregularDownloadRequestForm(forms.Form):
+    """비교과 강의 다운로드 요청 검증. course_name/lecture_title은 뷰가 서버에서 다시 조회해
+    확정하므로(클라이언트 제출값을 신뢰하지 않음) 받지 않는다. year는 find_irregular_course()가
+    어느 연도 조회 결과에서 강좌를 재검증할지 알아야 하므로 필수다."""
+
+    course_id = forms.CharField(max_length=20)
+    lecture_id = forms.CharField(max_length=20)
+    year = forms.ChoiceField(choices=lecture_year_choices)
+
+
 def default_lecture_year_and_semester() -> tuple[str, str]:
     """오늘 날짜 기준으로 현재 학기의 (연도, 학기 코드)를 근사치로 추정한다. 계절학기 경계 등
     실제 학사 일정과 정확히 일치하지 않을 수 있으나, 사용자가 드롭다운을 직접 바꿀 수 있으므로
