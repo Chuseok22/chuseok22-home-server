@@ -1,0 +1,9 @@
+{% if job.status == 'completed' %}
+<span class="badge badge-success">완료</span>
+{% elif job.status == 'failed' %}
+<span class="badge badge-error" title="{{ job.error_message }}">실패</span>
+{% elif job.status == 'running' %}
+<span class="badge badge-info">진행중</span>
+{% else %}
+<span class="badge badge-ghost">대기</span>
+{% endif %}
