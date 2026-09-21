@@ -1,0 +1,13 @@
+{% if job.status == 'completed' %}
+<a href="{% url 'site:lab-lecture-history-file' job.id %}" class="btn btn-ghost btn-xs">다운로드</a>
+{% endif %}
+{% if job.status == 'completed' or job.status == 'failed' %}
+<button
+  type="button"
+  class="btn btn-ghost btn-xs"
+  hx-post="{% url 'site:lab-lecture-history-delete' job.id %}?page={{ page_obj.number }}"
+  hx-target="#history"
+  hx-swap="innerHTML"
+  hx-confirm="{{ job.lecture_title }} 다운로드 이력을 삭제할까요?"
+>삭제</button>
+{% endif %}

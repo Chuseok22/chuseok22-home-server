@@ -1,5 +1,20 @@
 {% if jobs %}
-<div class="overflow-x-auto">
+<div class="lg:hidden flex flex-col gap-3">
+  {% for job in jobs %}
+  <div class="rounded-box border border-base-300 p-3 flex flex-col gap-2">
+    <div class="flex items-start justify-between gap-2">
+      <div class="font-medium break-words min-w-0">{{ job.lecture_title }}</div>
+      <span class="shrink-0">{% include 'site/partials/lecture_history_status.html' %}</span>
+    </div>
+    <div class="text-xs opacity-60 break-words">{{ job.course_name }}</div>
+    <div class="flex items-center justify-between gap-2">
+      <span class="text-xs opacity-60">{{ job.created_at|date:'Y-m-d H:i' }}</span>
+      <div class="flex gap-1 justify-end">{% include 'site/partials/lecture_history_actions.html' %}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="hidden lg:block overflow-x-auto">
   <table class="table table-zebra">
     <thead>
       <tr>
@@ -15,33 +30,9 @@
       <tr id="job-row-{{ job.id }}">
         <td>{{ job.course_name }}</td>
         <td>{{ job.lecture_title }}</td>
-        <td>
-          {% if job.status == 'completed' %}
-          <span class="badge badge-success">완료</span>
-          {% elif job.status == 'failed' %}
-          <span class="badge badge-error" title="{{ job.error_message }}">실패</span>
-          {% elif job.status == 'running' %}
-          <span class="badge badge-info">진행중</span>
-          {% else %}
-          <span class="badge badge-ghost">대기</span>
-          {% endif %}
-        </td>
+        <td class="whitespace-nowrap">{% include 'site/partials/lecture_history_status.html' %}</td>
         <td class="text-xs opacity-60">{{ job.created_at|date:'Y-m-d H:i' }}</td>
-        <td class="flex gap-2 justify-end">
-          {% if job.status == 'completed' %}
-          <a href="{% url 'site:lab-lecture-history-file' job.id %}" class="btn btn-ghost btn-xs">다운로드</a>
-          {% endif %}
-          {% if job.status == 'completed' or job.status == 'failed' %}
-          <button
-            type="button"
-            class="btn btn-ghost btn-xs"
-            hx-post="{% url 'site:lab-lecture-history-delete' job.id %}?page={{ page_obj.number }}"
-            hx-target="#history"
-            hx-swap="innerHTML"
-            hx-confirm="{{ job.lecture_title }} 다운로드 이력을 삭제할까요?"
-          >삭제</button>
-          {% endif %}
-        </td>
+        <td class="flex gap-2 justify-end whitespace-nowrap">{% include 'site/partials/lecture_history_actions.html' %}</td>
       </tr>
       {% endfor %}
     </tbody>
