@@ -7,36 +7,67 @@
 
 <section class="mb-6 bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5">
   <h2 class="text-lg font-semibold mb-3">강좌 조회</h2>
-  <form
-    class="flex flex-wrap items-end gap-2 mb-4"
-    hx-get="{% url 'site:lab-lecture-courses' %}"
-    hx-target="#courses"
-    hx-trigger="load, submit"
-    hx-indicator="#courses-skeleton"
-  >
-    <div>
-      <label for="course-year" class="label-text block mb-1">연도</label>
-      <select id="course-year" name="year" class="select select-bordered select-sm min-w-32">
-        {% for value, label in year_choices %}
-        <option value="{{ value }}" {% if value == default_year %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
+  <div role="tablist" class="tabs tabs-lifted">
+    <input type="radio" name="lecture-course-tabs" role="tab" class="tab" aria-label="교과" checked="checked" />
+    <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+      <form
+        class="flex flex-wrap items-end gap-2 mb-4"
+        hx-get="{% url 'site:lab-lecture-courses' %}"
+        hx-target="#courses"
+        hx-trigger="load, submit"
+        hx-indicator="#courses-skeleton"
+      >
+        <div>
+          <label for="course-year" class="label-text block mb-1">연도</label>
+          <select id="course-year" name="year" class="select select-bordered select-sm min-w-32">
+            {% for value, label in year_choices %}
+            <option value="{{ value }}" {% if value == default_year %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="course-semester" class="label-text block mb-1">학기</label>
+          <select id="course-semester" name="semester" class="select select-bordered select-sm min-w-32">
+            {% for value, label in semester_choices %}
+            <option value="{{ value }}" {% if value == default_semester %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">조회</button>
+      </form>
+      <div id="courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
+        {% include 'site/partials/list_skeleton.html' %}
+      </div>
+      <div id="courses" aria-live="polite"></div>
+      <div id="download-result" class="mt-4" aria-live="polite"></div>
     </div>
-    <div>
-      <label for="course-semester" class="label-text block mb-1">학기</label>
-      <select id="course-semester" name="semester" class="select select-bordered select-sm min-w-32">
-        {% for value, label in semester_choices %}
-        <option value="{{ value }}" {% if value == default_semester %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
+
+    <input id="irregular-tab" type="radio" name="lecture-course-tabs" role="tab" class="tab" aria-label="비교과" />
+    <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
+      <form
+        class="flex flex-wrap items-end gap-2 mb-4"
+        hx-get="{% url 'site:lab-lecture-irregular-courses' %}"
+        hx-target="#irregular-courses"
+        hx-trigger="submit, change from:#irregular-tab once"
+        hx-indicator="#irregular-courses-skeleton"
+      >
+        <div>
+          <label for="irregular-year" class="label-text block mb-1">연도</label>
+          <select id="irregular-year" name="year" class="select select-bordered select-sm min-w-32">
+            {% for value, label in year_choices %}
+            <option value="{{ value }}" {% if value == default_year %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-sm btn-primary">조회</button>
+      </form>
+      <div id="irregular-courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
+        {% include 'site/partials/list_skeleton.html' %}
+      </div>
+      <div id="irregular-courses" aria-live="polite"></div>
+      <div id="irregular-download-result" class="mt-4" aria-live="polite"></div>
     </div>
-    <button type="submit" class="btn btn-sm btn-primary">조회</button>
-  </form>
-  <div id="courses-skeleton" class="htmx-indicator-block" aria-hidden="true">
-    {% include 'site/partials/list_skeleton.html' %}
   </div>
-  <div id="courses" aria-live="polite"></div>
-  <div id="download-result" class="mt-4" aria-live="polite"></div>
 </section>
 
 <section class="bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5">

@@ -300,3 +300,41 @@ def test_비교과_다운로드는_GET_요청을_405로_거부한다() -> None:
     response = client.get(reverse('site:lab-lecture-irregular-download'))
 
     assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_강의_페이지에_교과_비교과_탭이_있고_비교과_조회_폼이_연결된다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    response = client.get(reverse('site:lab-lecture'))
+    body = response.content.decode()
+
+    assert response.status_code == 200
+    assert 'role="tablist"' in body
+    assert 'aria-label="교과"' in body
+    assert 'aria-label="비교과"' in body
+    assert f'hx-get="{reverse("site:lab-lecture-irregular-courses")}"' in body
+    # 비교과 탭은 처음 선택할 때만 자동 조회한다
+    assert 'hx-trigger="submit, change from:#irregular-tab once"' in body
+    assert 'id="irregular-tab"' in body
+    assert 'id="irregular-year" name="year" class="select select-bordered select-sm min-w-32"' in body
+    assert 'id="irregular-courses"' in body
+    assert 'id="irregular-courses-skeleton"' in body
+    assert 'id="irregular-download-result"' in body
+    # 비교과는 학기 select가 없다
+    assert body.count('name="semester"') == 1
+
+
+@pytest.mark.django_db
+def test_강의_페이지의_교과_탭_기존_요소는_유지된다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    body = client.get(reverse('site:lab-lecture')).content.decode()
+
+    assert 'id="course-year" name="year"' in body
+    assert 'id="course-semester" name="semester"' in body
+    assert 'id="courses"' in body
+    assert 'id="courses-skeleton"' in body
+    assert 'id="download-result"' in body
