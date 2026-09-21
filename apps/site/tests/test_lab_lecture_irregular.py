@@ -338,17 +338,14 @@ def test_강의_페이지에_교과_비교과_탭이_있고_비교과_조회_폼
     client = Client()
     _login_owner(client)
 
-    response = client.get(reverse('site:lab-lecture'))
-    body = response.content.decode()
+    body = client.get(reverse('site:lab-lecture')).content.decode()
 
-    assert response.status_code == 200
-    assert 'role="tablist"' in body
-    assert 'aria-label="교과"' in body
-    assert 'aria-label="비교과"' in body
+    assert 'x-data="{ tab: \'regular\' }"' in body
+    assert 'id="regular-tab"' in body and '>교과</button>' in body
+    assert 'id="irregular-tab"' in body and '>비교과</button>' in body
     assert f'hx-get="{reverse("site:lab-lecture-irregular-courses")}"' in body
-    # 비교과 탭은 처음 선택할 때만 자동 조회한다
-    assert 'hx-trigger="submit, change from:#irregular-tab once"' in body
-    assert 'id="irregular-tab"' in body
+    # 비교과 탭은 처음 선택(클릭)할 때만 자동 조회한다
+    assert 'hx-trigger="submit, click from:#irregular-tab once"' in body
     assert 'id="irregular-year" name="year" class="select select-bordered select-sm min-w-32"' in body
     assert 'id="irregular-courses"' in body
     assert 'id="irregular-courses-skeleton"' in body
@@ -372,14 +369,17 @@ def test_강의_페이지의_교과_탭_기존_요소는_유지된다() -> None:
 
 
 @pytest.mark.django_db
-def test_강의_페이지_탭_목록은_flex이고_탭_라벨은_줄바꿈되지_않는다() -> None:
-    """DaisyUI `.tabs`는 display:grid라 좁은 화면(375px)에서 탭 폭이 줄어 라벨이 세로로 쪼개진다."""
+def test_강의_페이지_탭은_알약형이고_라벨은_줄바꿈되지_않는다() -> None:
+    """DaisyUI tabs-lifted(라디오+tab-content)는 그리드 레이아웃에 의존해, flex로 덮어쓰면 패널이
+    397px로 좁아지고 탭이 패널 아래로 밀리는 회귀가 있었다. 버튼 기반 tabs-boxed로 교체했다."""
     client = Client()
     _login_owner(client)
 
     body = client.get(reverse('site:lab-lecture')).content.decode()
 
-    assert 'role="tablist" class="tabs tabs-lifted flex flex-wrap"' in body
+    assert 'role="tablist" class="tabs tabs-boxed w-fit mb-4"' in body
+    assert 'tabs-lifted' not in body
+    assert 'tab-content' not in body
     assert body.count('class="tab whitespace-nowrap"') == 2
 
 
