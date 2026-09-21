@@ -7,8 +7,8 @@
 
 <section class="mb-6 bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5">
   <h2 class="text-lg font-semibold mb-3">강좌 조회</h2>
-  <div role="tablist" class="tabs tabs-lifted">
-    <input type="radio" name="lecture-course-tabs" role="tab" class="tab" aria-label="교과" checked="checked" />
+  <div role="tablist" class="tabs tabs-lifted flex flex-wrap">
+    <input type="radio" name="lecture-course-tabs" role="tab" class="tab whitespace-nowrap" aria-label="교과" checked="checked" />
     <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
       <form
         class="flex flex-wrap items-end gap-2 mb-4"
@@ -42,7 +42,7 @@
       <div id="download-result" class="mt-4" aria-live="polite"></div>
     </div>
 
-    <input id="irregular-tab" type="radio" name="lecture-course-tabs" role="tab" class="tab" aria-label="비교과" />
+    <input id="irregular-tab" type="radio" name="lecture-course-tabs" role="tab" class="tab whitespace-nowrap" aria-label="비교과" />
     <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4">
       <form
         class="flex flex-wrap items-end gap-2 mb-4"

@@ -1,7 +1,7 @@
 <li>
   <button
     type="button"
-    class="btn btn-ghost justify-start relative"
+    class="btn btn-ghost justify-start relative h-auto min-h-12 py-2 text-left"
     hx-get="{% url 'site:lab-lecture-irregular-courses' %}"
     hx-target="#irregular-courses"
     hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ search_year|escapejs }}"}'

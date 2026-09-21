@@ -338,3 +338,35 @@ def test_강의_페이지의_교과_탭_기존_요소는_유지된다() -> None:
     assert 'id="courses"' in body
     assert 'id="courses-skeleton"' in body
     assert 'id="download-result"' in body
+
+
+@pytest.mark.django_db
+def test_강의_페이지_탭_목록은_flex이고_탭_라벨은_줄바꿈되지_않는다() -> None:
+    """DaisyUI `.tabs`는 display:grid라 좁은 화면(375px)에서 탭 폭이 줄어 라벨이 세로로 쪼개진다."""
+    client = Client()
+    _login_owner(client)
+
+    body = client.get(reverse('site:lab-lecture')).content.decode()
+
+    assert 'role="tablist" class="tabs tabs-lifted flex flex-wrap"' in body
+    assert body.count('class="tab whitespace-nowrap"') == 2
+
+
+@pytest.mark.django_db
+def test_비교과_강좌_버튼은_강좌명이_길어도_높이가_고정되지_않는다() -> None:
+    """DaisyUI `.btn`의 고정 높이(3rem) 때문에 두 줄로 넘어가는 강좌명이 다음 항목과 겹치던 결함 방지."""
+    client = Client()
+    _login_owner(client)
+    fake_session = EcampusSession(session=MagicMock())
+    fake_courses = [IrregularCourse(id='34888', name='아주 긴 이름의 비교과 강좌 ' * 4, year='2026')]
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            'apps.site.views.EcampusCourseService.search_irregular_courses',
+            return_value=fake_courses,
+        ),
+    ):
+        response = client.get(reverse('site:lab-lecture-irregular-courses'), {'year': '2026'})
+
+    assert 'btn btn-ghost justify-start relative h-auto min-h-12 py-2 text-left' in response.content.decode()
