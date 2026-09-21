@@ -263,8 +263,9 @@ def _is_authenticated_page(response: requests.Response) -> bool:
 
     이 페이지는 세션 만료 시 리다이렉트 없이 빈 위젯을 담은 200 응답을 줄 수 있어(집현캠퍼스
     강좌 목록 조회 실패 버그의 근본 원인이었다), 경로 대신 페이지 본문에 로그아웃 링크(logout.php)
-    가 있는지로 인증 여부를 판정한다. course/view.php에는 이 문자열이 없음을 실측으로 확인했으므로
-    그 페이지에는 이 함수를 쓰지 않는다.
+    가 있는지로 인증 여부를 판정한다. local/ubassistant/my.php(비교과강좌 조회)도 같은 판정을 쓰며
+    실측에서 응답 본문에 로그아웃 링크(logout.php)가 있음을 확인했다. course/view.php에는 이 문자열이
+    없음을 실측으로 확인했으므로 그 페이지에는 이 함수를 쓰지 않는다.
     """
     return 'logout.php' in response.text
 

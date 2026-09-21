@@ -131,8 +131,39 @@ def test_비교과_강좌_선택시_강의_목록이_인라인으로_펼쳐진�
     assert response.status_code == 200
     assert 'OT 영상' in body
     assert reverse('site:lab-lecture-irregular-download') in body
+    # 다운로드 폼의 숨은 year는 강좌 자신의 연도다
+    assert 'name="year" value="2026"' in body
     # 강좌를 펼치는 요청에서는 직전 다운로드 결과 영역을 비우지 않는다
     assert 'id="irregular-download-result" hx-swap-oob' not in body
+
+
+@pytest.mark.django_db
+def test_비교과_강좌_버튼_재조회는_검색_연도를_쓰고_다운로드_폼은_강좌_연도를_쓴다() -> None:
+    client = Client()
+    _login_owner(client)
+    fake_session = EcampusSession(session=MagicMock())
+    fake_courses = [IrregularCourse(id='11800', name='FL 학생 OT', year='2024')]
+    fake_lectures = [Lecture(id='5001', title='OT 영상')]
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            'apps.site.views.EcampusCourseService.search_irregular_courses',
+            return_value=fake_courses,
+        ),
+        patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
+    ):
+        response = client.get(
+            reverse('site:lab-lecture-irregular-courses'),
+            {'course_id': '11800', 'year': 'all'},
+        )
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    # 버튼의 hx-vals는 검색 연도를 유지해 다른 연도 강좌도 계속 목록에 남긴다
+    assert '"year": "all"' in body
+    # 다운로드 폼은 강좌 자신의 연도를 쓴다
+    assert 'name="year" value="2024"' in body
 
 
 @pytest.mark.django_db
@@ -370,3 +401,31 @@ def test_비교과_강좌_버튼은_강좌명이_길어도_높이가_고정되�
         response = client.get(reverse('site:lab-lecture-irregular-courses'), {'year': '2026'})
 
     assert 'btn btn-ghost justify-start relative h-auto min-h-12 py-2 text-left' in response.content.decode()
+
+
+@pytest.mark.django_db
+def test_비교과_다운로드_응답의_강의_제목은_HTML_이스케이프된다() -> None:
+    client = Client()
+    _login_owner(client)
+    fake_course = IrregularCourse(id='34888', name='PBL 학생 OT', year='2026')
+    fake_lectures = [Lecture(id='5001', title='<b>OT</b>')]
+    fake_job = LectureDownloadJob(
+        id=1, course_id='34888', course_name='PBL 학생 OT', lecture_id='5001', lecture_title='<b>OT</b>',
+    )
+
+    with (
+        patch(
+            'apps.site.views.EcampusCourseService.find_irregular_course',
+            return_value=fake_course,
+        ),
+        patch('apps.site.views.EcampusCourseService.list_lectures', return_value=fake_lectures),
+        patch('apps.site.views.LectureDownloadOrchestrator.start', return_value=fake_job),
+    ):
+        response = client.post(reverse('site:lab-lecture-irregular-download'), {
+            'course_id': '34888', 'lecture_id': '5001', 'year': '2026',
+        })
+
+    body = response.content.decode()
+    assert response.status_code == 200
+    assert '&lt;b&gt;OT&lt;/b&gt;' in body
+    assert '<b>OT</b>' not in body

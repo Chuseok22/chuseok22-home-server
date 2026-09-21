@@ -792,8 +792,8 @@ def lab_lecture_irregular_courses(request: HttpRequest) -> HttpResponse:
     if not form.is_valid():
         return HttpResponse('요청 형식이 올바르지 않습니다.', status=200)
 
-    ecampus_session = EcampusMoodleAuthService().create_session()
-    if ecampus_session is None:
+    # 로그인 확인용: search_irregular_courses는 로그인 실패와 강좌 없음 모두 빈 리스트를 반환하므로 둘을 구분한다
+    if EcampusMoodleAuthService().create_session() is None:
         return HttpResponse('집현캠퍼스 로그인에 실패했습니다.', status=200)
 
     course_service = EcampusCourseService()
@@ -830,7 +830,7 @@ def lab_lecture_irregular_courses(request: HttpRequest) -> HttpResponse:
 @require_POST
 def lab_lecture_irregular_download(request: HttpRequest) -> HttpResponse:
     """비교과 강의 다운로드 요청 처리 (htmx 부분 응답). 검증 실패·중복 요청 모두 200으로 반환한다.
-    상태를 바꾸는 엔드포인트이므로 POST만 허용한다(GET은 405). `require_POST`는 이미 import돼 있다.
+    상태를 바꾸는 엔드포인트이므로 POST만 허용한다(GET은 405).
 
     lab_lecture_download와 동일하게 클라이언트가 보낸 강좌명/강의명은 신뢰하지 않는다 -
     course_id/lecture_id만 받아 서버에서 다시 조회하고, lecture_id가 실제로 그 course_id에
