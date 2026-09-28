@@ -1,4 +1,21 @@
 {% if jobs %}
+<div class="mb-3">
+  <select
+    id="history-course-filter"
+    name="course"
+    aria-label="강좌 필터"
+    class="select select-bordered select-sm w-full max-w-md"
+    hx-get="{% url 'site:lab-lecture-history' %}"
+    hx-trigger="change"
+    hx-target="#history"
+    hx-swap="innerHTML"
+  >
+    <option value=""{% if not selected_course_id %} selected{% endif %}>전체</option>
+    {% for option in course_options %}
+    <option value="{{ option.course_id }}"{% if option.course_id == selected_course_id %} selected{% endif %}>{{ option.course_name }}</option>
+    {% endfor %}
+  </select>
+</div>
 <div class="lg:hidden flex flex-col gap-3">
   {% for job in jobs %}
   <div class="rounded-box border border-base-300 p-3 flex flex-col gap-2">
@@ -42,8 +59,8 @@
 <div class="flex items-center justify-center gap-4 mt-4">
   {% if page_obj.has_previous %}
   <a
-    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}"
-    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}"
+    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}{% if selected_course_id %}&course={{ selected_course_id|urlencode }}{% endif %}"
+    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.previous_page_number }}{% if selected_course_id %}&course={{ selected_course_id|urlencode }}{% endif %}"
     hx-target="#history"
     hx-swap="innerHTML"
     class="btn btn-sm btn-ghost"
@@ -52,8 +69,8 @@
   <span class="text-sm opacity-70">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
   {% if page_obj.has_next %}
   <a
-    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}"
-    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}"
+    href="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}{% if selected_course_id %}&course={{ selected_course_id|urlencode }}{% endif %}"
+    hx-get="{% url 'site:lab-lecture-history' %}?page={{ page_obj.next_page_number }}{% if selected_course_id %}&course={{ selected_course_id|urlencode }}{% endif %}"
     hx-target="#history"
     hx-swap="innerHTML"
     class="btn btn-sm btn-ghost"
