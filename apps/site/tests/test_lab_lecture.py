@@ -1,9 +1,11 @@
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import content_disposition_header
 
 from apps.sejong.lecture.models import LectureDownloadJob
@@ -434,6 +436,159 @@ def test_이력_삭제_후_페이지네이션이_갱신된다() -> None:
     assert body.count('<tr id="job-row-') == 20
     assert '이전' not in body
     assert '다음' not in body
+
+
+def _create_history_job(
+    course_id: str, course_name: str, lecture_id: str = '1', days_ago: int = 0,
+    status: str = LectureDownloadJob.Status.COMPLETED,
+) -> LectureDownloadJob:
+    job = LectureDownloadJob.objects.create(
+        course_id=course_id, course_name=course_name, lecture_id=lecture_id,
+        lecture_title=f'{course_name} {lecture_id}강', status=status,
+    )
+    if days_ago:
+        # created_at은 auto_now_add라 create()로 지정할 수 없어 update()로 과거 시각을 지정한다.
+        LectureDownloadJob.objects.filter(pk=job.pk).update(
+            created_at=timezone.now() - timedelta(days=days_ago),
+        )
+    return job
+
+
+@pytest.mark.django_db
+def test_이력_강좌_필터를_적용하면_해당_강좌_이력만_조회된다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조', '1')
+    _create_history_job('202', '알고리즘', '2')
+
+    response = client.get(reverse('site:lab-lecture-history'), {'course': '101'})
+
+    assert response.status_code == 200
+    assert {job.course_id for job in response.context['jobs']} == {'101'}
+    assert response.context['selected_course_id'] == '101'
+
+
+@pytest.mark.django_db
+def test_강좌_필터가_없으면_전체_이력이_조회된다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조', '1')
+    _create_history_job('202', '알고리즘', '2')
+
+    response = client.get(reverse('site:lab-lecture-history'))
+
+    assert {job.course_id for job in response.context['jobs']} == {'101', '202'}
+    assert response.context['selected_course_id'] == ''
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('invalid_course', ['999', '', "'; DROP TABLE x;--", '<script>'])
+def test_목록에_없는_강좌_값은_전체로_처리된다(invalid_course: str) -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조', '1')
+    _create_history_job('202', '알고리즘', '2')
+
+    response = client.get(reverse('site:lab-lecture-history'), {'course': invalid_course})
+
+    assert response.status_code == 200
+    assert {job.course_id for job in response.context['jobs']} == {'101', '202'}
+    assert response.context['selected_course_id'] == ''
+
+
+@pytest.mark.django_db
+def test_강좌_옵션은_최근_다운로드순이고_강좌마다_한번만_최신_이름으로_나온다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조(구)', '1', days_ago=5)
+    _create_history_job('202', '알고리즘', '2', days_ago=3)
+    _create_history_job('101', '자료구조', '3', days_ago=1)
+
+    response = client.get(reverse('site:lab-lecture-history'))
+
+    assert response.context['course_options'] == [
+        {'course_id': '101', 'course_name': '자료구조'},
+        {'course_id': '202', 'course_name': '알고리즘'},
+    ]
+
+
+@pytest.mark.django_db
+def test_강좌가_하나뿐이어도_옵션이_나오고_선택해도_목록이_같다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조', '1')
+    _create_history_job('101', '자료구조', '2')
+
+    unfiltered = client.get(reverse('site:lab-lecture-history'))
+    filtered = client.get(reverse('site:lab-lecture-history'), {'course': '101'})
+
+    assert unfiltered.context['course_options'] == [{'course_id': '101', 'course_name': '자료구조'}]
+    assert [job.id for job in filtered.context['jobs']] == [job.id for job in unfiltered.context['jobs']]
+    assert filtered.context['selected_course_id'] == '101'
+
+
+@pytest.mark.django_db
+def test_강좌_필터를_적용해도_페이지당_20개로_나뉜다() -> None:
+    client = Client()
+    _login_owner(client)
+    for i in range(25):
+        _create_history_job('101', '자료구조', str(i))
+    for i in range(3):
+        _create_history_job('202', '알고리즘', f'a{i}')
+
+    response = client.get(reverse('site:lab-lecture-history'), {'course': '101', 'page': '2'})
+
+    assert len(list(response.context['jobs'])) == 5
+    assert {job.course_id for job in response.context['jobs']} == {'101'}
+
+
+@pytest.mark.django_db
+def test_강좌_필터_상태에서_이력을_삭제하면_같은_필터로_다시_렌더링된다() -> None:
+    client = Client()
+    _login_owner(client)
+    deleted_job = _create_history_job('101', '자료구조', '1')
+    _create_history_job('101', '자료구조', '2')
+    _create_history_job('202', '알고리즘', '3')
+
+    response = client.post(
+        reverse('site:lab-lecture-history-delete', args=[deleted_job.id]) + '?course=101',
+    )
+
+    assert response.status_code == 200
+    assert not LectureDownloadJob.objects.filter(pk=deleted_job.id).exists()
+    assert {job.course_id for job in response.context['jobs']} == {'101'}
+    assert response.context['selected_course_id'] == '101'
+
+
+@pytest.mark.django_db
+def test_선택한_강좌의_마지막_이력을_삭제하면_전체로_돌아간다() -> None:
+    client = Client()
+    _login_owner(client)
+    only_job = _create_history_job('101', '자료구조', '1')
+    _create_history_job('202', '알고리즘', '2')
+
+    response = client.post(
+        reverse('site:lab-lecture-history-delete', args=[only_job.id]) + '?course=101',
+    )
+
+    assert response.status_code == 200
+    assert response.context['selected_course_id'] == ''
+    assert {job.course_id for job in response.context['jobs']} == {'202'}
+    assert [option['course_id'] for option in response.context['course_options']] == ['202']
+
+
+@pytest.mark.django_db
+def test_존재하지_않는_이력_삭제요청도_현재_강좌_필터로_다시_렌더링된다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_history_job('101', '자료구조', '1')
+    _create_history_job('202', '알고리즘', '2')
+
+    response = client.post(reverse('site:lab-lecture-history-delete', args=[999999]) + '?course=101')
+
+    assert response.status_code == 200
+    assert response.context['selected_course_id'] == '101'
+    assert {job.course_id for job in response.context['jobs']} == {'101'}
 
 
 @pytest.mark.django_db
