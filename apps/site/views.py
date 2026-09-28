@@ -5,7 +5,7 @@ from itertools import groupby
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.paginator import Paginator
-from django.db.models import F
+from django.db.models import F, Max, OuterRef, Subquery
 from django.http import FileResponse, Http404, HttpRequest, HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -864,21 +864,57 @@ def lab_lecture_irregular_download(request: HttpRequest) -> HttpResponse:
 _LECTURE_HISTORY_PER_PAGE = 20
 
 
-def _render_lecture_history_page(request: HttpRequest, page_number: str) -> HttpResponse:
-    """다운로드 이력 목록을 지정한 페이지로 렌더링한다 (htmx 부분 응답). 페이지네이션 재계산이
-    필요한 두 진입점(목록 조회, 삭제 후 갱신)이 공유한다."""
-    paginator = Paginator(LectureDownloadJob.objects.all(), _LECTURE_HISTORY_PER_PAGE)
+def _lecture_history_course_options() -> list[dict[str, str]]:
+    """이력 강좌 필터 드롭다운 항목. 이력이 있는 강좌를 course_id 단위로 묶어 최근에
+    다운로드한 강좌부터 나열하고, 이름은 그 강좌의 가장 최근 이력 행의 course_name을 쓴다
+    (강좌명이 나중에 바뀌었을 수 있다)."""
+    latest_course_name = (
+        LectureDownloadJob.objects.filter(course_id=OuterRef('course_id'))
+        .order_by('-created_at', '-id')
+        .values('course_name')[:1]
+    )
+    return list(
+        LectureDownloadJob.objects.values('course_id')
+        .annotate(last_created_at=Max('created_at'), course_name=Subquery(latest_course_name))
+        .order_by('-last_created_at', 'course_id')
+        .values('course_id', 'course_name')
+    )
+
+
+def _render_lecture_history_page(request: HttpRequest) -> HttpResponse:
+    """다운로드 이력 목록을 요청의 ?page=, ?course= 로 렌더링한다 (htmx 부분 응답). 페이지네이션
+    재계산이 필요한 두 진입점(목록 조회, 삭제 후 갱신)이 공유한다. 옵션 목록에 없는 course
+    값(삭제로 마지막 이력이 사라진 강좌 포함)은 오류 없이 "전체"로 취급한다."""
+    course_options = _lecture_history_course_options()
+    requested_course_id = request.GET.get('course', '')
+    selected_course_id = (
+        requested_course_id
+        if any(option['course_id'] == requested_course_id for option in course_options)
+        else ''
+    )
+    jobs = LectureDownloadJob.objects.all()
+    if selected_course_id:
+        jobs = jobs.filter(course_id=selected_course_id)
+    page_number = request.GET.get('page', '1')
+    paginator = Paginator(jobs, _LECTURE_HISTORY_PER_PAGE)
     page_obj = paginator.get_page(page_number if page_number.isdecimal() else 1)
     return render(
-        request, 'site/partials/lecture_history.html', {'jobs': page_obj, 'page_obj': page_obj},
+        request,
+        'site/partials/lecture_history.html',
+        {
+            'jobs': page_obj,
+            'page_obj': page_obj,
+            'course_options': course_options,
+            'selected_course_id': selected_course_id,
+        },
     )
 
 
 @owner_required
 def lab_lecture_history(request: HttpRequest) -> HttpResponse:
-    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션한다(페이지당
-    20개, 최신순 - LectureDownloadJob.Meta.ordering)."""
-    return _render_lecture_history_page(request, request.GET.get('page', '1'))
+    """강의 다운로드 이력 목록 (htmx 부분 응답). ?page=<n>으로 페이지네이션하고(페이지당
+    20개, 최신순 - LectureDownloadJob.Meta.ordering) ?course=<course_id>로 강좌를 거른다."""
+    return _render_lecture_history_page(request)
 
 
 @owner_required
@@ -886,7 +922,8 @@ def lab_lecture_history(request: HttpRequest) -> HttpResponse:
 def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpResponse:
     """다운로드 이력을 삭제한다 (htmx hx-post). 존재하지 않는 job도 200으로 처리한다.
 
-    성공 시(존재하지 않는 job 포함) #history 전체를 현재 페이지로 다시 렌더링해 응답한다 -
+    성공 시(존재하지 않는 job 포함) #history 전체를 현재 페이지로 다시 렌더링해 응답한다
+    (선택된 강좌 필터도 ?course=로 이어받는다) -
     삭제된 행만 hx-swap="delete"로 지우면 페이지네이터가 재계산되지 않아, 마지막 페이지의
     마지막 행을 지웠을 때 빈 테이블 위에 stale한 페이지 번호가 남는 문제가 있었다
     (CodeRabbit/Codex PR 리뷰로 발견 - GitHub 이슈 #164).
@@ -899,11 +936,11 @@ def lab_lecture_history_delete(request: HttpRequest, job_id: int) -> HttpRespons
     """
     job = LectureDownloadJob.objects.filter(pk=job_id).first()
     if job is None:
-        return _render_lecture_history_page(request, request.GET.get('page', '1'))
+        return _render_lecture_history_page(request)
     if job.status in (LectureDownloadJob.Status.PENDING, LectureDownloadJob.Status.RUNNING):
         return HttpResponse('진행 중인 다운로드는 삭제할 수 없습니다.', status=409)
     delete_download_job(job)
-    return _render_lecture_history_page(request, request.GET.get('page', '1'))
+    return _render_lecture_history_page(request)
 
 
 @owner_required
