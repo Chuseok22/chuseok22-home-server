@@ -42,7 +42,7 @@ from apps.profile.models import (
     PullRequestHighlight,
     Skill,
 )
-from apps.profile.services.visitor_counter import get_visit_counts
+from apps.profile.services.visitor_counter import get_recent_daily_counts, get_visit_counts
 from apps.projects.models import Project
 from apps.projects.services.category import (
     filter_projects_by_category_id,
@@ -128,7 +128,8 @@ def home(request: HttpRequest) -> HttpResponse:
     }
     awards = Career.objects.filter(category=Career.Category.AWARD).order_by('order')
 
-    visit_counts = get_visit_counts(timezone.localdate())
+    today = timezone.localdate()
+    visit_counts = get_visit_counts(today)
     total_stars = GithubProfileStats.objects.filter(pk=1).values_list('total_stars', flat=True).first() or 0
 
     activities = Activity.objects.prefetch_related('attachments')
@@ -149,6 +150,7 @@ def home(request: HttpRequest) -> HttpResponse:
         'total_stars': total_stars,
         'today_visits': visit_counts.today,
         'total_visits': visit_counts.total,
+        'recent_visits': get_recent_daily_counts(today),
     })
 
 
