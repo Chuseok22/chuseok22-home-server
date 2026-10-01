@@ -1,4 +1,5 @@
 import io
+from datetime import date
 
 import pytest
 from django.contrib.auth.models import User
@@ -7,7 +8,7 @@ from django.test import Client
 from django.urls import reverse
 from PIL import Image
 
-from apps.profile.models import Profile, VisitorCounter
+from apps.profile.models import DailyVisitor, Profile
 
 
 @pytest.fixture
@@ -28,12 +29,19 @@ def test_profile가_이미_있으면_admin_추가_화면이_차단된다(admin_c
 
 
 @pytest.mark.django_db
-def test_visitorcounter가_이미_있으면_admin_추가_화면이_차단된다(admin_client: Client) -> None:
-    VisitorCounter.objects.create(pk=1, count=0)
+def test_dailyvisitor_admin은_목록만_볼_수_있고_추가_수정_삭제가_차단된다(admin_client: Client) -> None:
+    visitor = DailyVisitor.objects.create(date=date(2026, 10, 1), count=1)
 
-    response = admin_client.get(reverse('admin:profile_visitorcounter_add'))
-
-    assert response.status_code == 403
+    assert admin_client.get(reverse('admin:profile_dailyvisitor_changelist')).status_code == 200
+    assert admin_client.get(reverse('admin:profile_dailyvisitor_add')).status_code == 403
+    assert admin_client.post(
+        reverse('admin:profile_dailyvisitor_change', args=[visitor.pk]), {'count': 99},
+    ).status_code == 403
+    assert admin_client.post(
+        reverse('admin:profile_dailyvisitor_delete', args=[visitor.pk]), {'post': 'yes'},
+    ).status_code == 403
+    visitor.refresh_from_db()
+    assert visitor.count == 1
 
 
 def _make_avatar_upload(size: tuple[int, int] = (100, 50)) -> SimpleUploadedFile:
