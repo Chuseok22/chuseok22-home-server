@@ -296,6 +296,21 @@
       <p class="text-sm opacity-60">등록된 글이 없습니다.</p>
       {% endif %}
     </div>
+    <div class="section-box">
+      <div class="flex items-baseline justify-between mb-4">
+        <h2 class="text-lg font-bold">방문자</h2>
+        <span class="text-xs opacity-60">최근 7일</span>
+      </div>
+      <div class="flex items-baseline justify-between mb-4">
+        <span><span class="visitor-label">전체</span><b class="visitor-total">{{ total_visits|intcomma }}</b></span>
+        <span class="visitor-chip">오늘 {{ today_visits|intcomma }}</span>
+      </div>
+      {% visitor_sparkline recent_visits %}
+      <div class="flex justify-between mt-2 text-[11px] opacity-60">
+        <span>{{ recent_visits.0.date|date:"n/j" }}</span>
+        <span>오늘</span>
+      </div>
+    </div>
   </aside>
 </div>
 <script src="{% static 'site/js/markdown-code-blocks.js' %}" defer></script>

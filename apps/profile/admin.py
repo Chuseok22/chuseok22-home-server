@@ -8,10 +8,10 @@ from apps.profile.models import (
     ActivityAttachment,
     Career,
     Certification,
+    DailyVisitor,
     Profile,
     PullRequestHighlight,
     Skill,
-    VisitorCounter,
 )
 from apps.profile.services.avatar_crop import CropBox, crop_avatar
 
@@ -67,10 +67,21 @@ class ProfileAdmin(SingletonAdminMixin, admin.ModelAdmin):
         js = ('profile/admin/avatar_crop.js',)
 
 
-@admin.register(VisitorCounter)
-class VisitorCounterAdmin(SingletonAdminMixin, admin.ModelAdmin):
-    list_display = ('count', 'updated_at')
-    readonly_fields = ('updated_at',)
+@admin.register(DailyVisitor)
+class DailyVisitorAdmin(admin.ModelAdmin):
+    """집계 값은 코드로만 증가한다. 수동 수정이 총 방문자 합계를 오염시키지 않도록 목록 조회만 허용한다."""
+
+    list_display = ('date', 'count')
+    ordering = ('-date',)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: DailyVisitor | None = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: DailyVisitor | None = None) -> bool:
+        return False
 
 
 @admin.register(Skill)

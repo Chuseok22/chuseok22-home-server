@@ -1,14 +1,17 @@
+from datetime import date
+
 import pytest
+from django.db import IntegrityError, transaction
 
 from apps.profile.models import (
     Activity,
     ActivityAttachment,
     Career,
     Certification,
+    DailyVisitor,
     Profile,
     PullRequestHighlight,
     Skill,
-    VisitorCounter,
 )
 
 
@@ -17,13 +20,6 @@ def test_profile_str_representation은_이름을_반환한다() -> None:
     profile = Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
 
     assert str(profile) == '백지훈'
-
-
-@pytest.mark.django_db
-def test_visitor_counter_str_representation은_누적_방문수를_보여준다() -> None:
-    counter = VisitorCounter.objects.create(pk=1, count=10)
-
-    assert str(counter) == '누적 방문 10회'
 
 
 @pytest.mark.django_db
@@ -318,3 +314,26 @@ def test_시딩_마이그레이션으로_활동_3건이_생성되어_있다() ->
         'CODEGATE AI-Start-Up Hackathon',
         'Autory · 세종대 자동차제작 동아리',
     ]
+
+
+@pytest.mark.django_db
+def test_daily_visitor_str_representation은_날짜와_방문수를_보여준다() -> None:
+    visitor = DailyVisitor.objects.create(date=date(2026, 10, 1), count=3)
+
+    assert str(visitor) == '2026-10-01 방문 3회'
+
+
+@pytest.mark.django_db
+def test_daily_visitor는_최신_날짜순으로_정렬된다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 9, 30), count=1)
+    DailyVisitor.objects.create(date=date(2026, 10, 1), count=1)
+
+    assert [visitor.date for visitor in DailyVisitor.objects.all()] == [date(2026, 10, 1), date(2026, 9, 30)]
+
+
+@pytest.mark.django_db
+def test_daily_visitor는_같은_날짜를_중복_저장할_수_없다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 10, 1), count=1)
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        DailyVisitor.objects.create(date=date(2026, 10, 1), count=1)

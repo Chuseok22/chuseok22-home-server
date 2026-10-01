@@ -112,16 +112,80 @@ def test_home_은_총_star_수를_context에_담는다() -> None:
 
 
 @pytest.mark.django_db
-def test_home_은_호출마다_방문자_수를_증가시킨다() -> None:
+def test_home_은_본인_방문이_반영된_오늘과_총_방문자_수를_context에_담는다() -> None:
     from django.test import Client
 
-    from apps.profile.models import VisitorCounter
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    response = client.get(reverse('site:home'))
 
-    client = Client()
-    client.get(reverse('site:home'))
-    client.get(reverse('site:home'))
+    assert response.context['today_visits'] == 1
+    assert response.context['total_visits'] == 1
 
-    assert VisitorCounter.objects.get(pk=1).count == 2
+
+@pytest.mark.django_db
+def test_home_은_방문자_통계_조회가_실패해도_200으로_응답하고_0으로_표시한다(monkeypatch: pytest.MonkeyPatch) -> None:
+    from django.db import DatabaseError
+    from django.test import Client
+
+    def raise_database_error(*args: object, **kwargs: object) -> None:
+        raise DatabaseError('조회 실패')
+
+    monkeypatch.setattr('apps.profile.services.visitor_counter.get_visit_counts', raise_database_error)
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    response = client.get(reverse('site:home'))
+
+    assert response.status_code == 200
+    assert response.context['today_visits'] == 0
+    assert response.context['total_visits'] == 0
+    assert len(response.context['recent_visits']) == 7
+
+
+@pytest.mark.django_db
+def test_home_은_같은_방문자가_새로고침해도_방문자_수를_올리지_않는다() -> None:
+    from django.test import Client
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    client.get(reverse('site:home'))
+    response = client.get(reverse('site:home'))
+
+    assert response.context['today_visits'] == 1
+    assert response.context['total_visits'] == 1
+
+
+@pytest.mark.django_db
+def test_home_은_최근_7일_일자별_방문자를_오늘이_마지막인_순서로_context에_담는다() -> None:
+    from django.test import Client
+    from django.utils import timezone
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    response = client.get(reverse('site:home'))
+
+    recent_visits = response.context['recent_visits']
+    assert len(recent_visits) == 7
+    assert recent_visits[-1].date == timezone.localdate()
+    assert recent_visits[-1].count == 1
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_방문자_박스에_전체_오늘_숫자와_스파크라인을_렌더링한다() -> None:
+    from datetime import timedelta
+
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.profile.models import DailyVisitor
+
+    DailyVisitor.objects.create(date=timezone.localdate() - timedelta(days=1), count=1500)
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    body = client.get(reverse('site:home')).content.decode()
+
+    assert '최근 7일' in body
+    assert '1,501' in body  # 전체(어제 1500 + 오늘 본인 방문 1)가 천 단위 구분으로 표시된다
+    assert '오늘 1' in body
+    assert 'class="visitor-sparkline"' in body
+    assert '최근 7일 방문자: ' in body
 
 
 @pytest.mark.django_db
@@ -1281,21 +1345,6 @@ def test_home_템플릿은_총_star_수를_gh_star로_보여준다() -> None:
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_더_이상_방문자_수를_보여주지_않는다() -> None:
-    from django.test import Client
-
-    client = Client()
-    response = client.get(reverse('site:home'))
-    body = response.content.decode()
-
-    assert 'stat-chip' not in body
-    # eye.svg.html은 include된 SVG 내용이 그대로 인라인되므로 파일명이 아니라
-    # 아이콘 고유 path 데이터(M2.036 12.322...)로 부재를 검증해야 실제로 의미 있는 검증이 된다.
-    # ('eye.svg' not in body'는 애초에 파일명이 출력에 등장하지 않으므로 항상 통과하는 무의미한 assert였다.)
-    assert 'M2.036 12.322' not in body
-
-
-@pytest.mark.django_db
 def test_blog_목록은_포스트의_태그를_배지로_보여준다() -> None:
     from django.test import Client
     from django.utils import timezone
@@ -1875,9 +1924,9 @@ def test_home_템플릿은_데이터가_없어도_필수_섹션_박스_2개를_�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    # section-box 2개(GitHub 컨트리뷰션 + 사이드바 최근 글) + 시딩된 데이터로 항상 렌더링되는
-    # "활동" 섹션 1개 + "Awards & Honors" 섹션 1개 = 4개.
-    assert body.count('class="section-box') == 4
+    # section-box 3개(GitHub 컨트리뷰션 + 사이드바 최근 글 + 사이드바 방문자) + 시딩된 데이터로 항상
+    # 렌더링되는 "활동" 섹션 1개 + "Awards & Honors" 섹션 1개 = 5개.
+    assert body.count('class="section-box') == 5
 
 
 @pytest.mark.django_db
@@ -1893,7 +1942,7 @@ def test_home_템플릿은_프로필과_기술스택_섹션도_박스로_보여�
     response = client.get(reverse('site:home'))
     body = response.content.decode()
 
-    assert body.count('class="section-box') == 6
+    assert body.count('class="section-box') == 7
 
 
 @pytest.mark.django_db

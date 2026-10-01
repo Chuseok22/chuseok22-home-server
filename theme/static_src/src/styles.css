@@ -46,6 +46,57 @@
     border-radius: 0.65rem;
   }
 
+  /* 홈 방문자 박스. 전체 방문 수를 헤드라인으로, 오늘 수는 청록 알약으로 분리하고
+     최근 7일 흐름은 SVG 스파크라인으로 보여준다(좌표는 profile_tags.visitor_sparkline 계산). */
+  .visitor-label {
+    @apply text-sm mr-1.5;
+    color: var(--home-ink-muted, inherit);
+  }
+
+  .visitor-total {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .visitor-chip {
+    @apply inline-flex items-baseline gap-1 rounded-full text-xs font-extrabold;
+    padding: 0.2rem 0.65rem;
+    border: 1px solid color-mix(in srgb, var(--home-accent, #0f9aa3) 55%, transparent);
+    color: var(--home-accent, #0f9aa3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 외곽 원(halo)이 오른쪽 끝에서 잘리지 않도록 overflow를 보이게 둔다. */
+  .visitor-sparkline {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .visitor-sparkline-area {
+    fill: color-mix(in srgb, var(--home-accent, #0f9aa3) 13%, transparent);
+    stroke: none;
+  }
+
+  .visitor-sparkline-line {
+    fill: none;
+    stroke: color-mix(in srgb, var(--home-ink, currentColor) 55%, transparent);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  .visitor-sparkline-halo {
+    fill: color-mix(in srgb, var(--home-accent, #0f9aa3) 28%, transparent);
+  }
+
+  .visitor-sparkline-dot {
+    fill: var(--home-accent, #0f9aa3);
+  }
+
   /* 섹션 제목 위에 붙는 모노스페이스 대문자 라벨 + accent 점. */
   .section-box .eyebrow {
     @apply flex items-center gap-2 font-mono text-[0.66rem] uppercase tracking-wider mb-2;

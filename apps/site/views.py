@@ -41,8 +41,8 @@ from apps.profile.models import (
     Profile,
     PullRequestHighlight,
     Skill,
-    VisitorCounter,
 )
+from apps.profile.services.visitor_counter import get_visitor_stats
 from apps.projects.models import Project
 from apps.projects.services.category import (
     filter_projects_by_category_id,
@@ -128,8 +128,7 @@ def home(request: HttpRequest) -> HttpResponse:
     }
     awards = Career.objects.filter(category=Career.Category.AWARD).order_by('order')
 
-    VisitorCounter.objects.get_or_create(pk=1)
-    VisitorCounter.objects.filter(pk=1).update(count=F('count') + 1)
+    visitor_stats = get_visitor_stats(timezone.localdate())
     total_stars = GithubProfileStats.objects.filter(pk=1).values_list('total_stars', flat=True).first() or 0
 
     activities = Activity.objects.prefetch_related('attachments')
@@ -148,6 +147,9 @@ def home(request: HttpRequest) -> HttpResponse:
         'certifications': Certification.objects.all(),
         'recent_posts': Post.objects.filter(is_published=True).order_by('-published_at')[:3],
         'total_stars': total_stars,
+        'today_visits': visitor_stats.counts.today,
+        'total_visits': visitor_stats.counts.total,
+        'recent_visits': visitor_stats.recent,
     })
 
 

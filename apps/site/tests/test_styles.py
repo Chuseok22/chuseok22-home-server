@@ -142,3 +142,12 @@ def test_medal이_정의되어_있다() -> None:
     content = STYLES_PATH.read_text(encoding='utf-8')
 
     assert '.medal {' in content
+
+
+def test_방문자_스파크라인과_알약_스타일이_정의되어_있다() -> None:
+    content = STYLES_PATH.read_text(encoding='utf-8')
+
+    for selector in ('.visitor-total', '.visitor-chip', '.visitor-sparkline', '.visitor-sparkline-line',
+                     '.visitor-sparkline-area', '.visitor-sparkline-dot'):
+        assert selector in content
+    assert 'var(--home-accent' in content.split('.visitor-chip', 1)[1]

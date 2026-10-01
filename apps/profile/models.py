@@ -25,18 +25,19 @@ class Profile(models.Model):
         return self.name
 
 
-class VisitorCounter(models.Model):
-    """홈 화면 누적 방문자 수 (싱글턴, pk=1)."""
+class DailyVisitor(models.Model):
+    """KST 기준 일자별 방문자 수. 쿠키로 같은 날 중복 집계를 막으며, 총 방문자는 이 행들의 합이다."""
 
-    count = models.PositiveIntegerField(default=0, verbose_name='누적 방문 수')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='갱신 시각')
+    date = models.DateField(unique=True, verbose_name='날짜')
+    count = models.PositiveIntegerField(default=0, verbose_name='방문 수')
 
     class Meta:
-        verbose_name = '방문자 카운터'
-        verbose_name_plural = '방문자 카운터'
+        ordering = ('-date',)
+        verbose_name = '일자별 방문자'
+        verbose_name_plural = '일자별 방문자'
 
     def __str__(self) -> str:
-        return f'누적 방문 {self.count}회'
+        return f'{self.date} 방문 {self.count}회'
 
 
 class Skill(models.Model):
