@@ -123,6 +123,25 @@ def test_home_은_본인_방문이_반영된_오늘과_총_방문자_수를_cont
 
 
 @pytest.mark.django_db
+def test_home_은_방문자_통계_조회가_실패해도_200으로_응답하고_0으로_표시한다(monkeypatch: pytest.MonkeyPatch) -> None:
+    from django.db import DatabaseError
+    from django.test import Client
+
+    def raise_database_error(*args: object, **kwargs: object) -> None:
+        raise DatabaseError('조회 실패')
+
+    monkeypatch.setattr('apps.profile.services.visitor_counter.get_visit_counts', raise_database_error)
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    response = client.get(reverse('site:home'))
+
+    assert response.status_code == 200
+    assert response.context['today_visits'] == 0
+    assert response.context['total_visits'] == 0
+    assert len(response.context['recent_visits']) == 7
+
+
+@pytest.mark.django_db
 def test_home_은_같은_방문자가_새로고침해도_방문자_수를_올리지_않는다() -> None:
     from django.test import Client
 

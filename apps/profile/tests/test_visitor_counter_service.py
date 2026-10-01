@@ -1,7 +1,8 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.db import DatabaseError
 
 from apps.profile.models import DailyVisitor
 from apps.profile.services.visitor_counter import (
@@ -9,6 +10,7 @@ from apps.profile.services.visitor_counter import (
     VisitCounts,
     get_recent_daily_counts,
     get_visit_counts,
+    get_visitor_stats,
     is_bot_user_agent,
     record_visit,
     seconds_until_next_midnight,
@@ -175,3 +177,33 @@ def test_get_recent_daily_counts는_days_인자만큼의_기간을_반환한다(
 
     assert [item.date for item in recent] == [date(2026, 9, 29), date(2026, 9, 30), TODAY]
     assert [item.count for item in recent] == [5, 0, 2]
+
+
+@pytest.mark.django_db
+def test_get_visitor_stats는_오늘_합계와_최근_7일을_한_번에_반환한다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 9, 30), count=7)
+    DailyVisitor.objects.create(date=TODAY, count=2)
+
+    stats = get_visitor_stats(TODAY)
+
+    assert stats.counts == VisitCounts(today=2, total=9)
+    assert [item.count for item in stats.recent] == [0, 0, 0, 0, 0, 7, 2]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('failing_function', ['get_visit_counts', 'get_recent_daily_counts'])
+def test_get_visitor_stats는_조회가_DatabaseError로_실패하면_0과_빈_7일로_대체하고_로그를_남긴다(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failing_function: str,
+) -> None:
+    def raise_database_error(*args: object, **kwargs: object) -> None:
+        raise DatabaseError('조회 실패')
+
+    monkeypatch.setattr(f'apps.profile.services.visitor_counter.{failing_function}', raise_database_error)
+
+    stats = get_visitor_stats(TODAY)
+
+    assert stats.counts == VisitCounts(today=0, total=0)
+    assert [(item.date, item.count) for item in stats.recent] == [
+        (date(2026, 9, 25) + timedelta(days=offset), 0) for offset in range(7)
+    ]
+    assert any(record.levelname == 'ERROR' for record in caplog.records)
