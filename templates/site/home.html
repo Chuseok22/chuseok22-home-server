@@ -296,6 +296,19 @@
       <p class="text-sm opacity-60">등록된 글이 없습니다.</p>
       {% endif %}
     </div>
+    <div class="section-box">
+      <h2 class="text-lg font-bold mb-3">방문자</h2>
+      <dl class="flex items-end justify-between">
+        <div>
+          <dt class="text-xs opacity-60">오늘</dt>
+          <dd class="text-xl font-bold">{{ today_visits }}</dd>
+        </div>
+        <div class="text-right">
+          <dt class="text-xs opacity-60">전체</dt>
+          <dd class="text-xl font-bold">{{ total_visits }}</dd>
+        </div>
+      </dl>
+    </div>
   </aside>
 </div>
 <script src="{% static 'site/js/markdown-code-blocks.js' %}" defer></script>
