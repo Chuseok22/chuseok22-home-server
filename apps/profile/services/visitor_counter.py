@@ -15,9 +15,17 @@ _BOT_USER_AGENT_KEYWORDS = (
 )
 
 
+RECENT_DAYS = 7
+
+
 class VisitCounts(NamedTuple):
     today: int
     total: int
+
+
+class DailyCount(NamedTuple):
+    date: date
+    count: int
 
 
 def is_bot_user_agent(user_agent: str) -> bool:
@@ -50,6 +58,16 @@ def get_visit_counts(today: date) -> VisitCounts:
     today_count = DailyVisitor.objects.filter(date=today).values_list('count', flat=True).first() or 0
     total_count = DailyVisitor.objects.aggregate(total=Sum('count'))['total'] or 0
     return VisitCounts(today=today_count, total=total_count)
+
+
+def get_recent_daily_counts(today: date, days: int = RECENT_DAYS) -> list[DailyCount]:
+    """today를 마지막 항목으로 하는 최근 days일의 일자별 방문 수를 오래된 날부터 반환한다. 기록이 없는 날은 0."""
+    first_day = today - timedelta(days=days - 1)
+    counts_by_date = dict(
+        DailyVisitor.objects.filter(date__gte=first_day, date__lte=today).values_list('date', 'count')
+    )
+    days_in_range = [first_day + timedelta(days=offset) for offset in range(days)]
+    return [DailyCount(date=day, count=counts_by_date.get(day, 0)) for day in days_in_range]
 
 
 def seconds_until_next_midnight(now: datetime) -> int:
