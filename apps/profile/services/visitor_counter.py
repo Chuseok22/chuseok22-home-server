@@ -1,10 +1,14 @@
+import logging
 from datetime import date, datetime, timedelta
 from typing import NamedTuple
 
+from django.db import DatabaseError
 from django.db.models import F, Sum
 from django.utils import timezone
 
 from apps.profile.models import DailyVisitor
+
+logger = logging.getLogger(__name__)
 
 VISITED_COOKIE_NAME = 'visited_today'
 
@@ -26,6 +30,11 @@ class VisitCounts(NamedTuple):
 class DailyCount(NamedTuple):
     date: date
     count: int
+
+
+class VisitorStats(NamedTuple):
+    counts: VisitCounts
+    recent: list[DailyCount]
 
 
 def is_bot_user_agent(user_agent: str) -> bool:
@@ -62,12 +71,27 @@ def get_visit_counts(today: date) -> VisitCounts:
 
 def get_recent_daily_counts(today: date, days: int = RECENT_DAYS) -> list[DailyCount]:
     """today를 마지막 항목으로 하는 최근 days일의 일자별 방문 수를 오래된 날부터 반환한다. 기록이 없는 날은 0."""
-    first_day = today - timedelta(days=days - 1)
+    days_in_range = _days_ending_at(today, days)
     counts_by_date = dict(
-        DailyVisitor.objects.filter(date__gte=first_day, date__lte=today).values_list('date', 'count')
+        DailyVisitor.objects.filter(date__gte=days_in_range[0], date__lte=today).values_list('date', 'count')
     )
-    days_in_range = [first_day + timedelta(days=offset) for offset in range(days)]
     return [DailyCount(date=day, count=counts_by_date.get(day, 0)) for day in days_in_range]
+
+
+def get_visitor_stats(today: date, days: int = RECENT_DAYS) -> VisitorStats:
+    """홈 화면용 방문자 통계(오늘·전체 합계와 최근 일자별 값). 방문자 수는 부가 정보라서 조회가 DatabaseError로
+    실패해도 홈 전체가 500이 되지 않도록 0으로 대체한다(집계 쓰기 실패를 삼키는 미들웨어와 같은 원칙)."""
+    try:
+        return VisitorStats(counts=get_visit_counts(today), recent=get_recent_daily_counts(today, days))
+    except DatabaseError:
+        logger.exception('방문자 통계 조회 실패 - 0으로 대체한다')
+        empty_recent = [DailyCount(date=day, count=0) for day in _days_ending_at(today, days)]
+        return VisitorStats(counts=VisitCounts(today=0, total=0), recent=empty_recent)
+
+
+def _days_ending_at(today: date, days: int) -> list[date]:
+    first_day = today - timedelta(days=days - 1)
+    return [first_day + timedelta(days=offset) for offset in range(days)]
 
 
 def seconds_until_next_midnight(now: datetime) -> int:
