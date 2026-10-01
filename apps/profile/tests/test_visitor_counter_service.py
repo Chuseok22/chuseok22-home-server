@@ -5,7 +5,9 @@ import pytest
 
 from apps.profile.models import DailyVisitor
 from apps.profile.services.visitor_counter import (
+    DailyCount,
     VisitCounts,
+    get_recent_daily_counts,
     get_visit_counts,
     is_bot_user_agent,
     record_visit,
@@ -131,3 +133,45 @@ def test_seconds_until_next_midnight은_자정_직전에도_1_이상이다() -> 
     seoul = ZoneInfo('Asia/Seoul')
 
     assert seconds_until_next_midnight(datetime(2026, 10, 1, 23, 59, 59, 900000, tzinfo=seoul)) == 1
+
+
+@pytest.mark.django_db
+def test_get_recent_daily_counts는_기록이_없으면_오래된_날부터_오늘까지_7일_모두_0이다() -> None:
+    recent = get_recent_daily_counts(TODAY)
+
+    assert [item.count for item in recent] == [0, 0, 0, 0, 0, 0, 0]
+    assert recent[0].date == date(2026, 9, 25)
+    assert recent[-1].date == TODAY
+
+
+@pytest.mark.django_db
+def test_get_recent_daily_counts는_기록이_없는_날을_0으로_채워_날짜순으로_반환한다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 9, 25), count=4)
+    DailyVisitor.objects.create(date=date(2026, 9, 27), count=3)
+    DailyVisitor.objects.create(date=TODAY, count=12)
+
+    recent = get_recent_daily_counts(TODAY)
+
+    assert [item.count for item in recent] == [4, 0, 3, 0, 0, 0, 12]
+    assert recent[2] == DailyCount(date=date(2026, 9, 27), count=3)
+
+
+@pytest.mark.django_db
+def test_get_recent_daily_counts는_범위_밖_과거와_미래_기록을_제외한다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 9, 24), count=99)
+    DailyVisitor.objects.create(date=date(2026, 10, 2), count=99)
+
+    recent = get_recent_daily_counts(TODAY)
+
+    assert sum(item.count for item in recent) == 0
+
+
+@pytest.mark.django_db
+def test_get_recent_daily_counts는_days_인자만큼의_기간을_반환한다() -> None:
+    DailyVisitor.objects.create(date=date(2026, 9, 29), count=5)
+    DailyVisitor.objects.create(date=TODAY, count=2)
+
+    recent = get_recent_daily_counts(TODAY, days=3)
+
+    assert [item.date for item in recent] == [date(2026, 9, 29), date(2026, 9, 30), TODAY]
+    assert [item.count for item in recent] == [5, 0, 2]

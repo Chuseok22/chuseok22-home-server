@@ -135,13 +135,38 @@ def test_home_은_같은_방문자가_새로고침해도_방문자_수를_올리
 
 
 @pytest.mark.django_db
-def test_home_템플릿은_방문자_박스를_렌더링한다() -> None:
+def test_home_은_최근_7일_일자별_방문자를_오늘이_마지막인_순서로_context에_담는다() -> None:
     from django.test import Client
+    from django.utils import timezone
+
+    client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
+    response = client.get(reverse('site:home'))
+
+    recent_visits = response.context['recent_visits']
+    assert len(recent_visits) == 7
+    assert recent_visits[-1].date == timezone.localdate()
+    assert recent_visits[-1].count == 1
+
+
+@pytest.mark.django_db
+def test_home_템플릿은_방문자_박스에_전체_오늘_숫자와_스파크라인을_렌더링한다() -> None:
+    from datetime import timedelta
+
+    from django.test import Client
+    from django.utils import timezone
+
+    from apps.profile.models import DailyVisitor
+
+    DailyVisitor.objects.create(date=timezone.localdate() - timedelta(days=1), count=1500)
 
     client = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari/605.1.15')
     body = client.get(reverse('site:home')).content.decode()
 
-    assert '방문자' in body
+    assert '최근 7일' in body
+    assert '1,501' in body  # 전체(어제 1500 + 오늘 본인 방문 1)가 천 단위 구분으로 표시된다
+    assert '오늘 1' in body
+    assert 'class="visitor-sparkline"' in body
+    assert '최근 7일 방문자: ' in body
 
 
 @pytest.mark.django_db
