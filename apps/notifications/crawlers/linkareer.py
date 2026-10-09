@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -17,6 +17,11 @@ _REQUEST_TIMEOUT = 15
 _HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
 }
+
+# 링커리어 공모전에는 "IT/개발" 분야가 없고 목록 데이터에 분야 정보도 없다.
+# IT 공모전이 몰린 분야(과학/공학, 기획/아이디어, 창업)를 서버 필터로 조회한다.
+_IT_CATEGORY_IDS: tuple[str, ...] = ('35', '28', '41')
+_CATEGORY_FILTER_PARAM = 'filterBy_categoryIDs'
 
 
 @dataclass
@@ -40,12 +45,26 @@ class LinkareerCrawler(BaseCrawler):
     """
 
     def crawl(self) -> list[ContestItem]:
-        """목록 페이지에서 article_id, title, url만 채운 ContestItem 목록을 반환한다."""
+        """IT 분야별 목록 페이지를 조회해 article_id 기준으로 중복 제거한 ContestItem 목록을 반환한다."""
+        merged: dict[str, ContestItem] = {}
+        for category_id in _IT_CATEGORY_IDS:
+            for item in self._crawl_list_page(self._build_category_url(category_id)):
+                merged.setdefault(item.article_id, item)
+        return list(merged.values())
+
+    def _build_category_url(self, category_id: str) -> str:
+        parts = urlparse(self.list_url)
+        query = dict(parse_qsl(parts.query))
+        query[_CATEGORY_FILTER_PARAM] = category_id
+        return urlunparse(parts._replace(query=urlencode(query)))
+
+    def _crawl_list_page(self, url: str) -> list[ContestItem]:
+        """목록 페이지 한 장에서 article_id, title, url만 채운 ContestItem 목록을 반환한다."""
         try:
-            response = requests.get(self.list_url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
+            response = requests.get(url, headers=_HEADERS, timeout=_REQUEST_TIMEOUT)
             response.raise_for_status()
         except requests.RequestException as e:
-            logger.error('링커리어 목록 페이지 요청 실패: %s', e)
+            logger.error('링커리어 목록 페이지 요청 실패 (%s): %s', url, e)
             return []
 
         soup = BeautifulSoup(response.text, 'lxml')
@@ -60,11 +79,17 @@ class LinkareerCrawler(BaseCrawler):
                 data = None
             if data:
                 items = self._parse_list_from_next_data(data)
-                if items:
+                # activityItems 키가 있으면 빈 목록도 정상 응답이므로 HTML 네비 앵커로 폴백하지 않는다.
+                if items or self._has_activity_items(data):
                     return items
 
         # HTML fallback
         return self._parse_list_from_html(soup)
+
+    def _has_activity_items(self, data: dict) -> bool:
+        props = data.get('props') if isinstance(data, dict) else None
+        page_props = props.get('pageProps') if isinstance(props, dict) else None
+        return isinstance(page_props, dict) and isinstance(page_props.get('activityItems'), list)
 
     def crawl_detail(self, url: str) -> ContestItem | None:
         """상세 페이지에서 전체 필드를 채운 ContestItem을 반환한다."""
@@ -96,13 +121,20 @@ class LinkareerCrawler(BaseCrawler):
     # ── 목록 파싱 ──────────────────────────────────────────────
 
     def _parse_list_from_next_data(self, data: dict) -> list[ContestItem]:
-        """__NEXT_DATA__ JSON의 __APOLLO_STATE__에서 공모전 목록을 추출한다.
+        """__NEXT_DATA__ JSON에서 공모전 목록을 추출한다.
 
+        pageProps.activityItems가 있으면 그것을 사용하고, 없을 때만 __APOLLO_STATE__를 순회한다.
         링커리어는 Apollo Client를 사용하며, 데이터는 __APOLLO_STATE__에
         'Activity:숫자' 형태의 키로 플랫하게 저장된다.
         """
         try:
             page_props = data.get('props', {}).get('pageProps', {})
+            # 광고 배너 Activity가 __APOLLO_STATE__에 섞여 들어오므로,
+            # 실제 목록인 activityItems가 있으면 그것만 사용한다.
+            # 키가 있으면 빈 리스트여도 신뢰한다(해당 분야에 공모전이 없는 정상 상태).
+            activity_items = page_props.get('activityItems')
+            if isinstance(activity_items, list):
+                return self._parse_activity_items(activity_items)
             apollo_state = page_props.get('__APOLLO_STATE__', {})
             if not apollo_state:
                 return []
@@ -123,19 +155,7 @@ class LinkareerCrawler(BaseCrawler):
                 if not aid or not title or aid in seen_ids:
                     continue
                 seen_ids.add(aid)
-                items.append(ContestItem(
-                    article_id=aid,
-                    title=title,
-                    url=f'{_BASE_URL}/activity/{aid}',
-                    company_type=None,
-                    target=None,
-                    prize=None,
-                    application_start=None,
-                    application_end=None,
-                    homepage=None,
-                    benefit=None,
-                    categories=[],
-                ))
+                items.append(self._build_list_item(aid, title))
             return items
         except (KeyError, TypeError, AttributeError):
             return []
@@ -153,20 +173,42 @@ class LinkareerCrawler(BaseCrawler):
             title = a.get_text(strip=True)
             if not title:
                 continue
-            items.append(ContestItem(
-                article_id=article_id,
-                title=title,
-                url=f'{_BASE_URL}/activity/{article_id}',
-                company_type=None,
-                target=None,
-                prize=None,
-                application_start=None,
-                application_end=None,
-                homepage=None,
-                benefit=None,
-                categories=[],
-            ))
+            items.append(self._build_list_item(article_id, title))
         return items
+
+    def _parse_activity_items(self, activity_items: list[object]) -> list[ContestItem]:
+        """pageProps.activityItems({url, name, imageUrl} 목록)에서 공모전 목록을 추출한다."""
+        items: list[ContestItem] = []
+        seen_ids: set[str] = set()
+        for entry in activity_items:
+            if not isinstance(entry, dict):
+                continue
+            url = entry.get('url')
+            title = entry.get('name') or ''
+            if not isinstance(url, str):
+                continue
+            article_id = self._extract_article_id(url)
+            if not article_id or not title or article_id in seen_ids:
+                continue
+            seen_ids.add(article_id)
+            items.append(self._build_list_item(article_id, title))
+        return items
+
+    def _build_list_item(self, article_id: str, title: str) -> ContestItem:
+        """목록 단계에서 얻을 수 있는 필드만 채운 ContestItem을 만든다(나머지는 상세에서 채움)."""
+        return ContestItem(
+            article_id=article_id,
+            title=title,
+            url=f'{_BASE_URL}/activity/{article_id}',
+            company_type=None,
+            target=None,
+            prize=None,
+            application_start=None,
+            application_end=None,
+            homepage=None,
+            benefit=None,
+            categories=[],
+        )
 
     # ── 상세 파싱 ─────────────────────────────────────────────
 
