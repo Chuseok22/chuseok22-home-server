@@ -1,3 +1,4 @@
+import json
 import threading
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -52,6 +53,152 @@ class TestLinkareerCrawlerParseListFromNextData(TestCase):
         data = {'unexpected': 'structure'}
         result = self.crawler._parse_list_from_next_data(data)
         self.assertEqual(result, [])
+
+    def test_activityItems를_우선_사용하고_광고_Activity는_제외한다(self) -> None:
+        data = {'props': {'pageProps': {
+            'activityItems': [
+                {'url': '/activity/100', 'name': '해커톤 A', 'imageUrl': 'x'},
+                {'url': 'https://linkareer.com/activity/101', 'name': 'AI 대회 B', 'imageUrl': 'y'},
+            ],
+            '__APOLLO_STATE__': {
+                'Activity:100': {'id': '100', 'title': '해커톤 A', 'activityTypeID': 3},
+                'Activity:101': {'id': '101', 'title': 'AI 대회 B', 'activityTypeID': 3},
+                'Activity:999': {'id': '999', 'title': '광고 배너', 'activityTypeID': 3},
+            },
+        }}}
+        result = self.crawler._parse_list_from_next_data(data)
+        self.assertEqual([item.article_id for item in result], ['100', '101'])
+        self.assertEqual(result[0].title, '해커톤 A')
+        self.assertEqual(result[0].url, 'https://linkareer.com/activity/100')
+        self.assertEqual(result[0].categories, [])
+
+    def test_activityItems_중복_id와_잘못된_항목은_건너뛴다(self) -> None:
+        data = {'props': {'pageProps': {'activityItems': [
+            {'url': '/activity/100', 'name': 'A'},
+            {'url': '/activity/100', 'name': 'A 중복'},
+            {'url': '/list/contest', 'name': 'id 없음'},
+            {'url': '/activity/102', 'name': ''},
+            'not-a-dict',
+        ]}}}
+        result = self.crawler._parse_list_from_next_data(data)
+        self.assertEqual([item.article_id for item in result], ['100'])
+
+    def test_activityItems가_빈_리스트면_광고_Activity로_폴백하지_않는다(self) -> None:
+        data = {'props': {'pageProps': {
+            'activityItems': [],
+            '__APOLLO_STATE__': {
+                'Activity:999': {'id': '999', 'title': '광고 배너', 'activityTypeID': 3},
+            },
+        }}}
+        self.assertEqual(self.crawler._parse_list_from_next_data(data), [])
+
+    def test_activityItems_url이_문자열이_아니면_해당_항목만_건너뛴다(self) -> None:
+        data = {'props': {'pageProps': {'activityItems': [
+            {'url': 12345, 'name': '잘못된 url'},
+            {'url': '/activity/100', 'name': '정상'},
+        ]}}}
+        result = self.crawler._parse_list_from_next_data(data)
+        self.assertEqual([item.article_id for item in result], ['100'])
+
+    def test_activityItems가_없으면_apollo_state로_폴백한다(self) -> None:
+        data = {'props': {'pageProps': {'__APOLLO_STATE__': {
+            'Activity:200': {'id': '200', 'title': '폴백 공모전', 'activityTypeID': 3},
+            'Activity:201': {'id': '201', 'title': '채용 공고', 'activityTypeID': 5},
+        }}}}
+        result = self.crawler._parse_list_from_next_data(data)
+        self.assertEqual([item.article_id for item in result], ['200'])
+
+
+def _linkareer_list_response(*entries: tuple[str, str]) -> MagicMock:
+    """(id, 제목) 쌍으로 링커리어 목록 페이지 응답을 흉내 낸다."""
+    next_data = {'props': {'pageProps': {'activityItems': [
+        {'url': f'/activity/{article_id}', 'name': title} for article_id, title in entries
+    ]}}}
+    response = MagicMock()
+    response.text = (
+        '<html><body><script id="__NEXT_DATA__" type="application/json">'
+        f'{json.dumps(next_data, ensure_ascii=False)}</script></body></html>'
+    )
+    response.raise_for_status.return_value = None
+    return response
+
+
+class TestLinkareerCrawlerCrawl(TestCase):
+    def setUp(self) -> None:
+        self.crawler = LinkareerCrawler('https://linkareer.com/list/contest')
+
+    def test_build_category_url_필터_파라미터를_붙인다(self) -> None:
+        self.assertEqual(
+            self.crawler._build_category_url('35'),
+            'https://linkareer.com/list/contest?filterBy_categoryIDs=35',
+        )
+
+    def test_build_category_url_기존_쿼리를_보존한다(self) -> None:
+        crawler = LinkareerCrawler('https://linkareer.com/list/contest?page=2&filterBy_categoryIDs=1')
+        url = crawler._build_category_url('28')
+        self.assertIn('page=2', url)
+        self.assertIn('filterBy_categoryIDs=28', url)
+        self.assertNotIn('filterBy_categoryIDs=1', url)
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_IT_분야_3개를_각각_한_번씩_조회한다(self, mock_get: MagicMock) -> None:
+        mock_get.return_value = _linkareer_list_response(('1', 'A'))
+        self.crawler.crawl()
+        requested_urls = [call.args[0] for call in mock_get.call_args_list]
+        self.assertEqual(requested_urls, [
+            'https://linkareer.com/list/contest?filterBy_categoryIDs=35',
+            'https://linkareer.com/list/contest?filterBy_categoryIDs=28',
+            'https://linkareer.com/list/contest?filterBy_categoryIDs=41',
+        ])
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_여러_분야에_걸친_공모전은_한_번만_반환한다(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = [
+            _linkareer_list_response(('1', '해커톤'), ('2', 'AI 대회')),
+            _linkareer_list_response(('1', '해커톤'), ('3', '앱 아이디어')),
+            _linkareer_list_response(('4', '창업 경진')),
+        ]
+        result = self.crawler.crawl()
+        self.assertEqual([item.article_id for item in result], ['1', '2', '3', '4'])
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_일부_분야_요청이_실패해도_나머지는_반환한다(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = [
+            requests.ConnectionError('boom'),
+            _linkareer_list_response(('3', '앱 아이디어')),
+            _linkareer_list_response(('4', '창업 경진')),
+        ]
+        result = self.crawler.crawl()
+        self.assertEqual([item.article_id for item in result], ['3', '4'])
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_activityItems가_빈_리스트면_HTML_앵커로_폴백하지_않는다(self, mock_get: MagicMock) -> None:
+        response = MagicMock()
+        response.text = (
+            '<html><body><a href="/activity/777">네비 링크</a>'
+            '<script id="__NEXT_DATA__" type="application/json">'
+            '{"props": {"pageProps": {"activityItems": []}}}</script></body></html>'
+        )
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+        self.assertEqual(self.crawler.crawl(), [])
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_기형_NEXT_DATA면_예외_없이_HTML로_폴백한다(self, mock_get: MagicMock) -> None:
+        response = MagicMock()
+        response.text = (
+            '<html><body><a href="/activity/5">공모전</a>'
+            '<script id="__NEXT_DATA__" type="application/json">[1, 2]</script></body></html>'
+        )
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+        result = self.crawler.crawl()
+        self.assertEqual([item.article_id for item in result], ['5'])
+
+    @patch('apps.notifications.crawlers.linkareer.requests.get')
+    def test_crawl_모든_분야_요청이_실패하면_빈_리스트(self, mock_get: MagicMock) -> None:
+        mock_get.side_effect = requests.ConnectionError('boom')
+        self.assertEqual(self.crawler.crawl(), [])
 
 
 class TestLinkareerCrawlerParseDateStr(TestCase):
