@@ -71,8 +71,8 @@ class EcampusCourseService:
     직접 받지 않는다).
     """
 
-    def __init__(self) -> None:
-        self._auth = EcampusMoodleAuthService()
+    def __init__(self, account_id: int | None = None) -> None:
+        self._auth = EcampusMoodleAuthService(account_id)
 
     def search_past_courses(self, year: str, semester: str) -> list[Course]:
         """연도/학기로 과거강좌를 검색한다. year/semester는 세종대 select 옵션값을 그대로 받는다
