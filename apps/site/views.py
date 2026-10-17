@@ -57,7 +57,7 @@ from apps.sejong.library.services.study_room_reservation import (
     ReservationParams,
     StudyRoomReservationService,
 )
-from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.models import LectureDownloadJob, SejongAccount
 from apps.sejong.lecture.services.course import Course, EcampusCourseService, Lecture
 from apps.site.services.lecture_course_grouping import group_courses_by_semester
 from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
@@ -687,6 +687,7 @@ def lab_lecture(request: HttpRequest) -> HttpResponse:
             'semester_choices': LECTURE_SEMESTER_CHOICES,
             'default_year': default_year,
             'default_semester': default_semester,
+            'accounts': SejongAccount.objects.all(),
         },
     )
 
@@ -708,11 +709,12 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
     if not form.is_valid():
         return HttpResponse('요청 형식이 올바르지 않습니다.', status=200)
 
-    ecampus_session = EcampusMoodleAuthService().create_session()
+    account_id = form.cleaned_data['account_id']
+    ecampus_session = EcampusMoodleAuthService(account_id).create_session()
     if ecampus_session is None:
         return HttpResponse('집현캠퍼스 로그인에 실패했습니다.', status=200)
 
-    course_service = EcampusCourseService()
+    course_service = EcampusCourseService(account_id)
     course_id = form.cleaned_data['course_id']
     year = form.cleaned_data['year']
     semester = form.cleaned_data['semester']
@@ -743,6 +745,7 @@ def lab_lecture_courses(request: HttpRequest) -> HttpResponse:
             # (fable5.1 검토로 발견 - GitHub 이슈 #164 계획 리뷰).
             'search_year': year,
             'search_semester': semester,
+            'account_id': account_id,
         },
     )
 
@@ -761,7 +764,7 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
         return HttpResponse('입력값이 올바르지 않습니다.', status=200)
 
     data = form.cleaned_data
-    course_service = EcampusCourseService()
+    course_service = EcampusCourseService(data['account_id'])
     course = course_service.find_course(data['course_id'], year=data['year'], semester=data['semester'])
     if course is None:
         return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
@@ -771,7 +774,7 @@ def lab_lecture_download(request: HttpRequest) -> HttpResponse:
     if lecture is None:
         return HttpResponse('강의를 찾을 수 없습니다.', status=200)
 
-    job = LectureDownloadOrchestrator().start(course, lecture)
+    job = LectureDownloadOrchestrator().start(course, lecture, account_id=data['account_id'])
     if job is None:
         return HttpResponse('이미 진행 중인 다운로드 작업이 있습니다. 완료 후 다시 시도하세요.', status=200)
 
@@ -795,10 +798,11 @@ def lab_lecture_irregular_courses(request: HttpRequest) -> HttpResponse:
         return HttpResponse('요청 형식이 올바르지 않습니다.', status=200)
 
     # 로그인 확인용: search_irregular_courses는 로그인 실패와 강좌 없음 모두 빈 리스트를 반환하므로 둘을 구분한다
-    if EcampusMoodleAuthService().create_session() is None:
+    account_id = form.cleaned_data['account_id']
+    if EcampusMoodleAuthService(account_id).create_session() is None:
         return HttpResponse('집현캠퍼스 로그인에 실패했습니다.', status=200)
 
-    course_service = EcampusCourseService()
+    course_service = EcampusCourseService(account_id)
     course_id = form.cleaned_data['course_id']
     year = form.cleaned_data['year']
 
@@ -824,6 +828,7 @@ def lab_lecture_irregular_courses(request: HttpRequest) -> HttpResponse:
             # year='all'로 조회한 결과에서 강좌를 클릭했을 때 그 강좌의 연도로 재조회하면 다른 연도
             # 강좌가 전부 화면에서 사라지기 때문이다(교과용 search_year와 같은 이유).
             'search_year': year,
+            'account_id': account_id,
         },
     )
 
@@ -843,7 +848,7 @@ def lab_lecture_irregular_download(request: HttpRequest) -> HttpResponse:
         return HttpResponse('입력값이 올바르지 않습니다.', status=200)
 
     data = form.cleaned_data
-    course_service = EcampusCourseService()
+    course_service = EcampusCourseService(data['account_id'])
     course = course_service.find_irregular_course(data['course_id'], year=data['year'])
     if course is None:
         return HttpResponse('강좌를 찾을 수 없습니다.', status=200)
@@ -853,7 +858,7 @@ def lab_lecture_irregular_download(request: HttpRequest) -> HttpResponse:
     if lecture is None:
         return HttpResponse('강의를 찾을 수 없습니다.', status=200)
 
-    job = LectureDownloadOrchestrator().start(course, lecture)
+    job = LectureDownloadOrchestrator().start(course, lecture, account_id=data['account_id'])
     if job is None:
         return HttpResponse('이미 진행 중인 다운로드 작업이 있습니다. 완료 후 다시 시도하세요.', status=200)
 
