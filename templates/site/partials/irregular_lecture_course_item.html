@@ -4,7 +4,7 @@
     class="btn btn-ghost justify-start relative h-auto min-h-12 py-2 text-left"
     hx-get="{% url 'site:lab-lecture-irregular-courses' %}"
     hx-target="#irregular-courses"
-    hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ search_year|escapejs }}"}'
+    hx-vals='{"course_id": "{{ course.id|escapejs }}", "year": "{{ search_year|escapejs }}", "account_id": "{{ account_id|default_if_none:''|escapejs }}"}'
   >
     <span class="w-12 shrink-0 text-left text-sm font-normal opacity-60 tabular-nums">{% if course.year == 'all' %}-{% else %}{{ course.year }}{% endif %}</span>
     <span class="text-left">{{ course.name }}</span>
@@ -26,6 +26,7 @@
           <input type="hidden" name="course_id" value="{{ expanded_course_id }}">
           <input type="hidden" name="lecture_id" value="{{ lecture.id }}">
           <input type="hidden" name="year" value="{{ course.year }}">
+          <input type="hidden" name="account_id" value="{{ account_id|default_if_none:'' }}">
           <button type="submit" class="btn btn-primary btn-xs relative">
             다운로드
             <span class="htmx-indicator loading loading-spinner loading-xs absolute right-2 top-1/2 -translate-y-1/2" aria-hidden="true"></span>

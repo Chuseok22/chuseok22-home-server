@@ -6,7 +6,7 @@ from django.db import close_old_connections, connection
 from django.utils import timezone
 
 from apps.notifications.services.telegram import TelegramService
-from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.models import LectureDownloadJob, SejongAccount
 from apps.sejong.lecture.services.course import (
     Course,
     EcampusCourseService,
@@ -32,7 +32,12 @@ class LectureDownloadOrchestrator:
 
     _lock: ClassVar[threading.Lock] = threading.Lock()
 
-    def start(self, course: Course | IrregularCourse, lecture: Lecture) -> LectureDownloadJob | None:
+    def start(
+        self,
+        course: Course | IrregularCourse,
+        lecture: Lecture,
+        account_id: int | None = None,
+    ) -> LectureDownloadJob | None:
         """다운로드 작업을 생성하고 백그라운드 스레드로 실행을 시작한다.
 
         이미 대기(PENDING) 또는 진행중(RUNNING)인 작업이 있으면 새 요청을 거부하고 None을
@@ -57,10 +62,12 @@ class LectureDownloadOrchestrator:
                 status=LectureDownloadJob.Status.PENDING,
             )
 
-        threading.Thread(target=self._run, args=(job.id,), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(job.id,), kwargs={'account_id': account_id}, daemon=True,
+        ).start()
         return job
 
-    def _run(self, job_id: int) -> None:
+    def _run(self, job_id: int, account_id: int | None = None) -> None:
         """백그라운드 스레드에서 실제 다운로드를 수행한다.
 
         스레드 내부 예외는 스레드만 종료시킬 뿐 어디에도 전파되지 않으므로, 어떤 예외든
@@ -72,30 +79,30 @@ class LectureDownloadOrchestrator:
         try:
             job = LectureDownloadJob.objects.get(id=job_id)
             try:
-                self._download(job)
+                self._download(job, account_id)
             except Exception as e:
                 # ffmpeg 관련 예외(subprocess.CalledProcessError/TimeoutExpired)의 str()에는
                 # ffmpeg 커맨드 전체(m3u8 URL의 인증 토큰 포함)가 그대로 들어있을 수 있어
                 # DB/로그/텔레그램에 남기기 전에 반드시 마스킹한다.
-                self._mark_failed(job, _mask_urls_in_text(str(e)))
+                self._mark_failed(job, _mask_urls_in_text(str(e)), account_id)
         finally:
             connection.close()
 
-    def _download(self, job: LectureDownloadJob) -> None:
+    def _download(self, job: LectureDownloadJob, account_id: int | None = None) -> None:
         job.status = LectureDownloadJob.Status.RUNNING
         job.save(update_fields=['status'])
 
         # EcampusCourseService가 내부적으로 로그인/세션 만료 재인증까지 처리하므로 여기서는
         # 완전한 로그인 실패(캐시도 재로그인도 실패)만 조기에 구분해 명확한 메시지로 남긴다.
-        ecampus_session = EcampusMoodleAuthService().create_session()
+        ecampus_session = EcampusMoodleAuthService(account_id).create_session()
         if ecampus_session is None:
-            self._mark_failed(job, '집현캠퍼스 로그인에 실패했습니다.')
+            self._mark_failed(job, '집현캠퍼스 로그인에 실패했습니다.', account_id)
             return
 
         # CDN URL 토큰의 TTL이 짧을 수 있으므로 다운로드 시작 직전에 매번 새로 조회한다(캐시 금지).
-        stream_url = EcampusCourseService().get_stream_url(job.lecture_id)
+        stream_url = EcampusCourseService(account_id).get_stream_url(job.lecture_id)
         if stream_url is None:
-            self._mark_failed(job, '강의 스트림 URL을 찾을 수 없습니다.')
+            self._mark_failed(job, '강의 스트림 URL을 찾을 수 없습니다.', account_id)
             return
 
         # ffmpeg는 최대 _FFMPEG_TIMEOUT_SECONDS(2시간) 동안 실행될 수 있어, 그 사이 이
@@ -111,21 +118,30 @@ class LectureDownloadOrchestrator:
         job.file_relative_path = relative_path
         job.completed_at = timezone.now()
         job.save(update_fields=['status', 'file_relative_path', 'completed_at'])
-        self._notify(f'✅ {job.lecture_title} 다운로드 완료')
+        self._notify(f'✅ {job.lecture_title} 다운로드 완료', account_id)
 
-    def _mark_failed(self, job: LectureDownloadJob, reason: str) -> None:
+    def _mark_failed(self, job: LectureDownloadJob, reason: str, account_id: int | None = None) -> None:
         error_message = reason[:_ERROR_MESSAGE_MAX_LENGTH]
         job.status = LectureDownloadJob.Status.FAILED
         job.error_message = error_message
         job.save(update_fields=['status', 'error_message'])
         logger.error('강의 다운로드 실패 (job_id=%s): %s', job.id, error_message)
-        self._notify(f'❌ {job.lecture_title} 다운로드 실패: {error_message}')
+        self._notify(f'❌ {job.lecture_title} 다운로드 실패: {error_message}', account_id)
 
     @staticmethod
-    def _notify(message: str) -> None:
+    def _notify(message: str, account_id: int | None = None) -> None:
         """텔레그램 알림은 best-effort로만 시도한다 - 발송 실패가 이미 저장된 작업
         상태(완료/실패)를 뒤엎으면 안 되므로 예외를 여기서 흡수하고 기록만 한다."""
         try:
-            TelegramService().send_admin_alert(message)
+            # 라벨 조회도 best-effort 범위 안에 둬야 조회 예외가 이미 저장된 작업 상태를 뒤엎지 않는다.
+            account_label = LectureDownloadOrchestrator._resolve_account_label(account_id)
+            TelegramService().send_admin_alert(f'[{account_label}] {message}')
         except Exception as e:
             logger.error('텔레그램 알림 발송 중 예외 발생(작업 상태에는 영향 없음): %s', e)
+
+    @staticmethod
+    def _resolve_account_label(account_id: int | None) -> str:
+        if account_id is None:
+            return '내 계정'
+        label = SejongAccount.objects.filter(pk=account_id).values_list('label', flat=True).first()
+        return label if label is not None else '알 수 없는 계정'

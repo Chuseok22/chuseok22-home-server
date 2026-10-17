@@ -17,6 +17,9 @@ class LectureConfig(AppConfig):
     verbose_name = '집현캠퍼스 강의'
 
     def ready(self) -> None:
+        # 고아 정리 가드는 서버 프로세스에서만 실행되지만 시그널은 모든 프로세스에서 연결돼야 한다.
+        from apps.sejong.lecture import signals  # noqa: F401
+
         # 실제 서버 프로세스로 기동됐을 때만 정리 로직을 실행한다(허용리스트 방식).
         # Docker 빌드 타임의 `tailwind build`처럼 테이블이 아직 없는 management command
         # 실행 중 쿼리가 나가 빌드가 깨지는 문제와, 운영 중 임의 command 실행 시 진행

@@ -2,10 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.models import LectureDownloadJob, SejongAccount
 from apps.sejong.lecture.services.course import Course, Lecture
 from apps.sejong.lecture.services.download_orchestrator import LectureDownloadOrchestrator
-from apps.sejong.lecture.services.ecampus_auth import EcampusSession
+from apps.sejong.lecture.services.ecampus_auth import EcampusMoodleAuthService, EcampusSession
 from apps.sejong.lecture.services.filename import build_lecture_filename
 
 _COURSE = Course(id='101', name='자료구조', year='2026', semester='20')
@@ -270,3 +270,160 @@ def test_run_closes_db_connection_in_finally() -> None:
     # 있어 정확한 호출 횟수는 환경에 따라 달라진다 — finally에서 close()가 최소 1회 호출됐는지만
     # (연결 정리가 누락되지 않았는지) 검증한다.
     assert mock_close.called
+
+
+_ORCHESTRATOR_MODULE = 'apps.sejong.lecture.services.download_orchestrator'
+
+
+def _create_pending_job() -> LectureDownloadJob:
+    return LectureDownloadJob.objects.create(
+        course_id='101', course_name='자료구조', lecture_id='5001', lecture_title='1주차 강의',
+        status=LectureDownloadJob.Status.PENDING,
+    )
+
+
+@pytest.mark.django_db
+def test_start_passes_account_id_to_thread_kwargs() -> None:
+    with patch(f'{_ORCHESTRATOR_MODULE}.threading.Thread') as mock_thread_cls:
+        job = LectureDownloadOrchestrator().start(_COURSE, _LECTURE, account_id=5)
+
+    assert job is not None
+    _, kwargs = mock_thread_cls.call_args
+    assert kwargs['kwargs'] == {'account_id': 5}
+    assert kwargs['args'] == (job.id,)
+
+
+@pytest.mark.django_db
+def test_run_uses_account_for_session_and_course_service() -> None:
+    job = _create_pending_job()
+    fake_session = EcampusSession(session=MagicMock())
+
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.EcampusMoodleAuthService') as mock_auth_cls,
+        patch(f'{_ORCHESTRATOR_MODULE}.EcampusCourseService') as mock_course_cls,
+        patch(f'{_ORCHESTRATOR_MODULE}.HlsDownloader.download_to_mp4'),
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert'),
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        mock_auth_cls.return_value.create_session.return_value = fake_session
+        mock_course_cls.return_value.get_stream_url.return_value = 'https://cdn.example.com/token/index.m3u8'
+        LectureDownloadOrchestrator()._run(job.id, account_id=9)
+
+    mock_auth_cls.assert_called_once_with(9)
+    mock_course_cls.assert_called_once_with(9)
+
+
+def _run_successfully(job: LectureDownloadJob, account_id: int | None) -> MagicMock:
+    fake_session = EcampusSession(session=MagicMock())
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            f'{_ORCHESTRATOR_MODULE}.EcampusCourseService.get_stream_url',
+            return_value='https://cdn.example.com/token/index.m3u8',
+        ),
+        patch(f'{_ORCHESTRATOR_MODULE}.HlsDownloader.download_to_mp4'),
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert') as mock_alert,
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        LectureDownloadOrchestrator()._run(job.id, account_id=account_id)
+    return mock_alert
+
+
+@pytest.mark.django_db
+def test_notification_has_account_label_for_non_default_account() -> None:
+    account = SejongAccount.objects.create(label='친구A', student_id='20000001', password='pw')
+
+    mock_alert = _run_successfully(_create_pending_job(), account.id)
+
+    mock_alert.assert_called_once()
+    assert mock_alert.call_args.args[0] == '[친구A] ✅ 1주차 강의 다운로드 완료'
+
+
+@pytest.mark.django_db
+def test_notification_labels_default_account_as_my_account() -> None:
+    mock_alert = _run_successfully(_create_pending_job(), None)
+
+    assert mock_alert.call_args.args[0] == '[내 계정] ✅ 1주차 강의 다운로드 완료'
+
+
+@pytest.mark.django_db
+def test_failure_notification_has_account_label() -> None:
+    account = SejongAccount.objects.create(label='친구A', student_id='20000001', password='pw')
+    job = _create_pending_job()
+
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.EcampusMoodleAuthService.create_session', return_value=None),
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert') as mock_alert,
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        LectureDownloadOrchestrator()._run(job.id, account_id=account.id)
+
+    assert mock_alert.call_args.args[0] == '[친구A] ❌ 1주차 강의 다운로드 실패: 집현캠퍼스 로그인에 실패했습니다.'
+
+
+def _create_deleted_account_id() -> int:
+    account = SejongAccount.objects.create(label='삭제될 친구', student_id='20000002', password='pw')
+    account_id = account.id
+    account.delete()
+    return account_id
+
+
+@pytest.mark.django_db
+def test_run_marks_failed_when_account_was_deleted() -> None:
+    account_id = _create_deleted_account_id()
+    job = _create_pending_job()
+
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert') as mock_alert,
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        LectureDownloadOrchestrator()._run(job.id, account_id=account_id)
+
+    job.refresh_from_db()
+    assert job.status == LectureDownloadJob.Status.FAILED
+    assert '집현캠퍼스 로그인에 실패했습니다.' in job.error_message
+    assert '[알 수 없는 계정] ' in mock_alert.call_args.args[0]
+
+
+@pytest.mark.django_db
+def test_run_marks_failed_when_cached_account_was_deleted() -> None:
+    account = SejongAccount.objects.create(label='캐시된 친구', student_id='20000003', password='pw')
+    account_id = account.id
+    EcampusMoodleAuthService._cached_sessions[account_id] = EcampusSession(session=MagicMock())
+    account.delete()  # post_delete 시그널이 캐시를 비워야 한다
+    job = _create_pending_job()
+
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert'),
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        LectureDownloadOrchestrator()._run(job.id, account_id=account_id)
+
+    job.refresh_from_db()
+    assert job.status == LectureDownloadJob.Status.FAILED
+    assert '집현캠퍼스 로그인에 실패했습니다.' in job.error_message
+
+
+@pytest.mark.django_db
+def test_run_keeps_completed_status_when_account_label_lookup_raises() -> None:
+    account = SejongAccount.objects.create(label='친구A', student_id='20000001', password='pw')
+    job = _create_pending_job()
+    fake_session = EcampusSession(session=MagicMock())
+
+    with (
+        patch(f'{_ORCHESTRATOR_MODULE}.EcampusMoodleAuthService.create_session', return_value=fake_session),
+        patch(
+            f'{_ORCHESTRATOR_MODULE}.EcampusCourseService.get_stream_url',
+            return_value='https://cdn.example.com/token/index.m3u8',
+        ),
+        patch(f'{_ORCHESTRATOR_MODULE}.HlsDownloader.download_to_mp4'),
+        patch(f'{_ORCHESTRATOR_MODULE}.TelegramService.send_admin_alert'),
+        patch(f'{_ORCHESTRATOR_MODULE}.SejongAccount.objects') as mock_manager,
+        patch(f'{_ORCHESTRATOR_MODULE}.connection.close'),
+    ):
+        mock_manager.filter.side_effect = RuntimeError('라벨 조회 오류')
+        mock_manager.get.side_effect = RuntimeError('라벨 조회 오류')
+        LectureDownloadOrchestrator()._run(job.id, account_id=account.id)
+
+    job.refresh_from_db()
+    assert job.status == LectureDownloadJob.Status.COMPLETED

@@ -39,3 +39,19 @@ class LectureDownloadJob(models.Model):
         """
         return Path(settings.MEDIA_ROOT).parent / 'lectures'
 
+
+
+class SejongAccount(models.Model):
+    """강의 다운로드에 선택해서 쓸 수 있는 타인의 세종대 계정. Django Admin에서 등록한다."""
+
+    label = models.CharField(max_length=50, unique=True)
+    student_id = models.CharField(max_length=20)
+    # 평문 저장은 의도된 설계다 — 소유자 전용 Admin에서만 접근하고, 재로그인에 원문이 필요하다.
+    password = models.CharField(max_length=128)
+
+    class Meta:
+        db_table = 'lecture_sejong_account'
+        ordering = ['label']
+
+    def __str__(self) -> str:
+        return self.label

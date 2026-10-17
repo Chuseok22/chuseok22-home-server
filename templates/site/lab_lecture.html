@@ -7,6 +7,24 @@
 
 <section class="mb-6 bg-base-100 border border-base-300 rounded-2xl shadow-sm p-5" x-data="{ tab: 'regular' }">
   <h2 class="text-lg font-semibold mb-3">강좌 조회</h2>
+  {% if accounts %}
+  <div class="mb-4">
+    <label for="lecture-account" class="label-text block mb-1">세종 계정</label>
+    {# autocomplete="off": 새로고침 시 브라우저가 선택값을 복원하면 "항상 내 계정으로 시작"이 깨진다 #}
+    <select
+      id="lecture-account"
+      name="account_id"
+      autocomplete="off"
+      class="select select-bordered select-sm min-w-32"
+      @change="$root.querySelectorAll('form[hx-get]').forEach(form => htmx.trigger(form, 'submit'))"
+    >
+      <option value="" selected>내 계정</option>
+      {% for account in accounts %}
+      <option value="{{ account.id }}">{{ account.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
   <div role="tablist" class="tabs tabs-boxed w-fit mb-4">
     <button
       type="button"
@@ -33,6 +51,7 @@
       class="flex flex-wrap items-end gap-2 mb-4"
       hx-get="{% url 'site:lab-lecture-courses' %}"
       hx-target="#courses"
+      hx-include="#lecture-account"
       hx-trigger="load, submit"
       hx-indicator="#courses-skeleton"
     >
@@ -66,6 +85,7 @@
       class="flex flex-wrap items-end gap-2 mb-4"
       hx-get="{% url 'site:lab-lecture-irregular-courses' %}"
       hx-target="#irregular-courses"
+      hx-include="#lecture-account"
       hx-trigger="submit, click from:#irregular-tab once"
       hx-indicator="#irregular-courses-skeleton"
     >

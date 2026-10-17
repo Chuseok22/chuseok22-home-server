@@ -2,6 +2,7 @@ from datetime import date
 
 from django import forms
 
+from apps.sejong.lecture.models import SejongAccount
 from apps.sejong.library.services.validation import validate_attendee_count
 
 
@@ -96,7 +97,21 @@ LECTURE_SEMESTER_CHOICES = [
 ]
 
 
-class LectureCourseSelectForm(forms.Form):
+class LectureAccountForm(forms.Form):
+    """강의 다운로드 화면에서 선택한 세종 계정. 비어 있으면 None(= 소유자 본인 계정)이다."""
+
+    account_id = forms.IntegerField(required=False, min_value=1, max_value=2**63 - 1)
+
+    def clean_account_id(self) -> int | None:
+        account_id = self.cleaned_data['account_id']
+        if account_id is None:
+            return None
+        if not SejongAccount.objects.filter(id=account_id).exists():
+            raise forms.ValidationError('존재하지 않는 계정입니다.')
+        return account_id
+
+
+class LectureCourseSelectForm(LectureAccountForm):
     """강좌 조회(course_id 없음) 또는 강의 목록 조회(course_id 있음) 요청.
 
     year/semester는 항상 필수다 - "이번 학기 전용 자동 조회" 경로가 없어져 모든 조회가
@@ -108,7 +123,7 @@ class LectureCourseSelectForm(forms.Form):
     semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
-class LectureDownloadRequestForm(forms.Form):
+class LectureDownloadRequestForm(LectureAccountForm):
     """강의 다운로드 요청 검증. course_name/lecture_title은 뷰가 서버에서 다시 조회해 확정하므로
     (클라이언트 제출값을 신뢰하지 않음) 여기서 받지 않는다. year/semester도 필수다 -
     find_course()가 어느 학기에서 강좌를 재검증할지 서버가 항상 알아야 한다."""
@@ -119,7 +134,7 @@ class LectureDownloadRequestForm(forms.Form):
     semester = forms.ChoiceField(choices=LECTURE_SEMESTER_CHOICES)
 
 
-class IrregularCourseSelectForm(forms.Form):
+class IrregularCourseSelectForm(LectureAccountForm):
     """비교과 강좌 조회(course_id 없음) 또는 강의 목록 조회(course_id 있음) 요청.
 
     비교과(local/ubassistant/my.php)는 학기 개념이 없어 연도만 필수다.
@@ -129,7 +144,7 @@ class IrregularCourseSelectForm(forms.Form):
     year = forms.ChoiceField(choices=lecture_year_choices)
 
 
-class IrregularDownloadRequestForm(forms.Form):
+class IrregularDownloadRequestForm(LectureAccountForm):
     """비교과 강의 다운로드 요청 검증. course_name/lecture_title은 뷰가 서버에서 다시 조회해
     확정하므로(클라이언트 제출값을 신뢰하지 않음) 받지 않는다. year는 find_irregular_course()가
     어느 연도 조회 결과에서 강좌를 재검증할지 알아야 하므로 필수다."""

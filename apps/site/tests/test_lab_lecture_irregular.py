@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
-from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.models import LectureDownloadJob, SejongAccount
 from apps.sejong.lecture.services.course import IrregularCourse, Lecture
 from apps.sejong.lecture.services.ecampus_auth import EcampusSession
 
@@ -429,3 +429,140 @@ def test_비교과_다운로드_응답의_강의_제목은_HTML_이스케이프�
     assert response.status_code == 200
     assert '&lt;b&gt;OT&lt;/b&gt;' in body
     assert '<b>OT</b>' not in body
+
+
+def _create_account() -> SejongAccount:
+    return SejongAccount.objects.create(label='친구', student_id='20000001', password='pw')
+
+
+def _fake_irregular_services(auth_cls: MagicMock, course_cls: MagicMock) -> None:
+    auth_cls.return_value.create_session.return_value = EcampusSession(session=MagicMock())
+    course_cls.return_value.search_irregular_courses.return_value = [
+        IrregularCourse(id='34888', name='PBL 학생 OT', year='2026'),
+    ]
+    course_cls.return_value.list_lectures.return_value = [Lecture(id='5001', title='OT 영상')]
+
+
+@pytest.mark.django_db
+def test_비교과_조회_뷰는_선택한_계정_id로_서비스를_만든다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_irregular_services(auth_cls, course_cls)
+        client.get(reverse('site:lab-lecture-irregular-courses'), {
+            'year': '2026', 'account_id': str(account.id),
+        })
+
+    auth_cls.assert_called_once_with(account.id)
+    course_cls.assert_called_once_with(account.id)
+
+
+@pytest.mark.django_db
+def test_비교과_조회_뷰는_계정_id가_없으면_None으로_서비스를_만든다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_irregular_services(auth_cls, course_cls)
+        client.get(reverse('site:lab-lecture-irregular-courses'), {'year': '2026'})
+
+    auth_cls.assert_called_once_with(None)
+    course_cls.assert_called_once_with(None)
+
+
+@pytest.mark.django_db
+def test_비교과_조회_뷰는_존재하지_않는_계정을_거부하고_서비스를_호출하지_않는다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        response = client.get(reverse('site:lab-lecture-irregular-courses'), {
+            'year': '2026', 'account_id': '999999',
+        })
+
+    assert response.status_code == 200
+    assert '요청 형식이 올바르지 않습니다.' in response.content.decode()
+    auth_cls.assert_not_called()
+    course_cls.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_비교과_조회_파셜은_목록을_만든_계정_id를_이어_보낸다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_irregular_services(auth_cls, course_cls)
+        with_account = client.get(reverse('site:lab-lecture-irregular-courses'), {
+            'year': '2026', 'course_id': '34888', 'account_id': str(account.id),
+        }).content.decode()
+        without_account = client.get(reverse('site:lab-lecture-irregular-courses'), {
+            'year': '2026', 'course_id': '34888',
+        }).content.decode()
+
+    assert f'"account_id": "{account.id}"' in with_account
+    assert f'<input type="hidden" name="account_id" value="{account.id}">' in with_account
+    assert '"account_id": ""' in without_account
+    assert '<input type="hidden" name="account_id" value="">' in without_account
+    assert 'hx-include' not in with_account
+
+
+@pytest.mark.django_db
+def test_비교과_다운로드_뷰는_선택한_계정으로_재검증하고_start에_키워드로_넘긴다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+    fake_course = IrregularCourse(id='34888', name='PBL 학생 OT', year='2026')
+    fake_job = LectureDownloadJob(
+        id=1, course_id='34888', course_name='PBL 학생 OT', lecture_id='5001', lecture_title='OT 영상',
+    )
+
+    with (
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+        patch('apps.site.views.LectureDownloadOrchestrator.start', return_value=fake_job) as mock_start,
+    ):
+        course_cls.return_value.find_irregular_course.return_value = fake_course
+        course_cls.return_value.list_lectures.return_value = [Lecture(id='5001', title='OT 영상')]
+        response = client.post(reverse('site:lab-lecture-irregular-download'), {
+            'course_id': '34888', 'lecture_id': '5001', 'year': '2026', 'account_id': str(account.id),
+        })
+
+    assert '다운로드를 시작' in response.content.decode()
+    course_cls.assert_called_once_with(account.id)
+    course, lecture = mock_start.call_args.args
+    assert course.id == '34888' and lecture.id == '5001'
+    assert mock_start.call_args.kwargs == {'account_id': account.id}
+
+
+@pytest.mark.django_db
+def test_비교과_다운로드_뷰는_존재하지_않는_계정을_거부한다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+        patch('apps.site.views.LectureDownloadOrchestrator.start') as mock_start,
+    ):
+        response = client.post(reverse('site:lab-lecture-irregular-download'), {
+            'course_id': '34888', 'lecture_id': '5001', 'year': '2026', 'account_id': '999999',
+        })
+
+    assert response.status_code == 200
+    assert '입력값이 올바르지 않습니다.' in response.content.decode()
+    course_cls.assert_not_called()
+    mock_start.assert_not_called()

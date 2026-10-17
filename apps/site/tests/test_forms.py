@@ -1,9 +1,15 @@
 from datetime import date
 from unittest.mock import patch
 
+import pytest
+from django import forms
+
+from apps.sejong.lecture.models import SejongAccount
 from apps.site.forms import (
     IrregularCourseSelectForm,
     IrregularDownloadRequestForm,
+    LectureCourseSelectForm,
+    LectureDownloadRequestForm,
     default_lecture_year_and_semester,
     lecture_year_choices,
 )
@@ -42,7 +48,7 @@ def test_비교과_강좌_조회_폼은_연도만_필수다() -> None:
     form = IrregularCourseSelectForm(data={'year': '2026'})
 
     assert form.is_valid()
-    assert form.cleaned_data == {'course_id': '', 'year': '2026'}
+    assert form.cleaned_data == {'course_id': '', 'year': '2026', 'account_id': None}
 
 
 def test_비교과_강좌_조회_폼은_전체_연도를_허용한다() -> None:
@@ -67,3 +73,58 @@ def test_비교과_다운로드_폼은_course_id_lecture_id_year가_모두_필�
 
     assert valid.is_valid()
     assert not missing_lecture.is_valid()
+
+
+_ACCOUNT_FORM_BASE_DATA = [
+    (LectureCourseSelectForm, {'year': '2026', 'semester': '20'}),
+    (LectureDownloadRequestForm, {'course_id': '1', 'lecture_id': '2', 'year': '2026', 'semester': '20'}),
+    (IrregularCourseSelectForm, {'year': '2026'}),
+    (IrregularDownloadRequestForm, {'course_id': '1', 'lecture_id': '2', 'year': '2026'}),
+]
+
+
+@pytest.mark.parametrize('form_class, base_data', _ACCOUNT_FORM_BASE_DATA)
+@pytest.mark.parametrize('extra', [{}, {'account_id': ''}])
+def test_계정_id가_없거나_비어있으면_DB_조회_없이_None이다(
+    form_class: type[forms.Form], base_data: dict[str, str], extra: dict[str, str],
+) -> None:
+    form = form_class(data={**base_data, **extra})
+
+    assert form.is_valid()
+    assert form.cleaned_data['account_id'] is None
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('form_class, base_data', _ACCOUNT_FORM_BASE_DATA)
+def test_존재하는_계정_id는_정수로_통과한다(form_class: type[forms.Form], base_data: dict[str, str]) -> None:
+    account = SejongAccount.objects.create(label='친구', student_id='1', password='pw')
+
+    form = form_class(data={**base_data, 'account_id': str(account.id)})
+
+    assert form.is_valid()
+    assert form.cleaned_data['account_id'] == account.id
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('form_class, base_data', _ACCOUNT_FORM_BASE_DATA)
+def test_존재하지_않는_계정_id는_거부한다(form_class: type[forms.Form], base_data: dict[str, str]) -> None:
+    account = SejongAccount.objects.create(label='삭제될계정', student_id='1', password='pw')
+    deleted_id = account.id
+    account.delete()
+
+    form = form_class(data={**base_data, 'account_id': str(deleted_id)})
+
+    assert not form.is_valid()
+    assert 'account_id' in form.errors
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('form_class, base_data', _ACCOUNT_FORM_BASE_DATA)
+@pytest.mark.parametrize('invalid_value', ['abc', '0', '-1', str(2**63)])
+def test_잘못된_형식의_계정_id는_거부한다(
+    form_class: type[forms.Form], base_data: dict[str, str], invalid_value: str,
+) -> None:
+    form = form_class(data={**base_data, 'account_id': invalid_value})
+
+    assert not form.is_valid()
+    assert 'account_id' in form.errors

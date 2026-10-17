@@ -56,7 +56,8 @@ apps/
     auth/             - LOCAL_APPS 미등록. sejong 하위 앱들이 공유하는 포털 SSO 인증 서비스 전용 패키지(services/만 존재, models 없음)
     lecture/          - 집현캠퍼스(ecampus.sejong.ac.kr, Moodle) 강의 영상 다운로드. 포털 SSO(sejong.auth)를 재사용하지 않고
                         전용 Moodle 로그인 서비스를 따로 둔다(ecampus는 포털 SSO 콜백을 쓰지 않음). REST API 계층 없이
-                        services/ + models.py만 두고 apps.site가 SSR 예외로 직접 호출한다
+                        services/ + models.py만 두고 apps.site가 SSR 예외로 직접 호출한다.
+                        `SejongAccount`는 다른 사람의 세종 계정으로, Admin에서만 등록하며 비밀번호를 평문으로 저장한다
   activity/           - GitHub 활동 등 수집
   projects/           - 프로젝트 관리
   blog/                - 블로그 (포스트, 카테고리, ingest API)

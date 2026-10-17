@@ -9,6 +9,7 @@ import requests
 from django.conf import settings
 
 from apps.sejong.auth.services.ssl_compat import LegacySSLAdapter
+from apps.sejong.lecture.models import SejongAccount
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +53,20 @@ class EcampusMoodleAuthService:
     session 필드만 가진다.
     """
 
-    _cached_session: ClassVar[EcampusSession | None] = None
+    # 키는 SejongAccount.pk이며 None은 settings의 기본 계정이다.
+    _cached_sessions: ClassVar[dict[int | None, EcampusSession | None]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
-    _last_login_failure_at: ClassVar[float | None] = None
+    _last_login_failure_times: ClassVar[dict[int | None, float]] = {}
+
+    def __init__(self, account_id: int | None = None) -> None:
+        self._account_id = account_id
+
+    @classmethod
+    def evict_account(cls, account_id: int) -> None:
+        # 캐시가 pk 키라서 Admin에서 자격증명을 수정/삭제해도 옛 세션과 backoff가 남으므로 비운다.
+        with cls._lock:
+            cls._cached_sessions.pop(account_id, None)
+            cls._last_login_failure_times.pop(account_id, None)
 
     def create_session(
         self,
@@ -66,12 +78,12 @@ class EcampusMoodleAuthService:
         SejongLibraryAuthService.create_session()과 동일한 CAS 방식으로 동작한다.
         """
         if not force_refresh:
-            cached = EcampusMoodleAuthService._cached_session
+            cached = EcampusMoodleAuthService._cached_sessions.get(self._account_id)
             if cached is not None:
                 return cached
 
         with EcampusMoodleAuthService._lock:
-            cached = EcampusMoodleAuthService._cached_session
+            cached = EcampusMoodleAuthService._cached_sessions.get(self._account_id)
             if not force_refresh and cached is not None:
                 return cached
             if force_refresh and cached is not stale:
@@ -88,8 +100,8 @@ class EcampusMoodleAuthService:
                 new_session = None
             else:
                 if new_session is None:
-                    EcampusMoodleAuthService._last_login_failure_at = time.monotonic()
-            EcampusMoodleAuthService._cached_session = new_session
+                    EcampusMoodleAuthService._last_login_failure_times[self._account_id] = time.monotonic()
+            EcampusMoodleAuthService._cached_sessions[self._account_id] = new_session
             return new_session
 
     def fetch_with_retry(self, operation: Callable[[EcampusSession], tuple[T, bool]]) -> T | None:
@@ -126,10 +138,19 @@ class EcampusMoodleAuthService:
         return result
 
     def _can_attempt_login(self) -> bool:
-        last_failure = EcampusMoodleAuthService._last_login_failure_at
+        last_failure = EcampusMoodleAuthService._last_login_failure_times.get(self._account_id)
         if last_failure is None:
             return True
         return (time.monotonic() - last_failure) >= _RELOGIN_BACKOFF_SECONDS
+
+    def _resolve_credentials(self) -> tuple[str, str] | None:
+        """계정 키에 해당하는 (학번, 비밀번호)를 반환한다. 기본 계정은 settings, 그 외는 DB 행."""
+        if self._account_id is None:
+            return settings.SEJONG_STUDENT_ID, settings.SEJONG_PASSWORD
+        account = SejongAccount.objects.filter(pk=self._account_id).first()
+        if account is None:
+            return None
+        return account.student_id, account.password
 
     def _login(self) -> EcampusSession | None:
         """실제로 Moodle SSO 폼에 로그인한다 (캐시를 거치지 않는 내부 헬퍼).
@@ -138,11 +159,11 @@ class EcampusMoodleAuthService:
         거부와 구분해서 backoff 대상에서 제외하기 위함(create_session() 참고). 자격증명이
         실제로 거부된 경우에만 None을 반환한다.
         """
-        student_id = settings.SEJONG_STUDENT_ID
-        password = settings.SEJONG_PASSWORD
-        if not student_id or not password:
-            logger.error('SEJONG_STUDENT_ID 또는 SEJONG_PASSWORD가 설정되지 않았습니다.')
+        credentials = self._resolve_credentials()
+        if credentials is None or not all(credentials):
+            logger.error('집현캠퍼스 로그인 자격증명이 없거나 비어 있습니다. (account_id=%s)', self._account_id)
             return None
+        student_id, password = credentials
 
         session = requests.Session()
         session.headers.update(_HEADERS)
