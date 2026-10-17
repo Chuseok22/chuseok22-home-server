@@ -1,7 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+import logging
+
 import pytest
 
+from apps.sejong.lecture.models import SejongAccount
 from apps.sejong.lecture.services.ecampus_auth import (
     EcampusMoodleAuthService,
     EcampusSession,
@@ -44,16 +47,6 @@ def test_is_login_successful_false_when_redirected_but_no_logout_link() -> None:
     assert _is_login_successful(response) is False
 
 
-@pytest.fixture(autouse=True)
-def _reset_session_cache():
-    """클래스 레벨 세션 캐시/backoff 상태는 테스트 간 상태가 누출되므로 매 테스트 전후로 리셋한다."""
-    EcampusMoodleAuthService._cached_session = None
-    EcampusMoodleAuthService._last_login_failure_at = None
-    yield
-    EcampusMoodleAuthService._cached_session = None
-    EcampusMoodleAuthService._last_login_failure_at = None
-
-
 def test_create_session_returns_cached_session_without_relogin() -> None:
     service = EcampusMoodleAuthService()
     first_session = EcampusSession(session=MagicMock())
@@ -71,13 +64,13 @@ def test_create_session_force_refresh_relogins_when_stale_matches_cache() -> Non
     service = EcampusMoodleAuthService()
     stale_session = EcampusSession(session=MagicMock())
     fresh_session = EcampusSession(session=MagicMock())
-    EcampusMoodleAuthService._cached_session = stale_session
+    EcampusMoodleAuthService._cached_sessions[None] = stale_session
 
     with patch.object(EcampusMoodleAuthService, '_login', return_value=fresh_session) as mock_login:
         result = service.create_session(force_refresh=True, stale=stale_session)
 
     assert result is fresh_session
-    assert EcampusMoodleAuthService._cached_session is fresh_session
+    assert EcampusMoodleAuthService._cached_sessions[None] is fresh_session
     mock_login.assert_called_once()
 
 
@@ -87,7 +80,7 @@ def test_create_session_force_refresh_skips_relogin_when_cache_already_advanced(
     service = EcampusMoodleAuthService()
     stale_session = EcampusSession(session=MagicMock())
     already_refreshed = EcampusSession(session=MagicMock())
-    EcampusMoodleAuthService._cached_session = already_refreshed
+    EcampusMoodleAuthService._cached_sessions[None] = already_refreshed
 
     with patch.object(EcampusMoodleAuthService, '_login') as mock_login:
         result = service.create_session(force_refresh=True, stale=stale_session)
@@ -144,7 +137,7 @@ def test_create_session_does_not_set_backoff_on_network_error() -> None:
         result1 = service.create_session()
 
     assert result1 is None
-    assert EcampusMoodleAuthService._last_login_failure_at is None
+    assert None not in EcampusMoodleAuthService._last_login_failure_times
 
     fresh_session = EcampusSession(session=MagicMock())
     with patch.object(EcampusMoodleAuthService, '_login', return_value=fresh_session) as mock_login:
@@ -161,7 +154,7 @@ def test_create_session_sets_backoff_only_on_credential_rejection() -> None:
     with patch.object(EcampusMoodleAuthService, '_login', return_value=None):
         service.create_session()
 
-    assert EcampusMoodleAuthService._last_login_failure_at is not None
+    assert EcampusMoodleAuthService._last_login_failure_times.get(None) is not None
 
 
 def test_fetch_with_retry_returns_result_without_retry_when_not_expired() -> None:
@@ -232,3 +225,145 @@ def test_fetch_with_retry_returns_none_when_reauth_fails() -> None:
 
     assert result is None
     assert operation.call_count == 1
+
+
+def _create_account(label: str = '친구', student_id: str = '20230001', password: str = 'friend-pw-1') -> SejongAccount:
+    return SejongAccount.objects.create(label=label, student_id=student_id, password=password)
+
+
+def test_sessions_are_cached_separately_per_account() -> None:
+    sessions = {key: EcampusSession(session=MagicMock()) for key in (1, 2, None)}
+
+    def fake_login(self: EcampusMoodleAuthService) -> EcampusSession:
+        return sessions[self._account_id]
+
+    with patch.object(EcampusMoodleAuthService, '_login', autospec=True, side_effect=fake_login) as mock_login:
+        for key in (1, 2, None):
+            assert EcampusMoodleAuthService(key).create_session() is sessions[key]
+        assert mock_login.call_count == 3
+        for key in (1, 2, None):
+            assert EcampusMoodleAuthService(key).create_session() is sessions[key]
+        assert mock_login.call_count == 3
+
+
+def test_login_failure_backoff_does_not_block_other_accounts() -> None:
+    def fake_login(self: EcampusMoodleAuthService) -> EcampusSession | None:
+        if self._account_id == 1:
+            return None
+        return EcampusSession(session=MagicMock())
+
+    with patch.object(EcampusMoodleAuthService, '_login', autospec=True, side_effect=fake_login) as mock_login:
+        assert EcampusMoodleAuthService(1).create_session() is None
+        assert EcampusMoodleAuthService(2).create_session() is not None
+        assert EcampusMoodleAuthService().create_session() is not None
+        assert mock_login.call_count == 3
+
+        assert EcampusMoodleAuthService(1).create_session() is None
+        assert mock_login.call_count == 3
+
+
+def test_force_refresh_only_replaces_own_account_session() -> None:
+    session_one = EcampusSession(session=MagicMock())
+    session_two = EcampusSession(session=MagicMock())
+    fresh_one = EcampusSession(session=MagicMock())
+    EcampusMoodleAuthService._cached_sessions[1] = session_one
+    EcampusMoodleAuthService._cached_sessions[2] = session_two
+
+    with patch.object(EcampusMoodleAuthService, '_login', return_value=fresh_one):
+        result = EcampusMoodleAuthService(1).create_session(force_refresh=True, stale=session_one)
+
+    assert result is fresh_one
+    assert EcampusMoodleAuthService._cached_sessions[1] is fresh_one
+    assert EcampusMoodleAuthService._cached_sessions[2] is session_two
+
+
+def test_resolve_credentials_uses_settings_for_default_account(settings) -> None:
+    settings.SEJONG_STUDENT_ID = '19990001'
+    settings.SEJONG_PASSWORD = 'owner-pw'
+
+    assert EcampusMoodleAuthService()._resolve_credentials() == ('19990001', 'owner-pw')
+
+
+@pytest.mark.django_db
+def test_resolve_credentials_uses_database_row_for_account() -> None:
+    account = _create_account(student_id='20230002', password='db-pw')
+
+    assert EcampusMoodleAuthService(account.pk)._resolve_credentials() == ('20230002', 'db-pw')
+
+
+@pytest.mark.django_db
+def test_resolve_credentials_returns_none_for_missing_account() -> None:
+    account = _create_account()
+    missing_id = account.pk
+    account.delete()
+
+    assert EcampusMoodleAuthService(missing_id)._resolve_credentials() is None
+
+
+@pytest.mark.django_db
+def test_saving_account_evicts_cached_session_and_backoff() -> None:
+    account = _create_account()
+    other_session = EcampusSession(session=MagicMock())
+    EcampusMoodleAuthService._cached_sessions[account.pk] = EcampusSession(session=MagicMock())
+    EcampusMoodleAuthService._last_login_failure_times[account.pk] = 1.0
+    EcampusMoodleAuthService._cached_sessions[-1] = other_session
+    EcampusMoodleAuthService._last_login_failure_times[-1] = 2.0
+
+    account.password = 'changed-pw'
+    account.save()
+
+    assert account.pk not in EcampusMoodleAuthService._cached_sessions
+    assert account.pk not in EcampusMoodleAuthService._last_login_failure_times
+    assert EcampusMoodleAuthService._cached_sessions[-1] is other_session
+    assert EcampusMoodleAuthService._last_login_failure_times[-1] == 2.0
+
+
+@pytest.mark.django_db
+def test_deleting_account_evicts_cached_session() -> None:
+    account = _create_account()
+    other_session = EcampusSession(session=MagicMock())
+    account_pk = account.pk
+    EcampusMoodleAuthService._cached_sessions[account_pk] = EcampusSession(session=MagicMock())
+    EcampusMoodleAuthService._last_login_failure_times[account_pk] = 1.0
+    EcampusMoodleAuthService._cached_sessions[-1] = other_session
+
+    account.delete()
+
+    assert account_pk not in EcampusMoodleAuthService._cached_sessions
+    assert account_pk not in EcampusMoodleAuthService._last_login_failure_times
+    assert EcampusMoodleAuthService._cached_sessions[-1] is other_session
+
+
+@pytest.mark.django_db
+def test_login_posts_account_credentials() -> None:
+    account = _create_account(student_id='20230003', password='post-pw')
+
+    with patch('apps.sejong.lecture.services.ecampus_auth.requests.Session') as mock_session_class:
+        mock_session = mock_session_class.return_value
+        mock_session.post.return_value = _make_response(
+            url='https://ecampus.sejong.ac.kr/',
+            text='<a href="logout.php">로그아웃</a>',
+        )
+        result = EcampusMoodleAuthService(account.pk)._login()
+
+    assert result is not None
+    posted_data = mock_session.post.call_args.kwargs['data']
+    assert posted_data['username'] == '20230003'
+    assert posted_data['password'] == 'post-pw'
+
+
+@pytest.mark.django_db
+def test_failed_login_does_not_log_password(caplog: pytest.LogCaptureFixture) -> None:
+    account = _create_account(password='secret-never-logged')
+
+    with (
+        caplog.at_level(logging.DEBUG),
+        patch('apps.sejong.lecture.services.ecampus_auth.requests.Session') as mock_session_class,
+    ):
+        mock_session_class.return_value.post.return_value = _make_response(
+            url='https://ecampus.sejong.ac.kr/login/index.php',
+            text='로그인 실패',
+        )
+        assert EcampusMoodleAuthService(account.pk)._login() is None
+
+    assert 'secret-never-logged' not in caplog.text

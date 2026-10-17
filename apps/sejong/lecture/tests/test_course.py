@@ -599,3 +599,13 @@ def test_parse_irregular_last_page_returns_one_without_pagination() -> None:
     from apps.sejong.lecture.services.course import _parse_irregular_last_page
 
     assert _parse_irregular_last_page('<html><body>no pagination</body></html>') == 1
+
+
+def test_service_passes_account_id_to_auth_service() -> None:
+    with patch('apps.sejong.lecture.services.course.EcampusMoodleAuthService') as mock_auth_cls:
+        EcampusCourseService(7)
+    mock_auth_cls.assert_called_once_with(7)
+
+    with patch('apps.sejong.lecture.services.course.EcampusMoodleAuthService') as mock_auth_cls:
+        EcampusCourseService()
+    mock_auth_cls.assert_called_once_with(None)

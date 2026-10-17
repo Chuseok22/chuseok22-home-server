@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
@@ -8,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 
-from apps.sejong.lecture.models import LectureDownloadJob
+from apps.sejong.lecture.models import LectureDownloadJob, SejongAccount
 from apps.sejong.lecture.services.course import Course, Lecture
 from apps.sejong.lecture.services.ecampus_auth import EcampusSession
 from apps.sejong.lecture.services.filename import build_lecture_filename
@@ -918,3 +919,166 @@ def test_완료된_강의_다운로드_파일명에_강좌명이_포함된다(tm
     expected_filename = build_lecture_filename(job.course_name, job.lecture_title)
     assert response.status_code == 200
     assert response['Content-Disposition'] == content_disposition_header(True, expected_filename)
+
+
+def _create_account(label: str = '친구') -> SejongAccount:
+    return SejongAccount.objects.create(label=label, student_id='20000001', password='pw')
+
+
+def _fake_regular_services(auth_cls: MagicMock, course_cls: MagicMock) -> None:
+    auth_cls.return_value.create_session.return_value = EcampusSession(session=MagicMock())
+    course_cls.return_value.search_past_courses.return_value = [
+        Course(id='100', name='자료구조', year='2026', semester='20'),
+    ]
+    course_cls.return_value.list_lectures.return_value = [Lecture(id='9', title='1주차')]
+
+
+@pytest.mark.django_db
+def test_교과_조회_뷰는_선택한_계정_id로_서비스를_만든다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_regular_services(auth_cls, course_cls)
+        client.get(reverse('site:lab-lecture-courses'), {
+            'year': '2026', 'semester': '20', 'account_id': str(account.id),
+        })
+
+    auth_cls.assert_called_once_with(account.id)
+    course_cls.assert_called_once_with(account.id)
+
+
+@pytest.mark.django_db
+def test_교과_조회_뷰는_계정_id가_없으면_None으로_서비스를_만든다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_regular_services(auth_cls, course_cls)
+        client.get(reverse('site:lab-lecture-courses'), {'year': '2026', 'semester': '20'})
+
+    auth_cls.assert_called_once_with(None)
+    course_cls.assert_called_once_with(None)
+
+
+@pytest.mark.django_db
+def test_교과_조회_뷰는_존재하지_않는_계정을_거부하고_서비스를_호출하지_않는다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        response = client.get(reverse('site:lab-lecture-courses'), {
+            'year': '2026', 'semester': '20', 'account_id': '999999',
+        })
+
+    assert response.status_code == 200
+    assert '요청 형식이 올바르지 않습니다.' in response.content.decode()
+    auth_cls.assert_not_called()
+    course_cls.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_교과_조회_파셜은_목록을_만든_계정_id를_이어_보낸다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+
+    with (
+        patch('apps.site.views.EcampusMoodleAuthService') as auth_cls,
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+    ):
+        _fake_regular_services(auth_cls, course_cls)
+        with_account = client.get(reverse('site:lab-lecture-courses'), {
+            'year': '2026', 'semester': '20', 'course_id': '100', 'account_id': str(account.id),
+        }).content.decode()
+        without_account = client.get(reverse('site:lab-lecture-courses'), {
+            'year': '2026', 'semester': '20', 'course_id': '100',
+        }).content.decode()
+
+    assert f'"account_id": "{account.id}"' in with_account
+    assert f'<input type="hidden" name="account_id" value="{account.id}">' in with_account
+    assert '"account_id": ""' in without_account
+    assert '<input type="hidden" name="account_id" value="">' in without_account
+    assert 'hx-include' not in with_account
+
+
+@pytest.mark.django_db
+def test_교과_다운로드_뷰는_선택한_계정으로_재검증하고_start에_키워드로_넘긴다() -> None:
+    client = Client()
+    _login_owner(client)
+    account = _create_account()
+    fake_course = Course(id='100', name='자료구조', year='2026', semester='20')
+    fake_job = LectureDownloadJob(
+        id=1, course_id='100', course_name='자료구조', lecture_id='9', lecture_title='1주차',
+    )
+
+    with (
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+        patch('apps.site.views.LectureDownloadOrchestrator.start', return_value=fake_job) as mock_start,
+    ):
+        course_cls.return_value.find_course.return_value = fake_course
+        course_cls.return_value.list_lectures.return_value = [Lecture(id='9', title='1주차')]
+        response = client.post(reverse('site:lab-lecture-download'), {
+            'course_id': '100', 'lecture_id': '9', 'year': '2026', 'semester': '20',
+            'account_id': str(account.id),
+        })
+
+    assert '다운로드를 시작' in response.content.decode()
+    course_cls.assert_called_once_with(account.id)
+    course, lecture = mock_start.call_args.args
+    assert course.id == '100' and lecture.id == '9'
+    assert mock_start.call_args.kwargs == {'account_id': account.id}
+
+
+@pytest.mark.django_db
+def test_교과_다운로드_뷰는_존재하지_않는_계정을_거부한다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    with (
+        patch('apps.site.views.EcampusCourseService') as course_cls,
+        patch('apps.site.views.LectureDownloadOrchestrator.start') as mock_start,
+    ):
+        response = client.post(reverse('site:lab-lecture-download'), {
+            'course_id': '100', 'lecture_id': '9', 'year': '2026', 'semester': '20',
+            'account_id': '999999',
+        })
+
+    assert response.status_code == 200
+    assert '입력값이 올바르지 않습니다.' in response.content.decode()
+    course_cls.assert_not_called()
+    mock_start.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_강의_페이지는_계정이_있으면_계정_선택_select를_렌더한다() -> None:
+    client = Client()
+    _login_owner(client)
+    _create_account('친구A')
+
+    body = client.get(reverse('site:lab-lecture')).content.decode()
+
+    assert re.search(r'<select\s+id="lecture-account"\s+name="account_id"\s+autocomplete="off"', body)
+    assert '<option value="" selected>내 계정</option>' in body
+    assert '>친구A</option>' in body
+    assert body.count('hx-include="#lecture-account"') == 2
+
+
+@pytest.mark.django_db
+def test_강의_페이지는_계정이_없으면_계정_선택_select를_렌더하지_않는다() -> None:
+    client = Client()
+    _login_owner(client)
+
+    body = client.get(reverse('site:lab-lecture')).content.decode()
+
+    assert 'id="lecture-account"' not in body
