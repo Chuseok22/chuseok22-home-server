@@ -2,7 +2,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import date
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -12,8 +12,6 @@ from .http_session import build_retry_session
 
 logger = logging.getLogger(__name__)
 
-# 세종대학교 공지사항 페이지 기본 도메인
-_BASE_DOMAIN = 'https://www.sejong.ac.kr'
 _REQUEST_TIMEOUT = 10
 _HEADERS = {
     'User-Agent': 'Mozilla/5.0 (compatible; chuseok22-home-server/1.0)',
@@ -27,10 +25,11 @@ class SejongNoticeItem(BaseNoticeItem):
 
 
 class SejongNoticeCrawler(BaseCrawler):
-    """세종대학교 공지사항 크롤러
+    """세종대학교 공통 게시판(www.sejong.ac.kr, awcms2.sejong.ac.kr 등) 공지사항 크롤러
 
     대상 URL 예시:
     https://www.sejong.ac.kr/kor/intro/notice3.do?mode=list&article.offset=0&articleLimit=10
+    https://awcms2.sejong.ac.kr/sw/notice.do?mode=list&articleLimit=10&article.offset=0
     """
 
     def crawl(self) -> list[SejongNoticeItem]:
@@ -82,12 +81,7 @@ class SejongNoticeCrawler(BaseCrawler):
         return match.group(1) if match else None
 
     def _build_detail_url(self, href: str) -> str:
-        # href가 절대경로이면 그대로, 상대경로이면 base domain 기준으로 조합
-        parsed = urlparse(href)
-        if parsed.scheme:
-            return href
-        base_path = urlparse(self.list_url).path
-        return urljoin(f'{_BASE_DOMAIN}{base_path}', href)
+        return urljoin(self.list_url, href)
 
     def _parse_date(self, row: Tag) -> date | None:
         date_tag = row.select_one('span.b-date')
