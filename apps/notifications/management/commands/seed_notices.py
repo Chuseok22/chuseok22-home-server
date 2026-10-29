@@ -7,18 +7,17 @@ from apps.notifications.models import Notice, NoticeSource
 
 logger = logging.getLogger(__name__)
 
-_BASE = 'https://www.sejong.ac.kr/kor/intro'
-_QUERY = '?mode=list&article.offset=0&articleLimit=10'
-
 # icon 값은 apps/notifications/migrations/0005_seed_notice_source_icons.py의
 # _ICON_BY_NAME과 동일해야 한다(마이그레이션은 과거 스냅샷이라 이 상수를 import할 수 없어 중복 정의됨).
-_SOURCES = [
-    {'name': '일반공지', 'url': f'{_BASE}/notice1.do{_QUERY}', 'icon': '📌'},
-    {'name': '학사공지', 'url': f'{_BASE}/notice3.do{_QUERY}', 'icon': '🎓'},
-    {'name': '국제교류', 'url': f'{_BASE}/notice4.do{_QUERY}', 'icon': '🌐'},
-    {'name': '취업',    'url': f'{_BASE}/notice6.do{_QUERY}', 'icon': '💼'},
-    {'name': '장학',    'url': f'{_BASE}/notice7.do{_QUERY}', 'icon': '💰'},
-    {'name': '채용모집', 'url': f'{_BASE}/notice8.do{_QUERY}', 'icon': '📋'},
+# 신규 소스는 마이그레이션 매핑이 없고 이 목록이 유일한 정의다.
+_SOURCES: list[dict[str, str]] = [
+    {'name': '일반공지', 'url': 'https://www.sejong.ac.kr/kor/intro/notice1.do?mode=list&article.offset=0&articleLimit=10', 'icon': '📌'},
+    {'name': '학사공지', 'url': 'https://www.sejong.ac.kr/kor/intro/notice3.do?mode=list&article.offset=0&articleLimit=10', 'icon': '🎓'},
+    {'name': '국제교류', 'url': 'https://www.sejong.ac.kr/kor/intro/notice4.do?mode=list&article.offset=0&articleLimit=10', 'icon': '🌐'},
+    {'name': '취업',    'url': 'https://www.sejong.ac.kr/kor/intro/notice6.do?mode=list&article.offset=0&articleLimit=10', 'icon': '💼'},
+    {'name': '장학',    'url': 'https://www.sejong.ac.kr/kor/intro/notice7.do?mode=list&article.offset=0&articleLimit=10', 'icon': '💰'},
+    {'name': '채용모집', 'url': 'https://www.sejong.ac.kr/kor/intro/notice8.do?mode=list&article.offset=0&articleLimit=10', 'icon': '📋'},
+    {'name': 'SW중심대학', 'url': 'https://awcms2.sejong.ac.kr/sw/notice.do?mode=list&articleLimit=10&article.offset=0', 'icon': '💻'},
 ]
 
 

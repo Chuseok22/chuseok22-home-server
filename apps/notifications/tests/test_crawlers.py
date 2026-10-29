@@ -1021,6 +1021,121 @@ _SEJONG_DO_HTML = """
 </a>
 """
 
+_SEJONG_SW_NOTICE_HTML = """
+<table><tbody>
+<tr class="b-top-box">
+  <td class="b-num-box"><span class="b-noti">공지</span></td>
+  <td class="b-td-title">
+    <div class="b-title-box">
+      <a href="?mode=view&amp;articleNo=51257&amp;article.offset=0&amp;articleLimit=10">
+        <span class="b-title">[해외연수] 2027 CES &amp; San Jose State University 해외연수 프로그램 신청 안내</span>
+      </a>
+    </div>
+    <div class="b-m-con"><span class="b-date">2026.10.13</span></div>
+  </td>
+</tr>
+<tr>
+  <td class="b-num-box">1</td>
+  <td class="b-td-title">
+    <div class="b-title-box">
+      <a href="?mode=view&amp;articleNo=51216&amp;article.offset=0&amp;articleLimit=10">
+        <span class="b-title">[TOPCIT] 제26회 TOPCIT SW전공교수 릴레이 특강 (경기대학교)</span>
+      </a>
+    </div>
+    <div class="b-m-con"><span class="b-date">2026.09.28</span></div>
+  </td>
+</tr>
+</tbody></table>
+"""
+
+_SEJONG_SW_LIST_URL = 'https://awcms2.sejong.ac.kr/sw/notice.do?mode=list&articleLimit=10&article.offset=0'
+_SEJONG_WWW_LIST_URL = 'https://www.sejong.ac.kr/kor/intro/notice3.do?mode=list&article.offset=0&articleLimit=10'
+
+
+def _sejong_row(href: str, title: str = '제목', date_html: str = '<span class="b-date">2026.01.01</span>') -> str:
+    return (
+        f'<tr><td><a href="{href}"><span class="b-title">{title}</span></a>'
+        f'<div class="b-m-con">{date_html}</div></td></tr>'
+    )
+
+
+def _sejong_table(*rows: str) -> str:
+    return f'<table><tbody>{"".join(rows)}</tbody></table>'
+
+
+class TestSejongNoticeCrawlerParse(TestCase):
+    def test_awcms2_게시판은_상세_링크가_awcms2_도메인으로_만들어진다(self) -> None:
+        items = SejongNoticeCrawler(_SEJONG_SW_LIST_URL)._parse(_SEJONG_SW_NOTICE_HTML)
+
+        self.assertEqual(
+            [item.url for item in items],
+            [
+                'https://awcms2.sejong.ac.kr/sw/notice.do?mode=view&articleNo=51257&article.offset=0&articleLimit=10',
+                'https://awcms2.sejong.ac.kr/sw/notice.do?mode=view&articleNo=51216&article.offset=0&articleLimit=10',
+            ],
+        )
+
+    def test_고정_공지와_일반_글을_모두_파싱한다(self) -> None:
+        items = SejongNoticeCrawler(_SEJONG_SW_LIST_URL)._parse(_SEJONG_SW_NOTICE_HTML)
+
+        self.assertEqual([item.article_id for item in items], ['51257', '51216'])
+        self.assertEqual(
+            [item.title for item in items],
+            [
+                '[해외연수] 2027 CES & San Jose State University 해외연수 프로그램 신청 안내',
+                '[TOPCIT] 제26회 TOPCIT SW전공교수 릴레이 특강 (경기대학교)',
+            ],
+        )
+        self.assertEqual([item.published_at for item in items], [date(2026, 10, 13), date(2026, 9, 28)])
+
+    def test_www_게시판_상세_링크는_기존과_동일하다(self) -> None:
+        html = _sejong_table(_sejong_row('?mode=view&amp;articleNo=2002&amp;article.offset=0&amp;articleLimit=10'))
+
+        items = SejongNoticeCrawler(_SEJONG_WWW_LIST_URL)._parse(html)
+
+        self.assertEqual(
+            items[0].url,
+            'https://www.sejong.ac.kr/kor/intro/notice3.do?mode=view&articleNo=2002&article.offset=0&articleLimit=10',
+        )
+
+    def test_절대_URL_href는_그대로_유지한다(self) -> None:
+        html = _sejong_table(_sejong_row('https://example.com/view?articleNo=3003'))
+
+        items = SejongNoticeCrawler(_SEJONG_WWW_LIST_URL)._parse(html)
+
+        self.assertEqual(items[0].url, 'https://example.com/view?articleNo=3003')
+
+    def test_articleNo가_없는_링크_행은_건너뛴다(self) -> None:
+        html = _sejong_table(
+            _sejong_row('?mode=view&amp;id=1'),
+            _sejong_row('?mode=view&amp;articleNo=4004'),
+        )
+
+        items = SejongNoticeCrawler(_SEJONG_WWW_LIST_URL)._parse(html)
+
+        self.assertEqual([item.article_id for item in items], ['4004'])
+
+    def test_게시일_형식이_깨지면_None이다(self) -> None:
+        html = _sejong_table(
+            _sejong_row('?mode=view&amp;articleNo=6001', date_html='<span class="b-date">미정</span>'),
+            _sejong_row('?mode=view&amp;articleNo=6002', date_html=''),
+        )
+
+        items = SejongNoticeCrawler(_SEJONG_WWW_LIST_URL)._parse(html)
+
+        self.assertEqual([item.published_at for item in items], [None, None])
+
+    def test_같은_articleNo는_한_번만_반환한다(self) -> None:
+        html = _sejong_table(
+            _sejong_row('?mode=view&amp;articleNo=5005', title='첫 번째 행'),
+            _sejong_row('?mode=view&amp;articleNo=5005', title='두 번째 행'),
+        )
+
+        items = SejongNoticeCrawler(_SEJONG_WWW_LIST_URL)._parse(html)
+
+        self.assertEqual([item.article_id for item in items], ['5005'])
+        self.assertEqual(items[0].title, '첫 번째 행')
+
 
 class _SequencedHandler(BaseHTTPRequestHandler):
     """서버 인스턴스에 지정된 상태코드를 요청 순서대로 응답한다."""
