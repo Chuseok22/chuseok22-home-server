@@ -20,6 +20,15 @@ def test_activity_link_icon은_github_타입을_simple_icons_url로_변환한다
     assert result == {'label': 'GitHub', 'icon_url': 'https://cdn.simpleicons.org/github'}
 
 
+def test_activity_link_icon은_linkedin_타입을_simple_icons가_아닌_devicon_url로_반환한다() -> None:
+    result = activity_link_icon('linkedin')
+
+    assert result == {
+        'label': 'LinkedIn',
+        'icon_url': 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg',
+    }
+
+
 def test_activity_link_icon은_official_타입을_heroicons_url_그대로_반환한다() -> None:
     result = activity_link_icon('official')
 

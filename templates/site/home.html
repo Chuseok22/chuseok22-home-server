@@ -29,7 +29,12 @@
           </a>
           {% endif %}
           {% if profile.blog_url %}<a href="{{ profile.blog_url }}" class="link link-hover" target="_blank" rel="noopener">Blog</a>{% endif %}
-          {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" class="link link-hover" target="_blank" rel="noopener">LinkedIn</a>{% endif %}
+          {% if profile.linkedin_url %}
+          <a href="{{ profile.linkedin_url }}" class="link link-hover inline-flex items-center gap-1" target="_blank" rel="noopener">
+            <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg" alt="" class="w-4 h-4 shrink-0">
+            LinkedIn
+          </a>
+          {% endif %}
         </div>
       </div>
     </section>

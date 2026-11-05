@@ -52,6 +52,36 @@ def test_home_은_profile_이름과_bio를_렌더링한다() -> None:
 
 
 @pytest.mark.django_db
+def test_home_은_linkedin_링크를_아이콘과_함께_렌더링한다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(
+        name='백지훈', tagline='백엔드 개발자', linkedin_url='https://www.linkedin.com/in/example',
+    )
+
+    response = Client().get(reverse('site:home'))
+    body = response.content.decode()
+
+    assert 'href="https://www.linkedin.com/in/example"' in body
+    assert 'devicons/devicon/icons/linkedin/linkedin-original.svg' in body
+
+
+@pytest.mark.django_db
+def test_home_은_linkedin_url이_없으면_링크를_렌더링하지_않는다() -> None:
+    from django.test import Client
+
+    from apps.profile.models import Profile
+
+    Profile.objects.create(name='백지훈', tagline='백엔드 개발자')
+
+    response = Client().get(reverse('site:home'))
+
+    assert 'linkedin' not in response.content.decode().lower()
+
+
+@pytest.mark.django_db
 def test_home_은_프로필_이름에_하이라이트_마커를_적용한다() -> None:
     from django.test import Client
 

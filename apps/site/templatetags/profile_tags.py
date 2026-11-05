@@ -17,7 +17,8 @@ _ACTIVITY_LINK_ICONS = {
     'github': ('GitHub', 'github'),
     'youtube': ('YouTube', 'youtube'),
     'instagram': ('Instagram', 'instagram'),
-    'linkedin': ('LinkedIn', 'linkedin'),
+    # Simple Icons에서 LinkedIn 아이콘이 삭제되어(cdn.simpleicons.org/linkedin → 404) devicon 전체 URL을 직접 지정한다.
+    'linkedin': ('LinkedIn', 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linkedin/linkedin-original.svg'),
     'presentation': ('발표자료', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/document-text.svg'),
     'article': ('관련기사', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/newspaper.svg'),
     'other': ('링크', 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/link.svg'),
