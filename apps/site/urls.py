@@ -1,6 +1,7 @@
 from django.urls import path
+from django.views.generic import RedirectView
 
-from apps.site import views
+from apps.site import connect_views, views
 
 app_name = 'site'
 
@@ -53,4 +54,8 @@ urlpatterns = [
     path('places/suggest/', views.place_suggest, name='place-suggest'),
     path('places/<int:pk>/', views.place_detail, name='place-detail'),
     path('chat/', views.chat, name='chat'),
+    path('connect/', connect_views.connect, name='connect'),
+    path('connect/contact.vcf', connect_views.connect_vcard, name='connect-vcard'),
+    # QR에는 /connect/만 인코딩한다. /c/는 짧게 입력해 들어오는 경우용 보조 주소다.
+    path('c/', RedirectView.as_view(pattern_name='site:connect', permanent=False), name='connect-short'),
 ]
