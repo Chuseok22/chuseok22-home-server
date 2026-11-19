@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
+from PIL import Image
 from pytest_django.fixtures import SettingsWrapper
 
 from apps.profile.models import DailyVisitor
@@ -205,3 +207,46 @@ def test_connect_요청은_하루_한_번만_방문자로_집계된다(client: C
     _get(client, 'site:connect')
 
     assert DailyVisitor.objects.aggregate(total=Sum('count'))['total'] == 1
+
+
+def _attach_business_card(profile: ConnectProfile, settings: SettingsWrapper, tmp_path: Path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    buffer = BytesIO()
+    Image.new('RGB', (900, 500), 'white').save(buffer, format='PNG')
+    profile.business_card.save('card.png', SimpleUploadedFile('card.png', buffer.getvalue()), save=True)
+
+
+@pytest.mark.django_db
+def test_connect는_명함이_있으면_og_image와_twitter_image에_절대_url을_넣는다(
+    client: Client, settings: SettingsWrapper, tmp_path: Path
+) -> None:
+    _attach_business_card(_create_profile(), settings, tmp_path)
+
+    content = _get(client, 'site:connect').content.decode()
+
+    assert 'property="og:image" content="http://testserver/media/site/connect/card/' in content
+    assert 'name="twitter:image" content="http://testserver/media/site/connect/card/' in content
+    assert 'content="summary_large_image"' in content
+
+
+@pytest.mark.django_db
+def test_connect는_명함이_있으면_business_card_영역에_이미지를_보여준다(
+    client: Client, settings: SettingsWrapper, tmp_path: Path
+) -> None:
+    _attach_business_card(_create_profile(), settings, tmp_path)
+
+    content = _get(client, 'site:connect').content.decode()
+
+    assert 'Business Card' in content
+    assert 'alt="Business card of Jihoon Baek"' in content
+
+
+@pytest.mark.django_db
+def test_connect는_명함이_없으면_og_image와_business_card_영역을_그리지_않는다(client: Client) -> None:
+    _create_profile()
+
+    content = _get(client, 'site:connect').content.decode()
+
+    assert 'og:image' not in content
+    assert 'twitter:image' not in content
+    assert 'Business Card' not in content
