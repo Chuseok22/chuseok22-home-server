@@ -1,0 +1,53 @@
+{% load static profile_tags %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  {% with headline=profile.title_lines.0 %}
+  <title>{{ profile.english_name }}</title>
+  <meta name="description" content="{{ profile.english_name }}{% if headline %} · {{ headline }}{% endif %}">
+  <meta property="og:type" content="profile">
+  <meta property="og:title" content="{{ profile.english_name }}">
+  <meta property="og:description" content="{% if headline %}{{ headline }}{% else %}{{ profile.english_name }}{% endif %}">
+  {% endwith %}
+  <link rel="stylesheet" href="{% static 'site/css/connect.css' %}">
+</head>
+<body class="apple">
+  <main class="a-wrap">
+    <header class="a-head">
+      {% if profile.avatar %}
+      <img class="a-avatar" src="{{ profile.avatar.url }}" alt="">
+      {% else %}
+      <div class="a-avatar" aria-hidden="true">{{ profile.initials }}</div>
+      {% endif %}
+      <h1 class="a-name">{{ profile.english_name }}</h1>
+      <p class="a-title">{{ profile.title|linebreaksbr }}</p>
+    </header>
+
+    <a class="a-save" href="{% url 'site:connect-vcard' %}">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v9M4 7.5l4 4 4-4M3 14h10"/></svg>
+      Save Contact
+    </a>
+
+    {% if links %}
+    <ul class="a-list">
+      {% for link in links %}
+      <li>
+        <a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">
+          <span class="a-ic a-ic-{{ link.icon_style }}" aria-hidden="true">{% if link.icon %}<img src="{{ link.icon|skill_icon_url }}" alt="">{% endif %}</span>
+          <span>
+            <span class="a-label">{{ link.title }}</span>
+            {% if link.subtitle %}<span class="a-handle">{{ link.subtitle }}</span>{% endif %}
+          </span>
+          <svg class="a-chev" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <footer class="a-foot">chuseok22.com</footer>
+  </main>
+</body>
+</html>
