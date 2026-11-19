@@ -46,6 +46,9 @@ class ConnectProfile(models.Model):
         verbose_name='전화번호(vCard)',
     )
     avatar = models.ImageField(upload_to='site/connect/avatar/', blank=True, verbose_name='프로필 사진')
+    business_card = models.ImageField(
+        upload_to='site/connect/card/', blank=True, verbose_name='명함 이미지(영문 면, 페이지와 공유 미리보기에 사용)'
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정 시각')
 
     class Meta:

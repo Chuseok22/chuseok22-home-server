@@ -21,7 +21,13 @@ def _get_connect_profile() -> ConnectProfile:
 def connect(request: HttpRequest) -> HttpResponse:
     profile = _get_connect_profile()
     links = ConnectLink.objects.filter(is_active=True)
-    return render(request, 'site/connect.html', {'profile': profile, 'links': links})
+    # 공유 미리보기 크롤러는 상대 경로를 해석하지 못하므로 명함 이미지는 절대 URL로 넘긴다.
+    share_image_url = request.build_absolute_uri(profile.business_card.url) if profile.business_card else ''
+    return render(
+        request,
+        'site/connect.html',
+        {'profile': profile, 'links': links, 'share_image_url': share_image_url},
+    )
 
 
 @require_http_methods(['GET', 'HEAD'])

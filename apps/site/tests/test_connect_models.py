@@ -96,3 +96,24 @@ def test_connect_profile_admin_form은_새_아바타를_정사각형으로_크�
 
     with Image.open(profile.avatar.path) as saved_image:
         assert saved_image.size == (100, 100)
+
+
+@pytest.mark.django_db
+def test_connect_profile_admin_form은_새_명함을_가로_1200px로_줄여_저장한다(
+    settings: SettingsWrapper, tmp_path: Path
+) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    image_buffer = BytesIO()
+    Image.new('RGB', (2400, 1300), 'white').save(image_buffer, format='PNG')
+    upload = SimpleUploadedFile('card.png', image_buffer.getvalue(), content_type='image/png')
+
+    form = ConnectProfileAdminForm(
+        data={'english_name': 'Jihoon Baek', 'title': 'Student', 'email': '', 'phone': ''},
+        files={'business_card': upload},
+    )
+
+    assert form.is_valid(), form.errors
+    profile = form.save()
+
+    with Image.open(profile.business_card.path) as saved_image:
+        assert saved_image.size == (1200, 650)

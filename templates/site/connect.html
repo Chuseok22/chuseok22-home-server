@@ -11,6 +11,12 @@
   <meta property="og:title" content="{{ profile.english_name }}">
   <meta property="og:description" content="{% if headline %}{{ headline }}{% else %}{{ profile.english_name }}{% endif %}">
   {% endwith %}
+  {% if share_image_url %}
+  <meta property="og:image" content="{{ share_image_url }}">
+  <meta property="og:image:alt" content="Business card of {{ profile.english_name }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{{ share_image_url }}">
+  {% endif %}
   <link rel="stylesheet" href="{% static 'site/css/connect.css' %}">
 </head>
 <body class="apple">
@@ -45,6 +51,13 @@
       </li>
       {% endfor %}
     </ul>
+    {% endif %}
+
+    {% if profile.business_card %}
+    <section class="a-card" aria-labelledby="business-card-title">
+      <h2 class="a-card-title" id="business-card-title">Business Card</h2>
+      <img class="a-card-img" src="{{ profile.business_card.url }}" alt="Business card of {{ profile.english_name }}" loading="lazy">
+    </section>
     {% endif %}
 
     <footer class="a-foot">chuseok22.com</footer>
