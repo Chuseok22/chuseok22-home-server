@@ -235,6 +235,28 @@ img.a-avatar {
   color: var(--a-chev);
 }
 
+.a-card {
+  display: grid;
+  gap: 10px;
+}
+
+.a-card-title {
+  margin: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--a-sub);
+}
+
+.a-card-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
 .a-foot {
   margin-top: auto;
   text-align: center;
